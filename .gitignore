@@ -1,0 +1,28 @@
+# Ambiente
+.env
+*.db
+*.db-shm
+*.db-wal
+
+# Uploads (não versionar fotos/avatares)
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Tokens / segredos
+admin_token.txt
+*.key
+
+# IDE
+.vscode/
+.idea/
+*.swp
