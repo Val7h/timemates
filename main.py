@@ -125,6 +125,17 @@ async def lifespan(app):
             db.close()
     except Exception as e:
         print(f"[SEED] Erro no startup (nao critico): {e}")
+
+    try:
+        from seed_demo import seed_demo
+        db = SessionLocal()
+        try:
+            seed_demo(db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[DEMO] Erro no startup (nao critico): {e}")
+
     yield
 
 app = FastAPI(title="TimeMates API", version="1.0.0", lifespan=lifespan)
