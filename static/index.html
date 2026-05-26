@@ -1657,7 +1657,7 @@ function buildReactionPills(msgId, reactions, myReaction) {
       .map(([k, cnt]) => {
         const r = REACTIONS[k];
         const mine = myReaction === k;
-        return `<span class="reaction-pill${mine ? ' mine' : ''}" onclick="sendReaction(${msgId},'${k}')" title="${r?.label || k}">
+        return `<span class="reaction-pill${mine ? ' mine' : ''}" data-key="${k}" onclick="sendReaction(${msgId},'${k}')" title="${r?.label || k}">
           ${r?.emoji || k} ${cnt}
         </span>`;
       }).join('')
