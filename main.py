@@ -21,7 +21,7 @@ from fastapi import (
     UploadFile, File, Form, Query
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -43,8 +43,53 @@ except Exception as _e:
 
 from contextlib import asynccontextmanager
 
+def _generate_og_image():
+    """Gera og-card.png para Open Graph (WhatsApp/Facebook preview)."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        W, H = 1200, 630
+        img = Image.new("RGB", (W, H), "#1E3A5F")
+        draw = ImageDraw.Draw(img)
+
+        # Fundo degradê manual
+        for i in range(H):
+            r = int(0x1E + (0x2A - 0x1E) * i / H)
+            g = int(0x3A + (0x50 - 0x3A) * i / H)
+            b = int(0x5F + (0x8A - 0x5F) * i / H)
+            draw.line([(0, i), (W, i)], fill=(r, g, b))
+
+        # Retângulo decorativo dourado
+        draw.rectangle([60, 60, W-60, H-60], outline="#D4A853", width=4)
+        draw.rectangle([80, 80, W-80, H-80], outline="#D4A853", width=1)
+
+        # Textos
+        try:
+            fn_big  = ImageFont.truetype("arial.ttf", 96)
+            fn_sub  = ImageFont.truetype("arial.ttf", 42)
+            fn_tiny = ImageFont.truetype("arial.ttf", 30)
+        except Exception:
+            fn_big = fn_sub = fn_tiny = ImageFont.load_default()
+
+        # "TimeMates"
+        draw.text((W//2, 220), "TimeMates", font=fn_big, fill="#ffffff", anchor="mm")
+        # Destaque dourado na segunda parte
+        tm_w = draw.textlength("Time", font=fn_big)
+        draw.text((W//2 + tm_w//2 - draw.textlength("Mates", font=fn_big)//2, 220),
+                  "Mates", font=fn_big, fill="#D4A853", anchor="mm")
+
+        draw.text((W//2, 340), "O mapa das pessoas que cruzaram sua vida", font=fn_sub, fill="rgba(255,255,255,180)", anchor="mm")
+        draw.text((W//2, 500), "timemates.onrender.com", font=fn_tiny, fill="#D4A853", anchor="mm")
+
+        os.makedirs("static", exist_ok=True)
+        img.save("static/og-card.png", "PNG", optimize=True)
+        print("[OG] og-card.png gerado com sucesso")
+    except Exception as e:
+        print(f"[OG] Nao foi possivel gerar og-card.png: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app):
+    _generate_og_image()
     try:
         from seed_all import seed_db
         db = SessionLocal()
@@ -103,6 +148,8 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+BASE_URL = os.getenv("BASE_URL", "https://timemates.onrender.com")
 
 
 # ─── Debug / Health ──────────────────────────────────────────────────────────
@@ -1403,6 +1450,342 @@ def admin_add_institution(
 def admin_list_users(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
     users = db.query(User).order_by(User.created_at.desc()).limit(100).all()
     return [user_to_dict(u) for u in users]
+
+
+# ─── SEO / Páginas públicas ───────────────────────────────────────────────────
+
+import re as _re
+import unicodedata as _uni
+
+def _slugify(text: str) -> str:
+    t = _uni.normalize('NFKD', text).encode('ascii', 'ignore').decode()
+    t = _re.sub(r'[^\w\s-]', '', t.lower())
+    return _re.sub(r'[-\s]+', '-', t).strip('-') or "inst"
+
+def _esc(s) -> str:
+    return str(s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace('"',"&quot;")
+
+def _page_html(title: str, desc: str, canonical: str, body: str, year: int = None) -> str:
+    y = year or datetime.now().year
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>{_esc(title)}</title>
+<meta name="description" content="{_esc(desc)}"/>
+<link rel="canonical" href="{canonical}"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="{canonical}"/>
+<meta property="og:title" content="{_esc(title)}"/>
+<meta property="og:description" content="{_esc(desc)}"/>
+<meta property="og:site_name" content="TimeMates"/>
+<meta property="og:image" content="{BASE_URL}/static/og-card.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="{_esc(title)}"/>
+<meta name="twitter:description" content="{_esc(desc)}"/>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F7F5F2;color:#374151;min-height:100vh}}
+a{{text-decoration:none;color:inherit}}
+.hd{{background:#1E3A5F;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}}
+.logo{{color:#fff;font-size:1.35rem;font-weight:800;letter-spacing:-.5px}}.logo span{{color:#D4A853}}
+.logo-sub{{color:rgba(255,255,255,.6);font-size:.75rem;margin-top:1px}}
+.btn-p{{background:#D4A853;color:#1E3A5F;font-weight:700;padding:10px 22px;border-radius:8px;font-size:.88rem;white-space:nowrap;display:inline-block;transition:opacity .15s}}
+.btn-p:hover{{opacity:.85}}
+.hero{{background:#1E3A5F;padding:44px 24px 52px;text-align:center;color:#fff}}
+.hero-ic{{font-size:3.2rem;margin-bottom:14px}}
+.hero h1{{font-size:2rem;font-weight:800;line-height:1.2;margin-bottom:8px}}
+.hero-sub{{color:rgba(255,255,255,.7);font-size:.95rem;margin-bottom:20px}}
+.stats{{display:flex;justify-content:center;gap:36px;flex-wrap:wrap;margin-top:28px;padding-top:28px;border-top:1px solid rgba(255,255,255,.15)}}
+.st{{text-align:center}}.st-n{{font-size:2rem;font-weight:800;color:#D4A853}}.st-l{{font-size:.78rem;color:rgba(255,255,255,.6);margin-top:3px}}
+.sec{{max-width:740px;margin:0 auto;padding:36px 20px}}
+.sec h2{{font-size:1.1rem;font-weight:700;color:#1E3A5F;margin-bottom:16px;display:flex;align-items:center;gap:8px}}
+.rc{{background:#fff;border:1.5px solid #E5E0D6;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;margin-bottom:10px;transition:all .2s;cursor:pointer}}
+.rc:hover{{border-color:#D4A853;box-shadow:0 4px 14px rgba(0,0,0,.09);transform:translateY(-1px)}}
+.rc-year{{background:#1E3A5F;color:#fff;font-weight:800;font-size:1rem;padding:8px 12px;border-radius:8px;min-width:60px;text-align:center;flex-shrink:0}}
+.rc-info{{flex:1}}.rc-name{{display:block;font-weight:600;color:#1E3A5F;margin-bottom:3px;font-size:.95rem}}
+.rc-m{{font-size:.8rem;color:#9CA3AF}}
+.rc-arr{{color:#D4A853;font-size:1.2rem;font-weight:700}}
+.empty-r{{text-align:center;color:#9CA3AF;padding:36px;background:#fff;border-radius:12px;border:1.5px dashed #E5E0D6;font-size:.9rem}}
+.cta{{background:linear-gradient(135deg,#1E3A5F 0%,#2a4f8a 100%);padding:52px 24px;text-align:center;color:#fff}}
+.cta h2{{font-size:1.5rem;font-weight:800;margin-bottom:10px}}
+.cta p{{color:rgba(255,255,255,.75);font-size:.95rem;margin-bottom:28px;max-width:480px;margin-inline:auto;line-height:1.6}}
+.btn-cta{{background:#D4A853;color:#1E3A5F;font-weight:800;padding:14px 36px;border-radius:10px;font-size:1rem;display:inline-block;transition:transform .15s}}
+.btn-cta:hover{{transform:scale(1.04)}}
+.share-sec{{max-width:740px;margin:0 auto;padding:0 20px 40px}}
+.share-box{{background:#fff;border:1.5px solid #E5E0D6;border-radius:12px;padding:24px}}
+.share-box h3{{font-size:.95rem;font-weight:700;color:#1E3A5F;margin-bottom:6px}}
+.share-box p{{color:#6B7280;font-size:.82rem;margin-bottom:14px;line-height:1.5}}
+.share-txt{{background:#F7F5F2;border-radius:8px;padding:14px;font-size:.83rem;line-height:1.65;border:1px solid #E5E0D6;white-space:pre-wrap;font-family:inherit;color:#374151}}
+.share-btns{{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}}
+.btn-copy{{background:#1E3A5F;color:#fff;border:none;padding:9px 20px;border-radius:6px;cursor:pointer;font-size:.83rem;font-weight:600;transition:opacity .15s}}
+.btn-copy:hover{{opacity:.8}}
+.btn-wa{{background:#25D366;color:#fff;padding:9px 20px;border-radius:6px;font-size:.83rem;font-weight:600;transition:opacity .15s}}
+.btn-wa:hover{{opacity:.85}}
+.qr-wrap{{text-align:center;margin-top:20px}}.qr-wrap img{{border-radius:10px;border:3px solid #E5E0D6}}
+.qr-wrap p{{font-size:.75rem;color:#9CA3AF;margin-top:6px}}
+.ft{{background:#1E3A5F;padding:20px;text-align:center;color:rgba(255,255,255,.45);font-size:.77rem}}
+.ft a{{color:#D4A853}}
+@media(max-width:480px){{.hero h1{{font-size:1.4rem}}.st-n{{font-size:1.5rem}}.stats{{gap:20px}}}}
+</style>
+</head>
+<body>
+<div class="hd">
+  <div>
+    <div class="logo">Time<span>Mates</span></div>
+    <div class="logo-sub">O mapa das pessoas que cruzaram sua vida</div>
+  </div>
+  <a href="{BASE_URL}/index.html" class="btn-p">Entrar na plataforma →</a>
+</div>
+{body}
+<div class="ft">© {y} TimeMates · <a href="{BASE_URL}/index.html">Acessar a plataforma</a></div>
+<script>
+function copyShare(id){{
+  const el=document.getElementById(id);
+  if(!el)return;
+  navigator.clipboard?.writeText(el.innerText).then(()=>{{
+    const b=el.parentElement.querySelector('.btn-copy');
+    if(b){{b.textContent='✅ Copiado!';setTimeout(()=>b.textContent='📋 Copiar',2200)}}
+  }});
+}}
+</script>
+</body></html>"""
+
+
+@app.get("/p/{institution_id}", response_class=HTMLResponse)
+@app.get("/p/{institution_id}/{slug}", response_class=HTMLResponse)
+def institution_public_page(
+    institution_id: int, slug: str = "",
+    db: Session = Depends(get_db)
+):
+    """Página pública SEO-otimizada de uma instituição."""
+    inst = db.query(Institution).filter(
+        Institution.id == institution_id, Institution.approved == True
+    ).first()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instituição não encontrada")
+
+    correct_slug = _slugify(inst.name)
+    canonical = f"{BASE_URL}/p/{institution_id}/{correct_slug}"
+    if slug and slug != correct_slug:
+        return RedirectResponse(url=canonical, status_code=301)
+
+    from sqlalchemy import func as _f, distinct as _d
+    rows = (
+        db.query(Room, _f.count(RoomMembership.id).label("mc"))
+        .outerjoin(RoomMembership, (RoomMembership.room_id == Room.id) & (RoomMembership.status == "approved"))
+        .filter(Room.institution_id == institution_id)
+        .group_by(Room.id)
+        .order_by(Room.year.desc())
+        .all()
+    )
+    room_count = len(rows)
+    member_count = db.query(RoomMembership).join(Room).filter(
+        Room.institution_id == institution_id, RoomMembership.status == "approved"
+    ).count()
+
+    type_icon = {"school":"🏫","university":"🎓","company":"🏢","city":"🏙️"}.get(inst.type,"🏛️")
+    type_label = {"school":"Escola","university":"Faculdade","company":"Empresa","city":"Cidade"}.get(inst.type,"Instituição")
+    location = " · ".join(filter(None,[inst.city, inst.state]))
+    og_title = f"Ex-alunos de {inst.name} | TimeMates"
+    og_desc = (f"{room_count} turma{'s' if room_count!=1 else ''} · "
+               f"{member_count} membro{'s' if member_count!=1 else ''}. "
+               f"Você fez parte de {inst.name}? Encontre seus colegas no TimeMates!")
+
+    place_word = {"school":"escola","university":"faculdade","company":"empresa","city":"cidade"}.get(inst.type,"lugar")
+    rooms_html = "".join(
+        f'<a href="{BASE_URL}/r/{r.id}" class="rc">'
+        f'<span class="rc-year">{r.year}</span>'
+        f'<div class="rc-info"><span class="rc-name">{_esc(r.group_name)}</span>'
+        f'<span class="rc-m">👥 {mc} membro{"s" if mc!=1 else ""}</span></div>'
+        f'<span class="rc-arr">→</span></a>'
+        for r, mc in rows
+    ) or '<div class="empty-r">Nenhuma turma ainda. Seja o primeiro a criar uma!</div>'
+
+    share_text = (f"📚 Ei, você estudou/trabalhou em {inst.name}?\n\n"
+                  f"Tem uma sala no TimeMates onde ex-{place_word}s estão se reencontrando! "
+                  f"É grátis e você pode encontrar quem não vê faz tempo 🥹\n\n"
+                  f"👉 {canonical}")
+    wa_url = f"https://wa.me/?text={_re.sub(chr(10), '%0A', share_text).replace(' ','%20')}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={canonical}"
+
+    body = f"""
+<div class="hero">
+  <div class="hero-ic">{type_icon}</div>
+  <h1>{_esc(inst.name)}</h1>
+  <div class="hero-sub">{_esc(type_label)}{(" · " + _esc(location)) if location else ""}</div>
+  <div class="stats">
+    <div class="st"><div class="st-n">{room_count}</div><div class="st-l">turma{"s" if room_count!=1 else ""}</div></div>
+    <div class="st"><div class="st-n">{member_count}</div><div class="st-l">membro{"s" if member_count!=1 else ""} reunido{"s" if member_count!=1 else ""}</div></div>
+  </div>
+</div>
+<div class="sec">
+  <h2>📚 Turmas cadastradas</h2>
+  {rooms_html}
+</div>
+<div class="cta">
+  <h2>Você fez parte de {_esc(inst.name)}?</h2>
+  <p>Crie sua conta grátis e encontre seus colegas, amigos e pessoas que cruzaram sua vida nesta {_esc(place_word)}.</p>
+  <a href="{BASE_URL}/index.html" class="btn-cta">Encontrar minha turma — é grátis →</a>
+</div>
+<div class="share-sec">
+  <div class="share-box">
+    <h3>📤 Chame seus ex-colegas</h3>
+    <p>Cole no grupo do WhatsApp, Facebook ou e-mail da sua turma. Quanto mais gente, melhor!</p>
+    <div class="share-txt" id="st-inst">{_esc(share_text)}</div>
+    <div class="share-btns">
+      <button class="btn-copy" onclick="copyShare('st-inst')">📋 Copiar</button>
+      <a href="{wa_url}" class="btn-wa" target="_blank" rel="noopener">💬 Enviar no WhatsApp</a>
+    </div>
+    <div class="qr-wrap">
+      <img src="{qr_url}" width="150" height="150" alt="QR Code" loading="lazy"/>
+      <p>QR Code para compartilhar pessoalmente</p>
+    </div>
+  </div>
+</div>"""
+
+    return HTMLResponse(_page_html(og_title, og_desc, canonical, body))
+
+
+@app.get("/r/{room_id}", response_class=HTMLResponse)
+def room_public_page(room_id: int, db: Session = Depends(get_db)):
+    """Página pública SEO-otimizada de uma sala/turma."""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Sala não encontrada")
+
+    inst = room.institution
+    member_count = db.query(RoomMembership).filter(
+        RoomMembership.room_id == room_id, RoomMembership.status == "approved"
+    ).count()
+    last_msg = db.query(Message).filter(Message.room_id == room_id).order_by(Message.created_at.desc()).first()
+
+    canonical = f"{BASE_URL}/r/{room_id}"
+    inst_url = f"{BASE_URL}/p/{inst.id}/{_slugify(inst.name)}"
+
+    og_title = f"Turma {room.year} — {room.group_name} | {inst.name} | TimeMates"
+    og_desc = (f"{member_count} membro{'s' if member_count!=1 else ''} reunido{'s' if member_count!=1 else ''}. "
+               f"Você estava na turma de {room.year} de {inst.name}? Entre no TimeMates e reencontre seus colegas!")
+
+    share_text = (f"🎓 Ei, você era da turma {room.year} de {inst.name}?\n\n"
+                  f"A turma {room.group_name} tem uma sala no TimeMates! "
+                  f"Já somos {member_count} membro{'s' if member_count!=1 else ''} e queremos te encontrar 🥹\n\n"
+                  f"👉 {canonical}")
+    wa_url = f"https://wa.me/?text={_re.sub(chr(10), '%0A', share_text).replace(' ','%20')}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={canonical}"
+    last_activity = ""
+    if last_msg:
+        diff = datetime.utcnow() - last_msg.created_at
+        if diff.days == 0:
+            last_activity = "Ativa hoje"
+        elif diff.days == 1:
+            last_activity = "Ativa ontem"
+        elif diff.days < 7:
+            last_activity = f"Ativa há {diff.days} dias"
+        else:
+            last_activity = f"Última msg em {last_msg.created_at.strftime('%d/%m/%Y')}"
+
+    body = f"""
+<div class="hero">
+  <div class="hero-ic">🎓</div>
+  <h1>Turma {room.year}</h1>
+  <div class="hero-sub">{_esc(room.group_name)} · <a href="{inst_url}" style="color:rgba(255,255,255,.8);text-decoration:underline">{_esc(inst.name)}</a></div>
+  <div class="stats">
+    <div class="st"><div class="st-n">{member_count}</div><div class="st-l">membro{"s" if member_count!=1 else ""} reunido{"s" if member_count!=1 else ""}</div></div>
+    {('<div class="st"><div class="st-n" style="font-size:1rem;padding-top:8px">🟢</div><div class="st-l">' + last_activity + "</div></div>") if last_activity else ""}
+  </div>
+</div>
+<div class="cta">
+  <h2>Você estava nessa turma?</h2>
+  <p>Crie sua conta grátis, solicite acesso e reencontre seus colegas de {_esc(inst.name)} da turma de {room.year}.</p>
+  <a href="{BASE_URL}/index.html" class="btn-cta">Entrar na turma — é grátis →</a>
+</div>
+<div class="share-sec">
+  <div class="share-box">
+    <h3>📤 Chame seus colegas de turma</h3>
+    <p>Cole esse texto no grupo do WhatsApp ou Facebook da turma e traga mais colegas!</p>
+    <div class="share-txt" id="st-room">{_esc(share_text)}</div>
+    <div class="share-btns">
+      <button class="btn-copy" onclick="copyShare('st-room')">📋 Copiar</button>
+      <a href="{wa_url}" class="btn-wa" target="_blank" rel="noopener">💬 Enviar no WhatsApp</a>
+    </div>
+    <div class="qr-wrap">
+      <img src="{qr_url}" width="150" height="150" alt="QR Code" loading="lazy"/>
+      <p>QR Code para compartilhar pessoalmente</p>
+    </div>
+  </div>
+</div>"""
+
+    return HTMLResponse(_page_html(og_title, og_desc, canonical, body))
+
+
+@app.get("/sitemap.xml", response_class=Response)
+def sitemap(db: Session = Depends(get_db)):
+    """Sitemap XML para indexação pelo Google."""
+    insts = db.query(Institution).filter(Institution.approved == True).order_by(Institution.id).all()
+    rooms = db.query(Room).order_by(Room.id).all()
+
+    urls = [f"  <url><loc>{BASE_URL}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>"]
+    for inst in insts:
+        slug = _slugify(inst.name)
+        urls.append(f"  <url><loc>{BASE_URL}/p/{inst.id}/{slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>")
+    for r in rooms:
+        urls.append(f"  <url><loc>{BASE_URL}/r/{r.id}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>")
+
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    xml += "\n".join(urls)
+    xml += "\n</urlset>"
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.get("/api/rooms/{room_id}/share-kit")
+def room_share_kit(
+    room_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Retorna textos prontos e links para compartilhamento da sala."""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Sala não encontrada")
+
+    inst = room.institution
+    member_count = db.query(RoomMembership).filter(
+        RoomMembership.room_id == room_id, RoomMembership.status == "approved"
+    ).count()
+
+    room_url = f"{BASE_URL}/r/{room_id}"
+    inst_url = f"{BASE_URL}/p/{inst.id}/{_slugify(inst.name)}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={room_url}"
+
+    whatsapp_text = (f"🎓 Ei, você era da turma {room.year} de {inst.name}?\n\n"
+                     f"A turma '{room.group_name}' tem uma sala no TimeMates! "
+                     f"Já somos {member_count} membro{'s' if member_count!=1 else ''} e queremos te encontrar 🥹\n\n"
+                     f"👉 {room_url}")
+
+    facebook_text = (f"Oi pessoal! Quem era da turma {room.year} de {inst.name}?\n\n"
+                     f"Criamos uma sala no TimeMates — uma plataforma gratuita para ex-alunos se reencontrarem. "
+                     f"Entra lá, é rapidinho e você vai lembrar de muita gente! 😊\n\n"
+                     f"🔗 {room_url}")
+
+    email_text = (f"Assunto: Nos encontramos no TimeMates — turma {room.year} de {inst.name}\n\n"
+                  f"Oi!\n\nSaudade de vocês! Criei uma sala no TimeMates para a nossa turma {room.year} "
+                  f"de {inst.name}.\n\nJá tem {member_count} membro{'s' if member_count!=1 else ''} lá. "
+                  f"É grátis e leva menos de 2 minutos para criar sua conta.\n\n"
+                  f"👉 {room_url}\n\nAbrações!")
+
+    return {
+        "room_url": room_url,
+        "inst_url": inst_url,
+        "qr_url": qr_url,
+        "whatsapp_text": whatsapp_text,
+        "facebook_text": facebook_text,
+        "email_text": email_text,
+        "member_count": member_count,
+    }
 
 
 # ─── Static / Invite page ─────────────────────────────────────────────────────

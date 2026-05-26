@@ -310,6 +310,11 @@ nav {
 .reaction-bar button { font-size: 1.2rem; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 6px; transition: transform .15s; }
 .reaction-bar button:hover { transform: scale(1.25); background: var(--bg); }
 .msg-bubble:hover .reaction-bar { display: flex; }
+/* Share Kit */
+.stab { background:none;border:none;padding:8px 14px;font-size:0.82rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s; }
+.stab.active { color:var(--primary);border-bottom-color:var(--primary); }
+.stab:hover { color:var(--primary); }
+.share-kit-text { background:var(--bg);border-radius:8px;padding:14px;font-size:0.83rem;line-height:1.65;border:1px solid var(--border);white-space:pre-wrap;font-family:inherit;color:#374151;min-height:100px;max-height:200px;overflow-y:auto; }
 /* Busca de pessoas */
 .people-search-wrap { padding: 20px; max-width: 720px; margin: 0 auto; }
 .person-card { background: var(--surface); border-radius: var(--radius); padding: 14px 18px; display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow); margin-bottom: 10px; cursor: pointer; transition: box-shadow .2s; }
@@ -703,6 +708,7 @@ nav {
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;">
       <button class="nav-btn" id="room-invite-btn" onclick="generateInvite()" style="font-size:0.78rem;">🔗 Convidar</button>
+      <button class="nav-btn" onclick="openShareKit()" style="font-size:0.78rem;background:#D4A853;color:#1E3A5F;font-weight:700;">📤 Divulgar</button>
     </div>
   </div>
   <div class="room-tabs">
@@ -1131,6 +1137,52 @@ nav {
     <p class="subtitle">Válido por 7 dias. Envie pelo WhatsApp ou Instagram!</p>
     <div style="background:var(--bg);border-radius:8px;padding:14px;word-break:break-all;font-size:0.85rem;border:1px solid var(--border);" id="invite-link-display"></div>
     <button class="btn btn-primary btn-full mt-12" onclick="copyInviteLink()">📋 Copiar link</button>
+  </div>
+</div>
+
+<!-- SHARE KIT MODAL -->
+<div id="modal-share" class="modal-overlay hidden">
+  <div class="modal" style="max-width:520px;">
+    <button class="modal-close" onclick="closeModal('modal-share')">✕</button>
+    <h2>📤 Divulgar a sala</h2>
+    <p class="subtitle">Chame mais colegas! Copie o texto e cole no grupo da turma.</p>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:6px;margin:16px 0 14px;border-bottom:2px solid var(--border);padding-bottom:0;">
+      <button id="stab-wa" class="stab active" onclick="switchShareTab('wa')">💬 WhatsApp</button>
+      <button id="stab-fb" class="stab" onclick="switchShareTab('fb')">📢 Facebook/Email</button>
+      <button id="stab-qr" class="stab" onclick="switchShareTab('qr')">📱 QR Code</button>
+    </div>
+
+    <!-- WhatsApp tab -->
+    <div id="share-pane-wa">
+      <div class="share-kit-text" id="sk-wa-text" contenteditable="false"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="copySkText('sk-wa-text')">📋 Copiar texto</button>
+        <a id="sk-wa-link" href="#" target="_blank" rel="noopener"
+           class="btn" style="background:#25D366;color:#fff;font-weight:700;">💬 Abrir WhatsApp</a>
+      </div>
+    </div>
+
+    <!-- Facebook/Email tab -->
+    <div id="share-pane-fb" class="hidden">
+      <div class="share-kit-text" id="sk-fb-text" contenteditable="false"></div>
+      <button class="btn btn-primary mt-12" onclick="copySkText('sk-fb-text')">📋 Copiar texto</button>
+    </div>
+
+    <!-- QR Code tab -->
+    <div id="share-pane-qr" class="hidden" style="text-align:center;padding:12px 0;">
+      <img id="sk-qr-img" src="" width="180" height="180" alt="QR Code"
+           style="border-radius:12px;border:3px solid var(--border);"/>
+      <p style="color:var(--muted);font-size:0.82rem;margin:10px 0 0;">Mostre para colegas escanear e entrar direto na sala</p>
+      <div style="margin-top:14px;background:var(--bg);border-radius:8px;padding:10px;font-size:0.82rem;word-break:break-all;border:1px solid var(--border);" id="sk-room-url"></div>
+      <button class="btn btn-outline mt-12" onclick="copySkUrl()">📋 Copiar link da sala</button>
+    </div>
+
+    <hr style="margin:18px 0;border:none;border-top:1px solid var(--border);"/>
+    <p style="font-size:0.78rem;color:var(--muted);text-align:center;">
+      💡 Página pública da sala: <a id="sk-pub-link" href="#" target="_blank" style="color:var(--primary);">ver página</a>
+    </p>
   </div>
 </div>
 
@@ -2030,6 +2082,47 @@ async function generateInvite() {
     state.inviteToken = link;
     openModal('modal-invite');
   } catch(err) { toast(err.message, 'error'); }
+}
+
+// ── SHARE KIT ─────────────────────────────────────────────────────────────────
+let _shareKit = null;
+
+async function openShareKit() {
+  if (!state.currentRoom) return;
+  try {
+    _shareKit = await api('GET', `/api/rooms/${state.currentRoom.id}/share-kit`);
+    // Preenche os textos
+    document.getElementById('sk-wa-text').textContent = _shareKit.whatsapp_text;
+    document.getElementById('sk-fb-text').textContent = _shareKit.facebook_text;
+    document.getElementById('sk-qr-img').src = _shareKit.qr_url;
+    document.getElementById('sk-room-url').textContent = _shareKit.room_url;
+    // WhatsApp link
+    const waText = encodeURIComponent(_shareKit.whatsapp_text);
+    document.getElementById('sk-wa-link').href = `https://wa.me/?text=${waText}`;
+    // Página pública
+    document.getElementById('sk-pub-link').href = _shareKit.room_url;
+    document.getElementById('sk-pub-link').textContent = _shareKit.room_url;
+    // Abre na aba WhatsApp por padrão
+    switchShareTab('wa');
+    openModal('modal-share');
+  } catch(err) { toast('Erro ao carregar kit de divulgação', 'error'); }
+}
+
+function switchShareTab(tab) {
+  ['wa','fb','qr'].forEach(t => {
+    document.getElementById(`stab-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`share-pane-${t}`)?.classList.toggle('hidden', t !== tab);
+  });
+}
+
+function copySkText(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard?.writeText(el.textContent).then(() => toast('Texto copiado! ✅'));
+}
+
+function copySkUrl() {
+  navigator.clipboard?.writeText(_shareKit?.room_url || '').then(() => toast('Link copiado! ✅'));
 }
 
 function copyInviteLink() {
