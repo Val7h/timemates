@@ -748,6 +748,7 @@ nav {
   <div class="inst-tabs">
     <div class="inst-tab active" id="itab-turmas" onclick="switchInstTab('turmas')">🎓 Turmas Antigas</div>
     <div class="inst-tab" id="itab-mural" onclick="switchInstTab('mural')">📍 Mural Atual</div>
+    <div class="inst-tab" id="itab-dep" onclick="switchInstTab('dep')">💬 Depoimentos</div>
   </div>
 
   <!-- ABA TURMAS -->
@@ -766,6 +767,26 @@ nav {
       <button class="btn btn-accent" id="mural-btn" onclick="openMuralModal()">📍 Marcar presença</button>
     </div>
     <div id="mural-list" class="mural-list"></div>
+  </div>
+
+  <!-- ABA DEPOIMENTOS -->
+  <div id="inst-pane-dep" class="hidden">
+    <div style="padding:18px 20px; max-width:700px;">
+      <!-- Formulário (só logado) -->
+      <div id="dep-form-wrap" class="hidden" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px;">
+        <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:12px;">✍️ Deixe seu depoimento</h4>
+        <textarea id="dep-content" maxlength="500" placeholder="O que essa instituição significou pra você?" rows="3"
+          style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.9rem;resize:vertical;outline:none;font-family:inherit;"></textarea>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+          <input id="dep-year" type="number" placeholder="Ano que estudou/trabalhou aqui (opcional)" min="1950" max="2030"
+            style="flex:1;min-width:200px;border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.85rem;outline:none;"/>
+          <button class="btn btn-primary" onclick="submitTestimony()">Enviar depoimento</button>
+        </div>
+        <div id="dep-char" style="font-size:0.75rem;color:var(--muted);margin-top:6px;text-align:right;">0 / 500</div>
+      </div>
+      <!-- Lista de depoimentos -->
+      <div id="dep-list"></div>
+    </div>
   </div>
 </div>
 
@@ -1583,11 +1604,12 @@ let _currentInstTab = 'turmas';
 
 function switchInstTab(tab) {
   _currentInstTab = tab;
-  ['turmas','mural'].forEach(t => {
+  ['turmas','mural','dep'].forEach(t => {
     document.getElementById(`itab-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`inst-pane-${t}`)?.classList.toggle('hidden', t !== tab);
   });
   if (tab === 'mural') loadMural();
+  if (tab === 'dep') loadTestimonies();
 }
 
 async function openInstitution(id) {
@@ -1712,6 +1734,71 @@ async function leaveMural() {
     closeModal('modal-mural');
     toast('Presença removida do mural.','info');
     await loadMural();
+  } catch(err) { toast(err.message,'error'); }
+}
+
+// ── DEPOIMENTOS ───────────────────────────────────────────────────────────────
+async function loadTestimonies() {
+  const id = state.currentInstitution?.id;
+  if (!id) return;
+  // Show form only if logged in
+  const formWrap = document.getElementById('dep-form-wrap');
+  if (formWrap) formWrap.classList.toggle('hidden', !state.user);
+  // Wire char counter once
+  const ta = document.getElementById('dep-content');
+  const charEl = document.getElementById('dep-char');
+  if (ta && !ta._wired) {
+    ta._wired = true;
+    ta.addEventListener('input', () => { charEl.textContent = `${ta.value.length} / 500`; });
+  }
+  try {
+    const testimonies = await api('GET', `/api/institutions/${id}/testimonies`);
+    renderTestimonies(testimonies);
+  } catch(e) { document.getElementById('dep-list').innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Erro ao carregar depoimentos.</p>'; }
+}
+
+function renderTestimonies(list) {
+  const el = document.getElementById('dep-list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">💬</div><h3>Nenhum depoimento ainda</h3><p>Seja o primeiro a deixar uma memória sobre esta instituição!</p></div>`;
+    return;
+  }
+  el.innerHTML = list.map(d => {
+    const initials = d.full_name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const avatar = d.profile_photo ? `<img src="${d.profile_photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>` : initials;
+    const yearTag = d.year_attended ? `<span style="font-size:0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:2px 9px;color:var(--muted);">turma de ${d.year_attended}</span>` : '';
+    const date = new Date(d.created_at).toLocaleDateString('pt-BR',{month:'short',year:'numeric'});
+    return `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <a href="/u/${d.user_id}" target="_blank" style="text-decoration:none;">
+            <div class="member-avatar" style="width:40px;height:40px;font-size:0.85rem;flex-shrink:0;">${avatar}</div>
+          </a>
+          <div style="flex:1;">
+            <a href="/u/${d.user_id}" target="_blank" style="font-weight:700;font-size:0.9rem;color:var(--text);text-decoration:none;">${escHtml(d.full_name)}</a>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:3px;flex-wrap:wrap;">${yearTag}<span style="font-size:0.75rem;color:var(--muted);">${date}</span></div>
+          </div>
+        </div>
+        <p style="font-size:0.9rem;line-height:1.55;color:var(--text);">"${escHtml(d.content)}"</p>
+      </div>`;
+  }).join('');
+}
+
+async function submitTestimony() {
+  if (!state.user) { openModal('modal-login'); return; }
+  const content = document.getElementById('dep-content').value.trim();
+  if (!content) { toast('Escreva seu depoimento antes de enviar.','error'); return; }
+  const yearVal = document.getElementById('dep-year').value;
+  const fd = new FormData();
+  fd.append('content', content);
+  if (yearVal) fd.append('year_attended', yearVal);
+  try {
+    await api('POST', `/api/institutions/${state.currentInstitution.id}/testimonies`, fd, true);
+    document.getElementById('dep-content').value = '';
+    document.getElementById('dep-year').value = '';
+    document.getElementById('dep-char').textContent = '0 / 500';
+    toast('Depoimento enviado! 💬');
+    await loadTestimonies();
   } catch(err) { toast(err.message,'error'); }
 }
 
@@ -2054,9 +2141,11 @@ async function loadMembers() {
         : '<span class="role-badge role-member">Membro</span>';
       return `
         <div class="member-card">
-          <div class="member-avatar">${avatarHtml}</div>
+          <a href="/u/${m.user_id}" target="_blank" style="text-decoration:none;color:inherit;">
+            <div class="member-avatar">${avatarHtml}</div>
+          </a>
           <div class="member-info">
-            <h4>${m.full_name} ${roleBadge}</h4>
+            <h4><a href="/u/${m.user_id}" target="_blank" style="color:var(--text);text-decoration:none;">${m.full_name}</a> ${roleBadge}</h4>
             <p>${[m.profession, m.city].filter(Boolean).join(' · ') || 'Sem informações adicionais'}</p>
           </div>
           ${(state.currentRoomRole === 'admin' && m.user_id !== state.user?.id) ? `

@@ -232,6 +232,51 @@ def send_you_were_remembered(to_email: str, name: str, room_name: str, inst_name
     _send(to_email, "Alguém lembra de você no TimeMates!", _base_template("Você foi lembrado!", body))
 
 
+def send_followup_day3(to_email: str, name: str):
+    """Dia 3: usuário ainda não entrou em nenhuma sala."""
+    first = name.split()[0]
+    body = f"""
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">Você já encontrou sua turma, {first}?</h2>
+    <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
+      Criou sua conta há 3 dias — e seus ex-colegas podem estar esperando por você!
+    </p>
+    <p style="color:#374151;font-size:15px;line-height:1.6;">
+      Busque sua <strong>escola</strong>, <strong>faculdade</strong> ou <strong>empresa</strong>
+      e veja se alguém da sua turma já está lá. Se a sala não existir, você pode criar em segundos.
+    </p>
+    {_btn(BASE_URL + '/index.html', 'Buscar minha turma agora', '#D4A853')}
+    <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
+    <p style="color:#9CA3AF;font-size:12px;text-align:center;">
+      💡 Já são <strong>centenas de salas</strong> de escolas, faculdades e empresas de todo o Brasil!
+    </p>"""
+    _send(to_email, f"Seus ex-colegas estão esperando por você, {first}!",
+          _base_template("Encontre sua turma", body))
+
+
+def send_followup_day7(to_email: str, name: str):
+    """Dia 7: convite para trazer amigos."""
+    first = name.split()[0]
+    body = f"""
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">Traga seus amigos para o TimeMates! 🥹</h2>
+    <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
+      Olá, {first}! Uma semana com a gente e você ainda não trouxe ninguém?
+    </p>
+    <p style="color:#374151;font-size:15px;line-height:1.6;">
+      O TimeMates fica muito melhor com mais gente. Compartilhe o link da sua sala com
+      seus ex-colegas — quanto mais pessoas entrarem, mais memórias vocês vão reviver juntos. ❤️
+    </p>
+    <div style="background:#F7F5F2;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
+      <p style="margin:0 0 8px;color:#6B7280;font-size:13px;">Cole isso no grupo do WhatsApp:</p>
+      <p style="margin:0;color:#374151;font-size:14px;font-style:italic;">
+        "Ei, você usa o TimeMates? É uma plataforma incrível pra reencontrar ex-colegas!<br/>
+        Entra lá: {BASE_URL}"
+      </p>
+    </div>
+    {_btn(BASE_URL + '/index.html', 'Abrir o TimeMates e convidar amigos', '#1E3A5F')}"""
+    _send(to_email, f"Chame seus amigos para o TimeMates, {first}!",
+          _base_template("Traga seus amigos", body))
+
+
 def send_remembered_found(to_email: str, name: str, found_name: str, room_name: str):
     """Avisa que alguém que a pessoa lembrava entrou na sala."""
     first = name.split()[0]

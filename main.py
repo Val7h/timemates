@@ -29,7 +29,8 @@ from database import (
     get_db, Base, engine, SessionLocal,
     User, Institution, Room, RoomMembership, Message,
     Photo, RememberedPerson, RememberedPersonConfirmation,
-    InviteLink, Notification, CurrentStudent, MessageReaction
+    InviteLink, Notification, CurrentStudent, MessageReaction,
+    Testimony, EmailLog
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -136,7 +137,44 @@ async def lifespan(app):
     except Exception as e:
         print(f"[DEMO] Erro no startup (nao critico): {e}")
 
+    # Sequência de e-mails de onboarding (roda no startup)
+    try:
+        _run_email_sequence()
+    except Exception as e:
+        print(f"[EMAIL_SEQ] Erro (nao critico): {e}")
+
     yield
+
+
+def _run_email_sequence():
+    """Envia follow-up emails para usuários que ainda não os receberam."""
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        users = db.query(User).filter(User.is_active == True).all()
+        sent = 0
+        for u in users:
+            # Ignora contas demo
+            if "@demo.timemates" in u.email:
+                continue
+            days_since = (now - u.created_at).days
+            already_sent = {
+                log.email_type
+                for log in db.query(EmailLog).filter(EmailLog.user_id == u.id).all()
+            }
+            if days_since >= 3 and "followup_day3" not in already_sent:
+                mail.send_followup_day3(u.email, u.full_name)
+                db.add(EmailLog(user_id=u.id, email_type="followup_day3"))
+                sent += 1
+            if days_since >= 7 and "followup_day7" not in already_sent:
+                mail.send_followup_day7(u.email, u.full_name)
+                db.add(EmailLog(user_id=u.id, email_type="followup_day7"))
+                sent += 1
+        if sent:
+            db.commit()
+            print(f"[EMAIL_SEQ] {sent} email(s) de follow-up enviados")
+    finally:
+        db.close()
 
 app = FastAPI(title="TimeMates API", version="1.0.0", lifespan=lifespan)
 
@@ -429,6 +467,8 @@ def register(
     db.commit()
     db.refresh(user)
     mail.send_welcome(user.email, user.full_name)
+    db.add(EmailLog(user_id=user.id, email_type="welcome"))
+    db.commit()
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user_to_dict(user)}
 
@@ -1508,6 +1548,58 @@ def admin_list_users(admin: User = Depends(require_admin), db: Session = Depends
     return [user_to_dict(u) for u in users]
 
 
+# ─── Depoimentos ─────────────────────────────────────────────────────────────
+
+@app.get("/api/institutions/{institution_id}/testimonies")
+def get_testimonies(institution_id: int, db: Session = Depends(get_db)):
+    rows = (
+        db.query(Testimony)
+        .filter(Testimony.institution_id == institution_id)
+        .order_by(Testimony.created_at.desc())
+        .limit(30).all()
+    )
+    return [{
+        "id": t.id,
+        "user_id": t.user_id,
+        "full_name": t.user.full_name,
+        "profile_photo": t.user.profile_photo,
+        "content": t.content,
+        "year_attended": t.year_attended,
+        "created_at": t.created_at.isoformat(),
+    } for t in rows]
+
+
+@app.post("/api/institutions/{institution_id}/testimonies")
+def add_testimony(
+    institution_id: int,
+    content: str = Form(...),
+    year_attended: Optional[int] = Form(None),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    if len(content.strip()) < 10:
+        raise HTTPException(status_code=400, detail="Depoimento muito curto (mínimo 10 caracteres)")
+    if len(content) > 500:
+        raise HTTPException(status_code=400, detail="Depoimento muito longo (máximo 500 caracteres)")
+    # Um depoimento por usuário por instituição
+    existing = db.query(Testimony).filter(
+        Testimony.user_id == current_user.id,
+        Testimony.institution_id == institution_id,
+    ).first()
+    if existing:
+        existing.content = content.strip()
+        existing.year_attended = year_attended
+    else:
+        db.add(Testimony(
+            user_id=current_user.id,
+            institution_id=institution_id,
+            content=content.strip(),
+            year_attended=year_attended,
+        ))
+    db.commit()
+    return {"message": "Depoimento salvo! ❤️"}
+
+
 # ─── SEO / Páginas públicas ───────────────────────────────────────────────────
 
 import re as _re
@@ -1780,11 +1872,78 @@ def room_public_page(room_id: int, db: Session = Depends(get_db)):
     return HTMLResponse(_page_html(og_title, og_desc, canonical, body))
 
 
+@app.get("/u/{user_id}", response_class=HTMLResponse)
+def user_public_page(user_id: int, db: Session = Depends(get_db)):
+    """Página pública de perfil de um usuário."""
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    canonical = f"{BASE_URL}/u/{user_id}"
+    name = _esc(user.full_name)
+    initials = "".join(w[0] for w in user.full_name.split()[:2]).upper()
+    profession = _esc(user.profession or "")
+    city = _esc(user.city or "")
+    sub_parts = [p for p in [profession if user.show_profession else "", city if user.show_city else ""] if p]
+    subtitle = " · ".join(sub_parts) or "Membro do TimeMates"
+
+    og_title = f"{user.full_name} | TimeMates"
+    og_desc = f"{subtitle}. Conecte-se com {user.full_name.split()[0]} e seus ex-colegas no TimeMates."
+
+    # Salas públicas do usuário
+    memberships = db.query(RoomMembership).filter(
+        RoomMembership.user_id == user_id,
+        RoomMembership.status == "approved",
+    ).all()
+
+    rooms_html = ""
+    for m in memberships[:12]:
+        r = m.room
+        inst = r.institution
+        rooms_html += (
+            f'<a href="{BASE_URL}/r/{r.id}" class="rc" style="margin-bottom:8px;">'
+            f'<span class="rc-year">{r.year}</span>'
+            f'<div class="rc-info">'
+            f'<span class="rc-name">{_esc(r.group_name)}</span>'
+            f'<span class="rc-m">{_esc(inst.name)}</span></div>'
+            f'<span class="rc-arr">→</span></a>'
+        )
+    if not rooms_html:
+        rooms_html = '<div class="empty-r">Nenhuma sala pública ainda.</div>'
+
+    avatar = (f'<img src="{BASE_URL}{_esc(user.profile_photo)}" '
+              f'style="width:96px;height:96px;border-radius:50%;object-fit:cover;'
+              f'border:4px solid #D4A853;" alt="{name}"/>'
+              if user.profile_photo else
+              f'<div style="width:96px;height:96px;border-radius:50%;background:#D4A853;'
+              f'color:#1E3A5F;font-size:2rem;font-weight:800;display:flex;align-items:center;'
+              f'justify-content:center;border:4px solid rgba(255,255,255,.3);">{initials}</div>')
+
+    body = f"""
+<div class="hero" style="padding:40px 24px 48px;">
+  <div style="margin-bottom:16px;">{avatar}</div>
+  <h1 style="font-size:1.6rem;">{name}</h1>
+  <div class="hero-sub">{_esc(subtitle)}</div>
+</div>
+<div class="sec">
+  <h2>🚪 Turmas que participa</h2>
+  {rooms_html}
+</div>
+<div class="cta">
+  <h2>Você conhece {_esc(user.full_name.split()[0])}?</h2>
+  <p>Entre no TimeMates, encontre sua turma e reencontre pessoas que fizeram parte da sua história.</p>
+  <a href="{BASE_URL}/index.html" class="btn-cta">Criar conta grátis →</a>
+</div>"""
+
+    return HTMLResponse(_page_html(og_title, og_desc, canonical, body))
+
+
 @app.get("/sitemap.xml", response_class=Response)
 def sitemap(db: Session = Depends(get_db)):
     """Sitemap XML para indexação pelo Google."""
     insts = db.query(Institution).filter(Institution.approved == True).order_by(Institution.id).all()
     rooms = db.query(Room).order_by(Room.id).all()
+    users = db.query(User).filter(User.is_active == True).order_by(User.id).all()
 
     urls = [f"  <url><loc>{BASE_URL}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>"]
     for inst in insts:
@@ -1792,6 +1951,8 @@ def sitemap(db: Session = Depends(get_db)):
         urls.append(f"  <url><loc>{BASE_URL}/p/{inst.id}/{slug}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>")
     for r in rooms:
         urls.append(f"  <url><loc>{BASE_URL}/r/{r.id}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>")
+    for u in users:
+        urls.append(f"  <url><loc>{BASE_URL}/u/{u.id}</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>")
 
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     xml += "\n".join(urls)

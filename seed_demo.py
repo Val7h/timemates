@@ -7,7 +7,7 @@ import hashlib, uuid
 from datetime import datetime, timedelta
 import random
 
-DEMO_TAG = "DEMO_SEED_V2"   # marca no e-mail para identificar registros demo
+DEMO_TAG = "DEMO_SEED_V3"   # marca no e-mail para identificar registros demo
 
 # ── Instituições fictícias ────────────────────────────────────────────────────
 SCHOOLS = [
@@ -17,6 +17,47 @@ SCHOOLS = [
     {"name": "Colégio Estadual Dom Pedro II",      "state": "PR", "city": "Curitiba"},
     {"name": "Instituto Estadual de Educação",     "state": "RS", "city": "Porto Alegre"},
     {"name": "Escola Municipal Santos Dumont",     "state": "BA", "city": "Salvador"},
+]
+
+# ── Universidades fictícias ───────────────────────────────────────────────────
+UNIVERSITIES = [
+    {"name": "Universidade Federal de Minas Gerais — UFMG", "state": "MG", "city": "Belo Horizonte"},
+    {"name": "Universidade de São Paulo — USP",              "state": "SP", "city": "São Paulo"},
+    {"name": "PUC-Rio",                                      "state": "RJ", "city": "Rio de Janeiro"},
+    {"name": "Universidade Federal do Paraná — UFPR",        "state": "PR", "city": "Curitiba"},
+    {"name": "UFRGS — Universidade Federal do Rio Grande do Sul", "state": "RS", "city": "Porto Alegre"},
+    {"name": "Universidade Federal da Bahia — UFBA",         "state": "BA", "city": "Salvador"},
+    {"name": "UNICAMP — Universidade Estadual de Campinas",  "state": "SP", "city": "Campinas"},
+    {"name": "Universidade de Brasília — UnB",               "state": "DF", "city": "Brasília"},
+]
+
+UNIVERSITY_ROOM_TEMPLATES = [
+    (2005, "Engenharia Civil — Turma 2005"),
+    (2008, "Medicina — Turma 2008"),
+    (2010, "Ciência da Computação — Turma 2010"),
+    (2012, "Direito — Turma 2012"),
+    (2015, "Administração — Turma 2015"),
+    (2018, "Psicologia — Turma 2018"),
+    (2007, "Arquitetura e Urbanismo — 2007"),
+    (2011, "Engenharia Elétrica — 2011"),
+]
+
+UNIVERSITY_MESSAGES = [
+    "Alguém lembra do RU? A fila era enorme mas valia! 😂",
+    "A semana de calouros foi o melhor começo de vida que eu poderia ter.",
+    "Que saudade das madrugadas de TCC na biblioteca...",
+    "Ainda tenho a caneca do CA guardada aqui em casa 🙏",
+    "A república da galera ainda existe? Alguém sabe?",
+    "Quem lembra do professor que dormia na própria aula? 😂",
+    "Esse curso mudou minha vida completamente.",
+    "Quem foi pra semana acadêmica de 2013?",
+    "Saudade do xis da cantina por R$2,00 haha",
+    "A greve de 2011 foi difícil mas fortaleceu muito a turma.",
+    "Pessoal, tem reunião de ex-alunos esse ano?",
+    "Não acredito que encontrei vocês aqui! Que plataforma incrível!",
+    "Formamos juntos e a vida nos separou... mas nunca esqueci ninguém ❤️",
+    "Quem ainda fala com o Zé Carlos da sala B?",
+    "Minha melhor época foi a graduação, sem dúvida.",
 ]
 
 # ── Empresas fictícias ───────────────────────────────────────────────────────
@@ -134,14 +175,17 @@ def _hash_pw(password: str) -> str:
 def seed_demo(db):
     from database import User, Institution, Room, RoomMembership, Message
 
-    # Verifica se demo de empresas já foi criado
+    already_universities = db.query(Institution).filter(
+        Institution.name == "PUC-Rio", Institution.type == "university"
+    ).first()
+
     already_companies = db.query(Institution).filter(
         Institution.name == "Construtora Horizonte", Institution.type == "company"
     ).first()
 
     # Verifica se demo de escolas já foi criado
     already_schools = db.query(User).filter(User.email.like("%@demo.timemates%")).count()
-    if already_schools > 0 and already_companies:
+    if already_schools > 0 and already_companies and already_universities:
         print("[DEMO] Seed demo completo já existe, pulando.")
         return
 
@@ -255,7 +299,64 @@ def seed_demo(db):
     db.commit()
     print("[DEMO] Escolas: salas, membros e mensagens OK")
 
-    # ── 4. Empresas ───────────────────────────────────────────────────────────
+    # ── 4. Universidades ──────────────────────────────────────────────────────
+    if not already_universities:
+        univ_objs = []
+        for u_data in UNIVERSITIES:
+            existing = db.query(Institution).filter(
+                Institution.name == u_data["name"], Institution.type == "university"
+            ).first()
+            if not existing:
+                inst = Institution(
+                    name=u_data["name"], type="university",
+                    state=u_data["state"], city=u_data["city"],
+                    approved=True,
+                )
+                db.add(inst)
+                db.flush()
+                univ_objs.append(inst)
+            else:
+                univ_objs.append(existing)
+        db.commit()
+        print(f"[DEMO] {len(univ_objs)} universidades criadas")
+
+        for univ in univ_objs:
+            templates = rng.sample(UNIVERSITY_ROOM_TEMPLATES, k=rng.randint(3, 5))
+            for year, group_name in templates:
+                existing_room = db.query(Room).filter(
+                    Room.institution_id == univ.id,
+                    Room.year == year, Room.group_name == group_name,
+                ).first()
+                if existing_room:
+                    continue
+                members_sample = rng.sample(user_objs, k=rng.randint(8, 16))
+                room = Room(
+                    institution_id=univ.id, year=year, group_name=group_name,
+                    created_by_id=members_sample[0].id,
+                    created_at=datetime.utcnow() - timedelta(days=rng.randint(1, 200)),
+                )
+                db.add(room)
+                db.flush()
+                for j, u in enumerate(members_sample):
+                    db.add(RoomMembership(
+                        room_id=room.id, user_id=u.id,
+                        role="admin" if j == 0 else "member",
+                        status="approved",
+                        approved_at=datetime.utcnow() - timedelta(days=rng.randint(0, 150)),
+                    ))
+                msgs = rng.sample(UNIVERSITY_MESSAGES, k=rng.randint(6, 12))
+                base_time = datetime.utcnow() - timedelta(days=rng.randint(0, 45))
+                for k, content in enumerate(msgs):
+                    db.add(Message(
+                        room_id=room.id,
+                        user_id=rng.choice(members_sample).id,
+                        content=content,
+                        created_at=base_time + timedelta(hours=k * rng.randint(1, 10)),
+                    ))
+        db.commit()
+        print("[DEMO] Salas de universidade OK")
+
+    # ── 5. Empresas ───────────────────────────────────────────────────────────
     if not already_companies:
         company_objs = []
         for c in COMPANIES:

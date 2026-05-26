@@ -240,6 +240,31 @@ class Notification(Base):
     user = relationship("User", back_populates="notifications")
 
 
+class Testimony(Base):
+    """Depoimento de um ex-aluno/funcionário sobre uma instituição."""
+    __tablename__ = "testimonies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    institution_id = Column(Integer, ForeignKey("institutions.id"), nullable=False)
+    content = Column(String(500), nullable=False)
+    year_attended = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+    institution = relationship("Institution")
+
+
+class EmailLog(Base):
+    """Controle da sequência de e-mails de onboarding."""
+    __tablename__ = "email_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    email_type = Column(String(50), nullable=False)   # welcome, followup_day3, followup_day7
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+
 def get_db():
     db = SessionLocal()
     try:
