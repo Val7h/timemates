@@ -198,6 +198,22 @@ class InviteLink(Base):
     room = relationship("Room", back_populates="invite_links")
 
 
+class CurrentStudent(Base):
+    """Aluno/funcionário atualmente na instituição (mural atual)."""
+    __tablename__ = "current_students"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    institution_id = Column(Integer, ForeignKey("institutions.id"), nullable=False)
+    entry_year = Column(Integer, nullable=True)          # ano de entrada
+    grade_or_period = Column(String(150), nullable=True) # "3º Ano", "Eng. Civil - 5º sem."
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+    institution = relationship("Institution")
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

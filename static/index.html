@@ -209,9 +209,37 @@ nav {
 .back-btn { background: none; border: none; color: var(--primary); font-size: 0.9rem; font-weight: 600; padding: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
 .inst-page-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--primary); }
 .inst-page-header .inst-sub { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
-.inst-stats { display: flex; gap: 20px; margin-top: 12px; }
+.inst-stats { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; }
 .inst-stat { font-size: 0.85rem; color: var(--muted); }
 .inst-stat strong { color: var(--text); }
+
+/* Abas da página da instituição */
+.inst-tabs { display: flex; background: var(--surface); border-bottom: 2px solid var(--border); }
+.inst-tab { flex: 1; text-align: center; padding: 14px 0; font-size: 0.88rem; font-weight: 600; color: var(--muted); cursor: pointer; transition: all .18s; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.inst-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg); }
+.inst-tab:hover:not(.active) { color: var(--text); background: var(--bg); }
+
+/* Mural */
+.mural-toolbar { padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.mural-list { padding: 20px; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.mural-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.mural-card.is-mine { border-left: 4px solid var(--accent); }
+.mural-card.match { border-left: 4px solid #22c55e; }
+.mural-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--primary); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
+.mural-info h4 { font-size: 0.95rem; font-weight: 700; margin: 0; }
+.mural-info p { font-size: 0.82rem; color: var(--muted); margin: 2px 0 0; }
+.mural-badge { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; margin-left: 6px; }
+.badge-me { background: var(--accent); color: #fff; }
+.badge-match { background: #22c55e; color: #fff; }
 
 .rooms-filter { padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; }
 .rooms-filter input, .rooms-filter select { border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; outline: none; }
@@ -596,15 +624,56 @@ nav {
     <h2 id="inst-name">—</h2>
     <p class="inst-sub" id="inst-sub">—</p>
     <div class="inst-stats">
-      <span class="inst-stat"><strong id="inst-rooms-count">0</strong> salas</span>
-      <span class="inst-stat"><strong id="inst-members-count">0</strong> membros</span>
+      <span class="inst-stat"><strong id="inst-rooms-count">0</strong> salas antigas</span>
+      <span class="inst-stat"><strong id="inst-members-count">0</strong> ex-membros</span>
+      <span class="inst-stat" id="inst-mural-stat" style="display:none"><strong id="inst-mural-count">0</strong> aqui agora</span>
     </div>
   </div>
-  <div style="padding:16px 24px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-    <input id="room-filter-year" type="number" placeholder="Filtrar por ano..." min="1900" max="2030" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.85rem;outline:none;width:160px;"/>
-    <button class="btn btn-primary" onclick="openCreateRoom()">+ Criar nova sala</button>
+
+  <!-- Abas -->
+  <div class="inst-tabs">
+    <div class="inst-tab active" id="itab-turmas" onclick="switchInstTab('turmas')">🎓 Turmas Antigas</div>
+    <div class="inst-tab" id="itab-mural" onclick="switchInstTab('mural')">📍 Mural Atual</div>
   </div>
-  <div id="rooms-list" class="rooms-list"></div>
+
+  <!-- ABA TURMAS -->
+  <div id="inst-pane-turmas">
+    <div style="padding:14px 20px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <input id="room-filter-year" type="number" placeholder="Filtrar por ano..." min="1900" max="2030" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:0.85rem;outline:none;width:150px;"/>
+      <button class="btn btn-primary" onclick="openCreateRoom()">+ Criar nova sala</button>
+    </div>
+    <div id="rooms-list" class="rooms-list"></div>
+  </div>
+
+  <!-- ABA MURAL ATUAL -->
+  <div id="inst-pane-mural" class="hidden">
+    <div class="mural-toolbar">
+      <span id="mural-label" style="color:var(--muted);font-size:0.9rem;"></span>
+      <button class="btn btn-accent" id="mural-btn" onclick="openMuralModal()">📍 Marcar presença</button>
+    </div>
+    <div id="mural-list" class="mural-list"></div>
+  </div>
+</div>
+
+<!-- MODAL MURAL -->
+<div id="modal-mural" class="modal hidden" role="dialog">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-mural')">✕</button>
+    <h3 id="mural-modal-title">📍 Mural Atual</h3>
+    <p style="color:var(--muted);font-size:0.85rem;margin-bottom:16px;">Marque sua presença para aparecer no mural e dar match com colegas atuais.</p>
+    <form id="form-mural" onsubmit="doMural(event)">
+      <div class="form-group">
+        <label>Ano de entrada (opcional)</label>
+        <input id="mural-entry-year" type="number" placeholder="Ex: 2022" min="1950" max="2030" style="width:100%;"/>
+      </div>
+      <div class="form-group">
+        <label>Série / Curso / Cargo (opcional)</label>
+        <input id="mural-grade" type="text" placeholder="Ex: 3º Ano · Eng. Civil 5º sem. · Analista" maxlength="150" style="width:100%;"/>
+      </div>
+      <button type="submit" class="btn btn-accent" style="width:100%;margin-top:4px;">✓ Confirmar presença</button>
+    </form>
+    <button id="mural-leave-btn" class="btn btn-sm" onclick="leaveMural()" style="width:100%;margin-top:10px;color:var(--muted);background:none;border:1px solid var(--border);display:none;">Remover minha presença</button>
+  </div>
 </div>
 
 <!-- ROOM PAGE -->
@@ -1300,18 +1369,140 @@ function exploreType(type) {
 }
 
 // ── INSTITUTION PAGE ──────────────────────────────────────────────────────────
+let _currentInstTab = 'turmas';
+
+function switchInstTab(tab) {
+  _currentInstTab = tab;
+  ['turmas','mural'].forEach(t => {
+    document.getElementById(`itab-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`inst-pane-${t}`)?.classList.toggle('hidden', t !== tab);
+  });
+  if (tab === 'mural') loadMural();
+}
+
 async function openInstitution(id) {
   try {
     const inst = await api('GET', `/api/institutions/${id}`);
     state.currentInstitution = inst;
+    state.muralEntries = [];
     document.getElementById('inst-name').textContent = inst.name;
     document.getElementById('inst-sub').textContent = `${typeLabels[inst.type] || ''} · ${inst.city ? inst.city + ', ' : ''}${inst.state || ''}`;
     const totalMembers = inst.rooms.reduce((s, r) => s + r.member_count, 0);
     document.getElementById('inst-rooms-count').textContent = inst.rooms.length;
     document.getElementById('inst-members-count').textContent = totalMembers;
+    // volta para aba turmas
+    switchInstTab('turmas');
     renderRooms(inst.rooms);
+    // pre-carrega mural count sem bloquear
+    loadMuralCount();
     showPage('institution');
   } catch(err) { toast(err.message, 'error'); }
+}
+
+async function loadMuralCount() {
+  try {
+    const entries = await api('GET', `/api/institutions/${state.currentInstitution.id}/mural`);
+    state.muralEntries = entries;
+    const stat = document.getElementById('inst-mural-stat');
+    const cnt = document.getElementById('inst-mural-count');
+    if (entries.length > 0) {
+      cnt.textContent = entries.length;
+      stat.style.display = '';
+    } else {
+      stat.style.display = 'none';
+    }
+  } catch(e) { /* silencioso */ }
+}
+
+async function loadMural() {
+  const id = state.currentInstitution?.id;
+  if (!id) return;
+  try {
+    const entries = await api('GET', `/api/institutions/${id}/mural`);
+    state.muralEntries = entries;
+    renderMural(entries);
+  } catch(e) { toast('Erro ao carregar mural','error'); }
+}
+
+function renderMural(entries) {
+  const cnt = document.getElementById('inst-mural-count');
+  const stat = document.getElementById('inst-mural-stat');
+  cnt.textContent = entries.length;
+  stat.style.display = entries.length ? '' : 'none';
+
+  const label = document.getElementById('mural-label');
+  label.textContent = entries.length
+    ? `${entries.length} pessoa${entries.length > 1 ? 's' : ''} aqui agora`
+    : 'Ninguém marcou presença ainda. Seja o primeiro!';
+
+  const myEntry = entries.find(e => e.is_mine);
+  const btn = document.getElementById('mural-btn');
+  btn.textContent = myEntry ? '✏️ Atualizar presença' : '📍 Marcar presença';
+
+  // detecta match: usuário logado tem entry E outro entry tem anos sobrepostos
+  const myYear = myEntry?.entry_year;
+  const container = document.getElementById('mural-list');
+  if (!entries.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📍</div><h3>Mural vazio</h3><p>Marque sua presença para dar match com colegas atuais!</p></div>`;
+    return;
+  }
+  container.innerHTML = entries.map(e => {
+    const initials = e.full_name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const photo = e.profile_photo
+      ? `<img src="${e.profile_photo}" class="mural-avatar" style="background:none;" onerror="this.outerHTML='<div class=\\'mural-avatar\\'>${initials}</div>'">`
+      : `<div class="mural-avatar">${initials}</div>`;
+    const isMatch = !e.is_mine && myYear && e.entry_year && Math.abs(e.entry_year - myYear) <= 2;
+    const cardClass = e.is_mine ? 'mural-card is-mine' : (isMatch ? 'mural-card match' : 'mural-card');
+    const badge = e.is_mine
+      ? `<span class="mural-badge badge-me">Você</span>`
+      : (isMatch ? `<span class="mural-badge badge-match">⚡ Match</span>` : '');
+    const since = e.entry_year ? `Desde ${e.entry_year}` : '';
+    const period = e.grade_or_period || '';
+    const subtitle = [since, period].filter(Boolean).join(' · ') || 'Estudante atual';
+    return `
+      <div class="${cardClass}">
+        ${photo}
+        <div class="mural-info">
+          <h4>${e.full_name}${badge}</h4>
+          <p>${subtitle}</p>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openMuralModal() {
+  if (!state.user) { openModal('modal-login'); return; }
+  const myEntry = state.muralEntries?.find(e => e.is_mine);
+  document.getElementById('mural-modal-title').textContent =
+    `📍 ${state.currentInstitution?.name || 'Mural Atual'}`;
+  document.getElementById('mural-entry-year').value = myEntry?.entry_year || '';
+  document.getElementById('mural-grade').value = myEntry?.grade_or_period || '';
+  document.getElementById('mural-leave-btn').style.display = myEntry ? '' : 'none';
+  openModal('modal-mural');
+}
+
+async function doMural(e) {
+  e.preventDefault();
+  const fd = new FormData();
+  const yr = document.getElementById('mural-entry-year').value;
+  const gr = document.getElementById('mural-grade').value;
+  if (yr) fd.append('entry_year', yr);
+  if (gr) fd.append('grade_or_period', gr);
+  try {
+    await api('POST', `/api/institutions/${state.currentInstitution.id}/mural`, fd, true);
+    closeModal('modal-mural');
+    toast('Presença marcada no mural! ✓');
+    await loadMural();
+  } catch(err) { toast(err.message,'error'); }
+}
+
+async function leaveMural() {
+  try {
+    await api('DELETE', `/api/institutions/${state.currentInstitution.id}/mural`);
+    closeModal('modal-mural');
+    toast('Presença removida do mural.','info');
+    await loadMural();
+  } catch(err) { toast(err.message,'error'); }
 }
 
 function renderRooms(rooms) {

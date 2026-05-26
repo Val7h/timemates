@@ -29,7 +29,7 @@ from database import (
     get_db, Base, engine, SessionLocal,
     User, Institution, Room, RoomMembership, Message,
     Photo, RememberedPerson, RememberedPersonConfirmation,
-    InviteLink, Notification
+    InviteLink, Notification, CurrentStudent
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -402,6 +402,85 @@ def get_institution(institution_id: int, db: Session = Depends(get_db)):
         "neighborhood": inst.neighborhood, "sector": inst.sector,
         "rooms": rooms,
     }
+
+
+# ─── Mural Atual ──────────────────────────────────────────────────────────────
+
+@app.get("/api/institutions/{institution_id}/mural")
+def get_mural(institution_id: int, db: Session = Depends(get_db),
+              current_user: User = Depends(get_current_user)):
+    entries = (
+        db.query(CurrentStudent)
+        .filter(CurrentStudent.institution_id == institution_id)
+        .order_by(CurrentStudent.entry_year.desc().nullslast(), CurrentStudent.created_at.desc())
+        .all()
+    )
+    my_id = current_user.id if current_user else None
+    result = []
+    for e in entries:
+        u = e.user
+        result.append({
+            "id": e.id,
+            "user_id": e.user_id,
+            "is_mine": e.user_id == my_id,
+            "full_name": u.full_name,
+            "profile_photo": u.profile_photo,
+            "entry_year": e.entry_year,
+            "grade_or_period": e.grade_or_period,
+            "since": e.created_at.isoformat(),
+        })
+    return result
+
+
+@app.post("/api/institutions/{institution_id}/mural")
+def join_mural(
+    institution_id: int,
+    entry_year: Optional[int] = Form(None),
+    grade_or_period: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    inst = db.query(Institution).filter(
+        Institution.id == institution_id, Institution.approved == True
+    ).first()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instituição não encontrada")
+
+    # Atualiza se já existe, cria se não existe
+    existing = db.query(CurrentStudent).filter(
+        CurrentStudent.user_id == current_user.id,
+        CurrentStudent.institution_id == institution_id,
+    ).first()
+
+    if existing:
+        existing.entry_year = entry_year
+        existing.grade_or_period = grade_or_period.strip() or None
+        existing.updated_at = datetime.utcnow()
+    else:
+        db.add(CurrentStudent(
+            user_id=current_user.id,
+            institution_id=institution_id,
+            entry_year=entry_year,
+            grade_or_period=grade_or_period.strip() or None,
+        ))
+    db.commit()
+    return {"message": "Presença registrada no mural!"}
+
+
+@app.delete("/api/institutions/{institution_id}/mural")
+def leave_mural(
+    institution_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_required),
+):
+    deleted = db.query(CurrentStudent).filter(
+        CurrentStudent.user_id == current_user.id,
+        CurrentStudent.institution_id == institution_id,
+    ).delete()
+    db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Você não está no mural desta instituição")
+    return {"message": "Presença removida do mural."}
 
 
 @app.post("/api/institutions/suggest")
