@@ -1528,6 +1528,7 @@ def _page_html(title: str, desc: str, canonical: str, body: str, year: int = Non
 <meta property="og:image" content="{BASE_URL}/static/og-card.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
+<meta name="google-site-verification" content="_CAIfv-vYcBhk0WeyPAj9RQkRuwETlAKHoz4cqoArjw"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="{_esc(title)}"/>
 <meta name="twitter:description" content="{_esc(desc)}"/>
@@ -1839,6 +1840,14 @@ def room_share_kit(
 @app.get("/sw.js")
 def service_worker():
     return FileResponse("static/sw.js", media_type="application/javascript")
+
+@app.get("/google_CAIfv-vYcBhk0WeyPAj9RQkRuwETlAKHoz4cqoArjw.html")
+def google_verify():
+    """Arquivo de verificação alternativo do Google Search Console."""
+    return Response(
+        content="google-site-verification: google_CAIfv-vYcBhk0WeyPAj9RQkRuwETlAKHoz4cqoArjw.html",
+        media_type="text/html"
+    )
 
 @app.get("/convite/{token}")
 def invite_page(token: str):
