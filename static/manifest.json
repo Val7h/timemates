@@ -1,0 +1,33 @@
+{
+  "name": "TimeMates — Reconecte com sua turma",
+  "short_name": "TimeMates",
+  "description": "O mapa das pessoas que cruzaram sua vida. Escola, faculdade, empresa, cidade.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F5F2",
+  "theme_color": "#1E3A5F",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/og-card.png",
+      "sizes": "1200x630",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["social", "lifestyle"],
+  "lang": "pt-BR"
+}

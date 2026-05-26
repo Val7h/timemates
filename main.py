@@ -43,6 +43,31 @@ except Exception as _e:
 
 from contextlib import asynccontextmanager
 
+def _generate_icons():
+    """Gera ícones PWA (192x192 e 512x512)."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        for size in (192, 512):
+            path = f"static/icon-{size}.png"
+            if os.path.exists(path):
+                continue
+            img = Image.new("RGB", (size, size), "#1E3A5F")
+            draw = ImageDraw.Draw(img)
+            # Círculo interno dourado
+            pad = size // 8
+            draw.ellipse([pad, pad, size-pad, size-pad], fill="#D4A853")
+            # Letra T centralizada
+            try:
+                font = ImageFont.truetype("arial.ttf", size // 2)
+            except Exception:
+                font = ImageFont.load_default()
+            draw.text((size//2, size//2), "T", font=font, fill="#1E3A5F", anchor="mm")
+            img.save(path, "PNG")
+        print("[PWA] Ícones gerados")
+    except Exception as e:
+        print(f"[PWA] Ícones: {e}")
+
+
 def _generate_og_image():
     """Gera og-card.png para Open Graph (WhatsApp/Facebook preview)."""
     try:
@@ -89,6 +114,7 @@ def _generate_og_image():
 
 @asynccontextmanager
 async def lifespan(app):
+    _generate_icons()
     _generate_og_image()
     try:
         from seed_all import seed_db
@@ -334,26 +360,45 @@ def check_remembered_match(user: User, room_id: int, db: Session):
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
 
+@app.get("/api/stats")
+def public_stats(db: Session = Depends(get_db)):
+    """Estatísticas públicas para a landing page."""
+    return {
+        "users": db.query(User).filter(User.is_active == True).count(),
+        "rooms": db.query(Room).count(),
+        "institutions": db.query(Institution).filter(Institution.approved == True).count(),
+    }
+
+@app.get("/api/ping")
+def ping():
+    """Keep-alive leve — sem query no banco."""
+    return {"ok": True}
+
+
 @app.post("/api/auth/register")
 def register(
     full_name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
-    cpf: str = Form(...),
+    cpf: Optional[str] = Form(None),
     phone: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
-    if not validate_cpf(cpf):
-        raise HTTPException(status_code=400, detail="CPF inválido. Verifique os dígitos e tente novamente.")
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="Senha deve ter no mínimo 6 caracteres")
     if db.query(User).filter(User.email == email.lower()).first():
         raise HTTPException(status_code=400, detail="E-mail já cadastrado")
     import hashlib
-    cpf_clean = "".join(filter(str.isdigit, cpf))
-    cpf_sha = hashlib.sha256(cpf_clean.encode()).hexdigest()
-    if db.query(User).filter(User.cpf_hash == cpf_sha).first():
-        raise HTTPException(status_code=400, detail="CPF já cadastrado")
+    if cpf:
+        if not validate_cpf(cpf):
+            raise HTTPException(status_code=400, detail="CPF inválido. Verifique os dígitos e tente novamente.")
+        cpf_clean = "".join(filter(str.isdigit, cpf))
+        cpf_sha = hashlib.sha256(cpf_clean.encode()).hexdigest()
+        if db.query(User).filter(User.cpf_hash == cpf_sha).first():
+            raise HTTPException(status_code=400, detail="CPF já cadastrado")
+    else:
+        # sem CPF: hash único baseado no e-mail + uuid
+        cpf_sha = hashlib.sha256(f"no-cpf:{email.lower()}:{uuid.uuid4()}".encode()).hexdigest()
     phone_clean = None
     if phone:
         phone_clean = "".join(filter(str.isdigit, phone))
@@ -1790,6 +1835,10 @@ def room_share_kit(
 
 
 # ─── Static / Invite page ─────────────────────────────────────────────────────
+
+@app.get("/sw.js")
+def service_worker():
+    return FileResponse("static/sw.js", media_type="application/javascript")
 
 @app.get("/convite/{token}")
 def invite_page(token: str):

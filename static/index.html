@@ -4,6 +4,10 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>TimeMates — Reconecte com quem fez parte da sua história</title>
+<meta name="description" content="O mapa das pessoas que cruzaram sua vida. Encontre ex-colegas de escola, faculdade, empresa e cidade. Grátis."/>
+<meta name="theme-color" content="#1E3A5F"/>
+<link rel="manifest" href="/static/manifest.json"/>
+<link rel="apple-touch-icon" href="/static/icon-192.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
@@ -310,6 +314,33 @@ nav {
 .reaction-bar button { font-size: 1.2rem; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 6px; transition: transform .15s; }
 .reaction-bar button:hover { transform: scale(1.25); background: var(--bg); }
 .msg-bubble:hover .reaction-bar { display: flex; }
+/* Landing melhorada */
+.hero-badge { display:inline-block;background:rgba(212,168,83,0.15);color:#D4A853;border:1px solid rgba(212,168,83,0.4);border-radius:99px;padding:5px 14px;font-size:0.78rem;font-weight:600;margin-bottom:16px; }
+.hero-stats { display:flex;align-items:center;gap:0;margin-top:28px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.12);justify-content:center;flex-wrap:wrap;gap:0; }
+.hstat { text-align:center;padding:0 24px; }
+.hstat span { display:block;font-size:1.6rem;font-weight:800;color:#D4A853; }
+.hstat small { font-size:0.73rem;color:rgba(255,255,255,0.6);margin-top:2px;display:block; }
+.hstat-div { width:1px;height:36px;background:rgba(255,255,255,0.15); }
+/* Por que TimeMates */
+.why-section { padding:52px 20px;background:#fff;text-align:center; }
+.why-section h2 { font-size:1.3rem;font-weight:800;color:var(--primary);margin-bottom:28px; }
+.why-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;max-width:860px;margin:0 auto; }
+.why-card { border-radius:14px;padding:22px 18px;text-align:center;border:1.5px solid var(--border); }
+.why-card.why-no { background:var(--bg);opacity:.75; }
+.why-card.why-yes { background:#1E3A5F;color:#fff;border-color:#1E3A5F;opacity:1;transform:scale(1.03);box-shadow:0 8px 24px rgba(30,58,95,.2); }
+.why-card.why-yes p { color:rgba(255,255,255,.85); }
+.why-card.why-yes h4 { color:#D4A853; }
+.why-icon { font-size:2rem;margin-bottom:10px; }
+.why-card h4 { font-weight:700;margin-bottom:6px;color:var(--primary); }
+.why-card p { font-size:0.83rem;color:var(--muted);line-height:1.5; }
+/* Onboarding */
+.onb-step { display:none; }
+.onb-step.active { display:block; }
+.onb-inst-item { padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .15s; }
+.onb-inst-item:hover { border-color:var(--primary);background:var(--bg); }
+.onb-inst-icon { font-size:1.4rem;width:36px;text-align:center; }
+.onb-inst-name { font-weight:600;font-size:.9rem;color:var(--primary); }
+.onb-inst-sub { font-size:.76rem;color:var(--muted); }
 /* Share Kit */
 .stab { background:none;border:none;padding:8px 14px;font-size:0.82rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s; }
 .stab.active { color:var(--primary);border-bottom-color:var(--primary); }
@@ -550,16 +581,30 @@ nav {
 
 <!-- LANDING -->
 <div id="page-landing" class="page">
+
+  <!-- HERO -->
   <div class="hero">
-    <h1>Reconecte com quem fez parte<br/>da sua <span>história</span></h1>
-    <p>Escola, faculdade, empresa, cidade. Encontre sua turma e reviva os melhores momentos.</p>
+    <div class="hero-badge">✨ Completamente gratuito</div>
+    <h1>O mapa das pessoas<br/>que cruzaram sua <span>vida</span></h1>
+    <p>Facebook é caos. WhatsApp é grupo fechado. LinkedIn é carreira.<br/>
+       <strong>TimeMates é memória estruturada.</strong></p>
     <div class="hero-search">
       <input id="hero-search-input" type="text" placeholder="Buscar escola, faculdade, empresa ou cidade..."/>
       <button onclick="doHeroSearch()">Buscar</button>
     </div>
     <span class="hero-link" onclick="showPage('explore')">Explorar todas as instituições →</span>
+
+    <!-- Contadores ao vivo -->
+    <div class="hero-stats">
+      <div class="hstat"><span id="stat-users">—</span><small>pessoas cadastradas</small></div>
+      <div class="hstat-div"></div>
+      <div class="hstat"><span id="stat-rooms">—</span><small>turmas reunidas</small></div>
+      <div class="hstat-div"></div>
+      <div class="hstat"><span id="stat-inst">—</span><small>instituições</small></div>
+    </div>
   </div>
 
+  <!-- CATEGORIAS -->
   <div class="categories">
     <div class="cat-card" onclick="exploreType('school')">
       <div class="cat-icon">🏫</div>
@@ -583,26 +628,72 @@ nav {
     </div>
   </div>
 
+  <!-- DIFERENCIAL -->
+  <div class="why-section">
+    <h2>Por que TimeMates é diferente?</h2>
+    <div class="why-grid">
+      <div class="why-card why-no">
+        <div class="why-icon">😵</div>
+        <h4>Facebook</h4>
+        <p>Caos de notícias, anúncios e política. Impossível achar quem você quer.</p>
+      </div>
+      <div class="why-card why-no">
+        <div class="why-icon">🔒</div>
+        <h4>WhatsApp</h4>
+        <p>Grupos fechados que você não sabe que existem e não consegue entrar.</p>
+      </div>
+      <div class="why-card why-no">
+        <div class="why-icon">💼</div>
+        <h4>LinkedIn</h4>
+        <p>Foco em carreira. Não é lugar pra reviver memórias e amizades.</p>
+      </div>
+      <div class="why-card why-yes">
+        <div class="why-icon">🥹</div>
+        <h4>TimeMates</h4>
+        <p><strong>Memória estruturada.</strong> Cada instituição, cada turma, cada época — organizada e acessível.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMO FUNCIONA -->
   <div class="how-it-works">
-    <h2>Como funciona</h2>
+    <h2>Em 3 passos simples</h2>
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <h4>Cadastre-se com segurança</h4>
-        <p>CPF garante uma conta por pessoa. Seus dados nunca são expostos.</p>
+        <h4>Crie sua conta</h4>
+        <p>Só e-mail e senha. Em menos de 1 minuto você está dentro.</p>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <h4>Encontre sua turma</h4>
-        <p>Busque a instituição, ano e turma. Se não existir, crie a sala.</p>
+        <p>Busque a escola ou faculdade. Se a sala não existir, crie você mesmo.</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <h4>Reviva aquela época</h4>
-        <p>Chat em tempo real, mural de fotos e a lista de quem você ainda lembra.</p>
+        <p>Chat, fotos, lista de quem você lembra. Reencontros que pareciam impossíveis.</p>
       </div>
     </div>
+    <div style="text-align:center;margin-top:32px;">
+      <button class="btn btn-primary" style="font-size:1rem;padding:14px 36px;" onclick="openModal('modal-register')">
+        Criar conta grátis →
+      </button>
+      <p style="margin-top:12px;font-size:0.82rem;color:var(--muted);">Sem cartão. Sem anúncio. Sem spam. Só memórias.</p>
+    </div>
   </div>
+
+  <!-- INSTALAR PWA -->
+  <div id="pwa-banner" class="hidden" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;background:#1E3A5F;color:#fff;padding:12px 20px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.25);display:flex;align-items:center;gap:12px;max-width:340px;width:90%;">
+    <span style="font-size:1.5rem;">📱</span>
+    <div style="flex:1">
+      <strong style="font-size:.9rem;">Instalar TimeMates</strong>
+      <div style="font-size:.77rem;opacity:.8;">Adicionar à tela inicial do celular</div>
+    </div>
+    <button onclick="installPWA()" style="background:#D4A853;color:#1E3A5F;border:none;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.83rem;">Instalar</button>
+    <button onclick="document.getElementById('pwa-banner').classList.add('hidden')" style="background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:1.2rem;padding:0 4px;">✕</button>
+  </div>
+
 </div>
 
 <!-- EXPLORE -->
@@ -979,10 +1070,10 @@ nav {
         <input type="password" id="reg-password" required placeholder="Mínimo 6 caracteres" minlength="6"/>
       </div>
       <div class="form-group">
-        <label>CPF *</label>
-        <input type="text" id="reg-cpf" required placeholder="000.000.000-00" maxlength="14"
+        <label>CPF <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
+        <input type="text" id="reg-cpf" placeholder="000.000.000-00" maxlength="14"
           oninput="formatCPF(this)"/>
-        <p class="form-hint">🔒 Usado só para garantir uma conta por pessoa. Nunca é exibido.</p>
+        <p class="form-hint">🔒 Opcional. Se informado, garante uma conta por pessoa.</p>
       </div>
       <div class="form-group">
         <label>Celular <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
@@ -1137,6 +1228,44 @@ nav {
     <p class="subtitle">Válido por 7 dias. Envie pelo WhatsApp ou Instagram!</p>
     <div style="background:var(--bg);border-radius:8px;padding:14px;word-break:break-all;font-size:0.85rem;border:1px solid var(--border);" id="invite-link-display"></div>
     <button class="btn btn-primary btn-full mt-12" onclick="copyInviteLink()">📋 Copiar link</button>
+  </div>
+</div>
+
+<!-- ONBOARDING MODAL -->
+<div id="modal-onboarding" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px;">
+    <h2 style="margin-bottom:4px;">🎉 Bem-vindo ao TimeMates!</h2>
+    <p class="subtitle">Vamos encontrar sua turma em 30 segundos</p>
+
+    <!-- Passo 1: busca -->
+    <div class="onb-step active" id="onb-1">
+      <div class="form-group" style="margin-top:20px;">
+        <label>Qual escola, faculdade ou empresa você quer buscar?</label>
+        <input type="text" id="onb-search" placeholder="Ex: Escola Estadual Dom Pedro, USP, Petrobras..."
+               oninput="onbSearch()" autocomplete="off"
+               style="border:2px solid var(--primary);"/>
+      </div>
+      <div id="onb-results" style="max-height:260px;overflow-y:auto;margin-top:4px;"></div>
+      <p style="text-align:center;margin-top:16px;font-size:0.82rem;color:var(--muted);">
+        Não encontrou? <span style="color:var(--primary);cursor:pointer;font-weight:600;" onclick="skipOnboarding()">Pular e explorar depois →</span>
+      </p>
+    </div>
+
+    <!-- Passo 2: confirmação -->
+    <div class="onb-step" id="onb-2">
+      <div style="text-align:center;padding:24px 0;">
+        <div style="font-size:3rem;margin-bottom:12px;" id="onb-inst-icon">🏫</div>
+        <h3 id="onb-inst-name" style="color:var(--primary);margin-bottom:6px;"></h3>
+        <p id="onb-inst-sub" style="color:var(--muted);font-size:.85rem;margin-bottom:24px;"></p>
+        <button class="btn btn-primary btn-full" onclick="goToOnbInst()">
+          Ver salas desta instituição →
+        </button>
+        <button class="btn btn-outline btn-full mt-8" onclick="backToOnb1()">
+          ← Buscar outra
+        </button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1368,8 +1497,13 @@ async function doRegister(e) {
     localStorage.setItem('tm_token', state.token);
     setUser(res.user);
     closeModal('modal-register');
-    toast('Conta criada com sucesso! Bem-vindo ao TimeMates!');
     e.target.reset();
+    // Lança onboarding se ainda não foi feito
+    if (!localStorage.getItem('tm_onboarding_done')) {
+      setTimeout(() => openModal('modal-onboarding'), 400);
+    } else {
+      toast('Conta criada com sucesso! Bem-vindo ao TimeMates! 🎉');
+    }
   } catch(err) { toast(err.message, 'error'); }
 }
 
@@ -2426,8 +2560,113 @@ setInterval(() => { if (state.user) loadNotifications(); }, 60000);
 // Check pending invite after login
 const origSetUser = setUser;
 
+// ── LANDING STATS ─────────────────────────────────────────────────────────────
+async function loadLandingStats() {
+  try {
+    const s = await api('GET', '/api/stats');
+    const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : String(n);
+    document.getElementById('stat-users').textContent = fmt(s.users);
+    document.getElementById('stat-rooms').textContent = fmt(s.rooms);
+    document.getElementById('stat-inst').textContent  = fmt(s.institutions);
+  } catch(e) {}
+}
+
+// ── ONBOARDING ─────────────────────────────────────────────────────────────────
+let _onbSelected = null;
+let _onbTimer = null;
+
+async function onbSearch() {
+  const q = document.getElementById('onb-search').value.trim();
+  const box = document.getElementById('onb-results');
+  clearTimeout(_onbTimer);
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  _onbTimer = setTimeout(async () => {
+    try {
+      const items = await api('GET', `/api/institutions?search=${encodeURIComponent(q)}&limit=8`);
+      if (!items.length) {
+        box.innerHTML = '<p style="text-align:center;color:var(--muted);font-size:.85rem;padding:12px;">Nenhum resultado. Tente outro nome.</p>';
+        return;
+      }
+      const icons = {school:'🏫',university:'🎓',company:'🏢',city:'🏙️'};
+      box.innerHTML = items.map(i => `
+        <div class="onb-inst-item" onclick="selectOnbInst(${i.id},'${escHtml(i.name)}','${i.type}','${escHtml((i.city||'') + (i.state ? ' · ' + i.state : ''))}')">
+          <div class="onb-inst-icon">${icons[i.type]||'🏛️'}</div>
+          <div>
+            <div class="onb-inst-name">${escHtml(i.name)}</div>
+            <div class="onb-inst-sub">${escHtml((i.city||'') + (i.state ? ' · ' + i.state : ''))} · ${i.room_count} sala${i.room_count!==1?'s':''}</div>
+          </div>
+        </div>`).join('');
+    } catch(e) {}
+  }, 300);
+}
+
+function selectOnbInst(id, name, type, sub) {
+  _onbSelected = {id, name, type};
+  const icons = {school:'🏫',university:'🎓',company:'🏢',city:'🏙️'};
+  document.getElementById('onb-inst-icon').textContent = icons[type] || '🏛️';
+  document.getElementById('onb-inst-name').textContent = name;
+  document.getElementById('onb-inst-sub').textContent = sub;
+  document.getElementById('onb-1').classList.remove('active');
+  document.getElementById('onb-2').classList.add('active');
+}
+
+function backToOnb1() {
+  document.getElementById('onb-2').classList.remove('active');
+  document.getElementById('onb-1').classList.add('active');
+}
+
+function goToOnbInst() {
+  if (!_onbSelected) return;
+  localStorage.setItem('tm_onboarding_done', '1');
+  closeModal('modal-onboarding');
+  toast(`Bem-vindo! Abrindo ${_onbSelected.name}... 🎉`);
+  openInstitution(_onbSelected.id);
+}
+
+function skipOnboarding() {
+  localStorage.setItem('tm_onboarding_done', '1');
+  closeModal('modal-onboarding');
+  toast('Bem-vindo ao TimeMates! 🎉');
+  showPage('explore');
+}
+
+// ── PWA ────────────────────────────────────────────────────────────────────────
+let _pwaPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _pwaPrompt = e;
+  // Só mostra o banner na landing page, após 3s
+  setTimeout(() => {
+    if (state.currentPage === 'landing') {
+      document.getElementById('pwa-banner')?.classList.remove('hidden');
+    }
+  }, 3000);
+});
+
+async function installPWA() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  const { outcome } = await _pwaPrompt.userChoice;
+  _pwaPrompt = null;
+  document.getElementById('pwa-banner')?.classList.add('hidden');
+  if (outcome === 'accepted') toast('TimeMates instalado! 📱');
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// ── KEEP-ALIVE (evita cold start do Render) ───────────────────────────────────
+setInterval(() => {
+  if (document.visibilityState === 'visible') {
+    fetch('/api/ping').catch(() => {});
+  }
+}, 9 * 60 * 1000); // a cada 9 minutos
+
 // ── START ──────────────────────────────────────────────────────────────────────
 init();
+loadLandingStats();
 </script>
 </body>
 </html>
