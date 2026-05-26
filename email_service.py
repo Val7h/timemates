@@ -210,6 +210,28 @@ def send_password_reset(to_email: str, name: str, reset_token: str):
     _send(to_email, "Redefinição de senha", _base_template("Recuperação de senha", body))
 
 
+def send_you_were_remembered(to_email: str, name: str, room_name: str, inst_name: str):
+    """Avisa o usuário que alguém na sala lembra dele — ele foi 'lembrado'."""
+    first = name.split()[0]
+    body = f"""
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">🥹 Alguém lembra de você!</h2>
+    <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
+      Que saudade boa, {first}!
+    </p>
+    <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:20px;margin:0 0 20px;">
+      <p style="margin:0;color:#374151;font-size:16px;line-height:1.6;">
+        Um colega da sala <strong>{room_name}</strong> ({inst_name}) te adicionou
+        na lista de <em>"pessoas que eu lembro"</em>.<br/><br/>
+        Você fez parte da história de alguém. ❤️
+      </p>
+    </div>
+    <p style="color:#374151;font-size:15px;">
+      Entre no TimeMates para ver quem lembra de você e dizer oi!
+    </p>
+    {_btn(BASE_URL, 'Ver quem lembra de mim', '#D4A853')}"""
+    _send(to_email, "Alguém lembra de você no TimeMates!", _base_template("Você foi lembrado!", body))
+
+
 def send_remembered_found(to_email: str, name: str, found_name: str, room_name: str):
     """Avisa que alguém que a pessoa lembrava entrou na sala."""
     first = name.split()[0]

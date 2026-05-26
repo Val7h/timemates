@@ -300,6 +300,21 @@ nav {
 .msg-time { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
 .msg-row.mine .msg-time { text-align: right; }
 .msg-system { text-align: center; font-size: 0.78rem; color: var(--muted); font-style: italic; padding: 4px 0; }
+/* Reações */
+.msg-reactions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.msg-row.mine .msg-reactions { justify-content: flex-end; }
+.reaction-pill { font-size: 0.78rem; background: var(--bg); border: 1.5px solid var(--border); border-radius: 99px; padding: 2px 8px; cursor: pointer; transition: all .15s; user-select: none; display: flex; align-items: center; gap: 3px; }
+.reaction-pill.mine { border-color: var(--primary); background: #EFF6FF; font-weight: 700; }
+.reaction-pill:hover { transform: scale(1.1); }
+.reaction-bar { display: none; gap: 6px; margin-top: 5px; }
+.reaction-bar button { font-size: 1.2rem; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 6px; transition: transform .15s; }
+.reaction-bar button:hover { transform: scale(1.25); background: var(--bg); }
+.msg-bubble:hover .reaction-bar { display: flex; }
+/* Busca de pessoas */
+.people-search-wrap { padding: 20px; max-width: 720px; margin: 0 auto; }
+.person-card { background: var(--surface); border-radius: var(--radius); padding: 14px 18px; display: flex; align-items: center; gap: 14px; box-shadow: var(--shadow); margin-bottom: 10px; cursor: pointer; transition: box-shadow .2s; }
+.person-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.person-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--primary); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 1.1rem; flex-shrink: 0; }
 .chat-input-row { padding: 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 10px; }
 .chat-input-row input { flex: 1; border: 1.5px solid var(--border); border-radius: 24px; padding: 10px 18px; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
 .chat-input-row input:focus { border-color: var(--primary); }
@@ -588,9 +603,9 @@ nav {
 <!-- EXPLORE -->
 <div id="page-explore" class="page hidden">
   <div class="page-header">
-    <h2>Explorar Instituições</h2>
+    <h2>Explorar</h2>
     <div class="search-bar">
-      <input id="explore-search" type="text" placeholder="Buscar por nome..." oninput="loadInstitutions()"/>
+      <input id="explore-search" type="text" placeholder="Buscar instituição ou pessoa..." oninput="onExploreSearch()"/>
       <select id="explore-state" onchange="loadInstitutions()">
         <option value="">Todos os estados</option>
         <option>AC</option><option>AL</option><option>AM</option><option>AP</option>
@@ -604,14 +619,16 @@ nav {
     </div>
   </div>
   <div class="type-tabs">
-    <button class="tab-btn active" onclick="setExploreType('',this)">Todas</button>
+    <button class="tab-btn active" id="etab-inst" onclick="setExploreMode('inst',this)">🏛️ Instituições</button>
+    <button class="tab-btn" id="etab-people" onclick="setExploreMode('people',this)">👤 Pessoas</button>
     <button class="tab-btn" onclick="setExploreType('school',this)">🏫 Escolas</button>
     <button class="tab-btn" onclick="setExploreType('university',this)">🎓 Faculdades</button>
     <button class="tab-btn" onclick="setExploreType('city',this)">🏙️ Cidades</button>
     <button class="tab-btn" onclick="setExploreType('company',this)">🏢 Empresas</button>
   </div>
   <div id="inst-list" class="inst-list"></div>
-  <div class="suggest-box">
+  <div id="people-list" class="people-search-wrap hidden"></div>
+  <div class="suggest-box" id="suggest-box">
     <p>Não encontrou sua instituição?</p>
     <button class="btn btn-outline" onclick="openSuggestInstitution()">+ Sugerir nova instituição</button>
   </div>
@@ -1617,7 +1634,37 @@ async function loadMessages() {
   } catch(err) { console.error(err); }
 }
 
-function appendMessage(m) {
+const REACTIONS = {
+  saudade:      { emoji: '🥹', label: 'Saudade' },
+  classico:     { emoji: '😂', label: 'Clássico' },
+  eu_tava_la:   { emoji: '📸', label: 'Eu tava lá' },
+  inesquecivel: { emoji: '❤️', label: 'Inesquecível' },
+};
+
+function buildReactionBar(msgId) {
+  return `<div class="reaction-bar">${
+    Object.entries(REACTIONS).map(([k,v]) =>
+      `<button title="${v.label}" onclick="sendReaction(${msgId},'${k}')">${v.emoji}</button>`
+    ).join('')
+  }</div>`;
+}
+
+function buildReactionPills(msgId, reactions, myReaction) {
+  if (!reactions || !Object.keys(reactions).length) return '';
+  return `<div class="msg-reactions">${
+    Object.entries(reactions)
+      .filter(([,cnt]) => cnt > 0)
+      .map(([k, cnt]) => {
+        const r = REACTIONS[k];
+        const mine = myReaction === k;
+        return `<span class="reaction-pill${mine ? ' mine' : ''}" onclick="sendReaction(${msgId},'${k}')" title="${r?.label || k}">
+          ${r?.emoji || k} ${cnt}
+        </span>`;
+      }).join('')
+  }</div>`;
+}
+
+function appendMessage(m, scroll = true) {
   const container = document.getElementById('chat-msgs');
   if (!container) return;
   if (m.type === 'system') {
@@ -1628,22 +1675,40 @@ function appendMessage(m) {
   } else {
     const isMe = state.user && m.user_id === state.user.id;
     const initials = (m.user_name || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
-    const avatarHtml = m.user_photo
-      ? `<img src="${m.user_photo}" alt=""/>`
-      : initials;
+    const avatarHtml = m.user_photo ? `<img src="${m.user_photo}" alt=""/>` : initials;
     const time = new Date(m.created_at).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
     const el = document.createElement('div');
+    el.id = `msg-${m.id}`;
     el.className = `msg-row${isMe ? ' mine' : ''}`;
     el.innerHTML = `
       <div class="msg-avatar">${avatarHtml}</div>
-      <div class="msg-bubble">
+      <div class="msg-bubble" data-msg-id="${m.id}">
         ${!isMe ? `<div class="msg-name">${m.user_name}</div>` : ''}
         <div class="msg-text">${escHtml(m.content)}</div>
+        ${buildReactionBar(m.id)}
+        <div class="msg-reactions-wrap" id="reactions-${m.id}">${buildReactionPills(m.id, m.reactions||{}, m.my_reaction)}</div>
         <div class="msg-time">${time}</div>
       </div>`;
     container.appendChild(el);
   }
-  container.scrollTop = container.scrollHeight;
+  if (scroll) container.scrollTop = container.scrollHeight;
+}
+
+async function sendReaction(msgId, reaction) {
+  if (!state.user) { openModal('modal-login'); return; }
+  try {
+    const fd = new FormData();
+    fd.append('reaction', reaction);
+    await api('POST', `/api/rooms/${state.currentRoom.id}/messages/${msgId}/react`, fd, true);
+  } catch(e) { /* silencioso */ }
+}
+
+function updateReactionPills(msgId, reactions) {
+  const wrap = document.getElementById(`reactions-${msgId}`);
+  if (!wrap) return;
+  // descobre minha reação atual do DOM
+  const mine = wrap.querySelector('.mine')?.getAttribute('data-key');
+  wrap.innerHTML = buildReactionPills(msgId, reactions, mine);
 }
 
 function sendChatMsg() {
@@ -1661,8 +1726,67 @@ function connectWS() {
   state.ws.onmessage = e => {
     const data = JSON.parse(e.data);
     if (data.type === 'message' || data.type === 'system') appendMessage(data);
+    else if (data.type === 'reaction_update') updateReactionPills(data.message_id, data.reactions);
   };
   state.ws.onerror = () => toast('Erro na conexão do chat', 'error');
+}
+
+// ── BUSCA DE PESSOAS ──────────────────────────────────────────────────────────
+let _exploreMode = 'inst';
+let _peopleTimer = null;
+
+function setExploreMode(mode, btn) {
+  _exploreMode = mode;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('etab-inst')?.classList.toggle('active', mode === 'inst');
+  document.getElementById('etab-people')?.classList.toggle('active', mode === 'people');
+  document.getElementById('inst-list').classList.toggle('hidden', mode !== 'inst');
+  document.getElementById('people-list').classList.toggle('hidden', mode !== 'people');
+  document.getElementById('suggest-box')?.classList.toggle('hidden', mode !== 'inst');
+  document.getElementById('explore-state').style.display = mode === 'inst' ? '' : 'none';
+  const inp = document.getElementById('explore-search');
+  inp.placeholder = mode === 'inst' ? 'Buscar por nome...' : 'Buscar pessoa por nome...';
+  inp.value = '';
+  if (mode === 'people') inp.focus();
+}
+
+function onExploreSearch() {
+  if (_exploreMode === 'people') {
+    clearTimeout(_peopleTimer);
+    _peopleTimer = setTimeout(searchPeople, 300);
+  } else {
+    loadInstitutions();
+  }
+}
+
+async function searchPeople() {
+  const q = document.getElementById('explore-search').value.trim();
+  const container = document.getElementById('people-list');
+  if (q.length < 2) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">👤</div><h3>Digite o nome da pessoa</h3><p>Busque pelo nome completo ou parcial.</p></div>`;
+    return;
+  }
+  try {
+    const people = await api('GET', `/api/users/search?q=${encodeURIComponent(q)}`);
+    if (!people.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><h3>Nenhuma pessoa encontrada</h3><p>Tente outro nome.</p></div>`;
+      return;
+    }
+    container.innerHTML = people.map(p => {
+      const initials = p.full_name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const photo = p.profile_photo
+        ? `<img src="${p.profile_photo}" class="person-avatar" style="background:none;" onerror="this.outerHTML='<div class=\\'person-avatar\\'>${initials}</div>'">`
+        : `<div class="person-avatar">${initials}</div>`;
+      const sub = [p.profession, p.city].filter(Boolean).join(' · ') || 'Usuário TimeMates';
+      return `<div class="person-card">
+        ${photo}
+        <div>
+          <h4 style="margin:0;font-size:0.95rem;">${p.full_name}</h4>
+          <p style="margin:2px 0 0;font-size:0.82rem;color:var(--muted);">${sub}</p>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
 }
 
 // ── PHOTOS ────────────────────────────────────────────────────────────────────

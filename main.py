@@ -29,7 +29,7 @@ from database import (
     get_db, Base, engine, SessionLocal,
     User, Institution, Room, RoomMembership, Message,
     Photo, RememberedPerson, RememberedPersonConfirmation,
-    InviteLink, Notification, CurrentStudent
+    InviteLink, Notification, CurrentStudent, MessageReaction
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -158,6 +158,59 @@ def get_membership(room_id: int, user: User, db: Session, require_approved=True)
     return m
 
 
+# ─── Busca de pessoas ────────────────────────────────────────────────────────
+
+@app.get("/api/users/search")
+def search_users(
+    q: str = "",
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    if len(q.strip()) < 2:
+        return []
+    limit = min(limit, 50)
+    users = (
+        db.query(User)
+        .filter(User.full_name.ilike(f"%{q.strip()}%"), User.is_active == True)
+        .limit(limit).all()
+    )
+    return [{
+        "id": u.id,
+        "full_name": u.full_name,
+        "profile_photo": u.profile_photo,
+        "city": u.city if u.show_city else None,
+        "profession": u.profession if u.show_profession else None,
+    } for u in users]
+
+
+# ─── Preview público da sala ──────────────────────────────────────────────────
+
+@app.get("/api/rooms/{room_id}/preview")
+def room_preview(room_id: int, db: Session = Depends(get_db)):
+    """Informações públicas de uma sala — sem necessidade de login."""
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Sala não encontrada")
+    approved = db.query(RoomMembership).filter(
+        RoomMembership.room_id == room_id, RoomMembership.status == "approved"
+    ).count()
+    photo_count = db.query(Photo).filter(Photo.room_id == room_id).count()
+    last_msg = (
+        db.query(Message).filter(Message.room_id == room_id)
+        .order_by(Message.created_at.desc()).first()
+    )
+    return {
+        "id": room.id,
+        "year": room.year,
+        "group_name": room.group_name,
+        "description": room.description,
+        "institution_name": room.institution.name if room.institution else "",
+        "member_count": approved,
+        "photo_count": photo_count,
+        "last_activity": (last_msg.created_at if last_msg else room.created_at).isoformat(),
+    }
+
+
 def notify_room_admins(room_id: int, requester: User, db: Session):
     admins = db.query(RoomMembership).filter(
         RoomMembership.room_id == room_id,
@@ -195,11 +248,15 @@ def check_remembered_match(user: User, room_id: int, db: Session):
     ).all():
         if rp.full_name.lower() in name_lower or name_lower in rp.full_name.lower():
             rp.matched_user_id = user.id
+            inst_name = room.institution.name if room and room.institution else ""
+            room_label = f"{room.group_name} — {room.year}" if room else ""
+
+            # Notifica quem lembrou (criador do registro)
             db.add(Notification(
                 user_id=rp.created_by_id,
                 type="remembered_found",
                 title="Alguém que você lembrou entrou!",
-                message=f"{user.full_name}, que você lembrava, acabou de entrar na sala!",
+                message=f"{user.full_name} entrou na sala {room_label}!",
                 related_room_id=room_id,
             ))
             creator = db.query(User).filter(User.id == rp.created_by_id).first()
@@ -208,8 +265,23 @@ def check_remembered_match(user: User, room_id: int, db: Session):
                     to_email=creator.email,
                     name=creator.full_name,
                     found_name=user.full_name,
-                    room_name=f"{room.group_name} - {room.year}",
+                    room_name=room_label,
                 )
+
+            # Notifica a pessoa encontrada: "Você foi lembrado!"
+            db.add(Notification(
+                user_id=user.id,
+                type="you_were_remembered",
+                title="🥹 Alguém lembra de você!",
+                message=f"Um colega da sala {room_label} ({inst_name}) te adicionou nos Lembrados.",
+                related_room_id=room_id,
+            ))
+            mail.send_you_were_remembered(
+                to_email=user.email,
+                name=user.full_name,
+                room_name=room_label,
+                inst_name=inst_name,
+            )
     db.commit()
 
 
@@ -763,6 +835,7 @@ def get_messages(
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import func as sa_func
     get_membership(room_id, current_user, db)
     msgs = (
         db.query(Message)
@@ -770,13 +843,79 @@ def get_messages(
         .order_by(Message.created_at.asc())
         .offset(offset).limit(limit).all()
     )
+    msg_ids = [m.id for m in msgs]
+
+    # Busca contagens de reações em uma query só (sem N+1)
+    from collections import defaultdict
+    reactions_by_msg: dict = defaultdict(dict)
+    if msg_ids:
+        rows = (
+            db.query(MessageReaction.message_id, MessageReaction.reaction,
+                     sa_func.count(MessageReaction.id).label("cnt"))
+            .filter(MessageReaction.message_id.in_(msg_ids))
+            .group_by(MessageReaction.message_id, MessageReaction.reaction)
+            .all()
+        )
+        for msg_id, reaction, cnt in rows:
+            reactions_by_msg[msg_id][reaction] = cnt
+
+    # Reação do usuário atual
+    my_reactions: dict = {}
+    if msg_ids:
+        mine = db.query(MessageReaction).filter(
+            MessageReaction.message_id.in_(msg_ids),
+            MessageReaction.user_id == current_user.id,
+        ).all()
+        my_reactions = {r.message_id: r.reaction for r in mine}
+
     return [{
         "id": m.id, "user_id": m.user_id,
         "user_name": m.user.full_name,
         "user_photo": m.user.profile_photo,
         "content": m.content,
         "created_at": m.created_at.isoformat(),
+        "reactions": reactions_by_msg.get(m.id, {}),
+        "my_reaction": my_reactions.get(m.id),
     } for m in msgs]
+
+
+VALID_REACTIONS = {"saudade", "classico", "eu_tava_la", "inesquecivel"}
+
+@app.post("/api/rooms/{room_id}/messages/{msg_id}/react")
+async def react_message(
+    room_id: int, msg_id: int,
+    reaction: str = Form(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import func as sa_func
+    get_membership(room_id, current_user, db)
+    if reaction not in VALID_REACTIONS:
+        raise HTTPException(status_code=400, detail="Reação inválida")
+
+    existing = db.query(MessageReaction).filter(
+        MessageReaction.message_id == msg_id,
+        MessageReaction.user_id == current_user.id,
+    ).first()
+
+    if existing:
+        if existing.reaction == reaction:
+            db.delete(existing)   # toggle off
+        else:
+            existing.reaction = reaction  # troca reação
+    else:
+        db.add(MessageReaction(message_id=msg_id, user_id=current_user.id, reaction=reaction))
+    db.commit()
+
+    # Calcula novo total para broadcast
+    counts = (
+        db.query(MessageReaction.reaction, sa_func.count(MessageReaction.id).label("cnt"))
+        .filter(MessageReaction.message_id == msg_id)
+        .group_by(MessageReaction.reaction).all()
+    )
+    totals = {r: c for r, c in counts}
+    await manager.broadcast({"type": "reaction_update", "message_id": msg_id, "reactions": totals}, room_id)
+    return {"reactions": totals}
 
 
 @app.websocket("/ws/{room_id}")

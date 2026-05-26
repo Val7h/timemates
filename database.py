@@ -198,6 +198,17 @@ class InviteLink(Base):
     room = relationship("Room", back_populates="invite_links")
 
 
+class MessageReaction(Base):
+    """Reações emocionais em mensagens do chat."""
+    __tablename__ = "message_reactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("messages.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reaction = Column(String(20), nullable=False)  # saudade | classico | eu_tava_la | inesquecivel
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class CurrentStudent(Base):
     """Aluno/funcionário atualmente na instituição (mural atual)."""
     __tablename__ = "current_students"
