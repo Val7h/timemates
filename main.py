@@ -1404,6 +1404,7 @@ def read_all_notifications(
 
 @app.put("/api/users/profile")
 async def update_profile(
+    full_name: str = Form(None),
     city: str = Form(None),
     profession: str = Form(None),
     bio: str = Form(None),
@@ -1414,9 +1415,15 @@ async def update_profile(
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
-    current_user.city = city
-    current_user.profession = profession
-    current_user.bio = bio
+    if full_name and full_name.strip():
+        if len(full_name.strip()) < 3:
+            raise HTTPException(status_code=400, detail="Nome muito curto")
+        if len(full_name.strip()) > 200:
+            raise HTTPException(status_code=400, detail="Nome muito longo")
+        current_user.full_name = full_name.strip()
+    current_user.city = city or None
+    current_user.profession = profession or None
+    current_user.bio = bio or None
     current_user.show_city = show_city.lower() == "true"
     current_user.show_profession = show_profession.lower() == "true"
     current_user.show_bio = show_bio.lower() == "true"
@@ -1445,6 +1452,22 @@ async def update_profile(
     db.commit()
     db.refresh(current_user)
     return user_to_dict(current_user)
+
+
+@app.delete("/api/users/me")
+def delete_account(
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Desativa a conta (soft delete) — mantém histórico de mensagens e fotos."""
+    current_user.is_active = False
+    current_user.full_name = "Usuário removido"
+    current_user.bio = None
+    current_user.city = None
+    current_user.profession = None
+    current_user.profile_photo = None
+    db.commit()
+    return {"message": "Conta encerrada. Sentiremos sua falta! 💙"}
 
 
 @app.get("/api/users/{user_id}/rooms")

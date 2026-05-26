@@ -418,6 +418,26 @@ nav {
 .profile-header { background: var(--surface); border-radius: var(--radius); padding: 28px; border: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
 .profile-avatar { width: 90px; height: 90px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 2rem; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; overflow: hidden; }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-preview-wrap { position: relative; display: inline-block; cursor: pointer; }
+.avatar-preview-wrap:hover::after { content: '📷'; position: absolute; inset: 0; background: rgba(0,0,0,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+.danger-zone { background: #fff5f5; border: 1.5px solid #fecaca; border-radius: var(--radius); padding: 20px 24px; margin-top: 16px; }
+.danger-zone h3 { color: var(--error); font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; }
+
+/* ── NAV AVATAR ── */
+.nav-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--primary); font-size: 0.8rem; font-weight: 800; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; border: 2px solid rgba(255,255,255,0.3); transition: border-color 0.2s; }
+.nav-avatar:hover { border-color: rgba(255,255,255,0.8); }
+.nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── TOUR ── */
+.tour-overlay { position: fixed; inset: 0; z-index: 9000; pointer-events: none; }
+.tour-highlight { position: absolute; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); pointer-events: none; transition: all 0.3s; }
+.tour-tooltip { position: absolute; background: #fff; border-radius: 12px; padding: 18px 20px; max-width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); pointer-events: all; z-index: 9001; }
+.tour-tooltip h4 { font-size: 1rem; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+.tour-tooltip p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+.tour-progress { font-size: 0.75rem; color: var(--muted); margin-bottom: 10px; }
+.tour-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.tour-skip { background: none; border: none; color: var(--muted); font-size: 0.8rem; cursor: pointer; padding: 0; }
+.tour-next { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 
 /* ── MODALS ── */
 .modal-overlay {
@@ -554,7 +574,7 @@ nav {
     <button class="nav-btn" id="btn-login" onclick="openModal('modal-login')">Entrar</button>
     <button class="nav-btn primary" id="btn-register" onclick="openModal('modal-register')">Cadastrar</button>
     <button class="nav-bell hidden" id="bell-btn" onclick="toggleNotifPanel()">🔔<span class="badge hidden" id="notif-badge">0</span></button>
-    <button class="nav-btn hidden" id="btn-profile" onclick="showPage('profile')">👤 Meu Perfil</button>
+    <div class="nav-avatar hidden" id="btn-profile" onclick="showPage('profile')" title="Meu Perfil">?</div>
     <button class="nav-btn hidden" id="btn-admin" onclick="showPage('admin')">⚙️ Admin</button>
     <button class="nav-btn hidden" id="btn-logout" onclick="logout()">Sair</button>
   </div>
@@ -878,51 +898,77 @@ nav {
 <!-- PROFILE PAGE -->
 <div id="page-profile" class="page hidden">
   <div class="profile-wrap">
+    <!-- Header com avatar clicável -->
     <div class="profile-header">
-      <div class="profile-avatar" id="profile-avatar-display">?</div>
-      <h2 id="profile-name">—</h2>
+      <label class="avatar-preview-wrap" for="profile-avatar-input" title="Clique para trocar a foto">
+        <div class="profile-avatar" id="profile-avatar-display">?</div>
+      </label>
+      <h2 id="profile-name" style="margin-top:4px;">—</h2>
       <p style="color:var(--muted);font-size:0.85rem;" id="profile-email">—</p>
+      <a id="profile-public-link" href="#" target="_blank"
+         style="display:inline-block;margin-top:8px;font-size:0.8rem;color:var(--accent);text-decoration:none;">
+        🔗 Ver meu perfil público
+      </a>
     </div>
+
+    <!-- Formulário de edição -->
     <div style="background:var(--surface);border-radius:var(--radius);padding:24px;border:1px solid var(--border);">
-      <h3 style="font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:16px;">Editar Perfil</h3>
+      <h3 style="font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:16px;">✏️ Editar Perfil</h3>
       <form onsubmit="saveProfile(event)" enctype="multipart/form-data">
+        <!-- Avatar (input escondido, ativado pelo label acima) -->
+        <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="previewProfilePhoto(this)"/>
+        <div id="profile-avatar-preview-wrap" class="hidden" style="margin-bottom:14px;text-align:center;">
+          <img id="profile-avatar-preview" src="" alt="preview" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);"/>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Nova foto (salve para confirmar)</div>
+        </div>
         <div class="form-group">
-          <label>Foto de perfil</label>
-          <input type="file" id="profile-avatar-input" accept="image/*"/>
+          <label>Nome completo</label>
+          <input type="text" id="profile-full-name" placeholder="Seu nome completo" maxlength="200"/>
         </div>
         <div class="form-group">
           <label>Cidade atual</label>
-          <input type="text" id="profile-city" placeholder="Ex: Recife, PE"/>
+          <input type="text" id="profile-city" placeholder="Ex: Recife, PE" maxlength="100"/>
         </div>
         <div class="form-group">
           <label>Profissão</label>
-          <input type="text" id="profile-profession" placeholder="Ex: Médico, Professor..."/>
+          <input type="text" id="profile-profession" placeholder="Ex: Médico, Professor..." maxlength="100"/>
         </div>
         <div class="form-group">
-          <label>Mini bio</label>
-          <textarea id="profile-bio" placeholder="Conte um pouco sobre você..."></textarea>
+          <label>Mini bio <span style="color:var(--muted);font-size:0.75rem;" id="bio-char">0 / 500</span></label>
+          <textarea id="profile-bio" placeholder="Conte um pouco sobre você..." maxlength="500" rows="3"
+            oninput="document.getElementById('bio-char').textContent=this.value.length+' / 500'"></textarea>
         </div>
         <div class="divider"></div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;">🔒 Privacidade — o que outros membros podem ver</p>
         <div class="toggle-row">
-          <label>Mostrar cidade para outros membros</label>
+          <label>Mostrar cidade</label>
           <input type="checkbox" class="toggle" id="toggle-city" checked/>
         </div>
         <div class="toggle-row">
-          <label>Mostrar profissão para outros membros</label>
+          <label>Mostrar profissão</label>
           <input type="checkbox" class="toggle" id="toggle-profession" checked/>
         </div>
         <div class="toggle-row">
-          <label>Mostrar bio para outros membros</label>
+          <label>Mostrar bio</label>
           <input type="checkbox" class="toggle" id="toggle-bio" checked/>
         </div>
         <div class="mt-16">
-          <button type="submit" class="btn btn-primary btn-full">Salvar alterações</button>
+          <button type="submit" class="btn btn-primary btn-full">💾 Salvar alterações</button>
         </div>
       </form>
     </div>
+
+    <!-- Minhas salas -->
     <div style="background:var(--surface);border-radius:var(--radius);padding:24px;border:1px solid var(--border);margin-top:16px;">
-      <h3 style="font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:14px;">Minhas Salas</h3>
+      <h3 style="font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:14px;">🏠 Minhas Salas</h3>
       <div id="my-rooms-list"></div>
+    </div>
+
+    <!-- Zona de perigo -->
+    <div class="danger-zone">
+      <h3>⚠️ Zona de Perigo</h3>
+      <p style="font-size:0.85rem;color:#6b7280;margin-bottom:14px;">Encerrar sua conta remove seus dados pessoais. Suas mensagens e fotos permanecem no histórico das salas.</p>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteAccount()">Encerrar minha conta</button>
     </div>
   </div>
 </div>
@@ -1440,6 +1486,7 @@ function setUser(user) {
   document.getElementById('btn-profile').classList.remove('hidden');
   document.getElementById('btn-logout').classList.remove('hidden');
   if (user.is_system_admin) document.getElementById('btn-admin').classList.remove('hidden');
+  updateNavAvatar(user);
   loadNotifications();
 }
 
@@ -1471,6 +1518,8 @@ async function doLogin(e) {
     closeModal('modal-login');
     toast(`Bem-vindo, ${res.user.full_name.split(' ')[0]}!`);
     e.target.reset();
+    // Inicia tour se ainda não viu
+    setTimeout(() => startTour(), 600);
   } catch(err) { toast(err.message, 'error'); }
 }
 
@@ -2437,6 +2486,14 @@ document.addEventListener('click', e => {
 });
 
 // ── PROFILE ───────────────────────────────────────────────────────────────────
+function updateNavAvatar(user) {
+  const el = document.getElementById('btn-profile');
+  if (!el) return;
+  if (!user) { el.innerHTML = '?'; return; }
+  const initials = user.full_name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  el.innerHTML = user.profile_photo ? `<img src="${user.profile_photo}" alt=""/>` : initials;
+}
+
 async function loadProfile() {
   if (!state.user) return;
   const u = state.user;
@@ -2445,12 +2502,20 @@ async function loadProfile() {
   avatarEl.innerHTML = u.profile_photo ? `<img src="${u.profile_photo}" alt=""/>` : initials;
   document.getElementById('profile-name').textContent = u.full_name;
   document.getElementById('profile-email').textContent = u.email;
+  document.getElementById('profile-full-name').value = u.full_name;
   document.getElementById('profile-city').value = u.city || '';
   document.getElementById('profile-profession').value = u.profession || '';
   document.getElementById('profile-bio').value = u.bio || '';
-  document.getElementById('toggle-city').checked = u.show_city;
-  document.getElementById('toggle-profession').checked = u.show_profession;
-  document.getElementById('toggle-bio').checked = u.show_bio;
+  document.getElementById('bio-char').textContent = `${(u.bio||'').length} / 500`;
+  document.getElementById('toggle-city').checked = u.show_city !== false;
+  document.getElementById('toggle-profession').checked = u.show_profession !== false;
+  document.getElementById('toggle-bio').checked = u.show_bio !== false;
+  // Link público
+  const pubLink = document.getElementById('profile-public-link');
+  if (pubLink) pubLink.href = `/u/${u.id}`;
+  // Reset foto preview
+  document.getElementById('profile-avatar-preview-wrap')?.classList.add('hidden');
+  updateNavAvatar(u);
   try {
     const rooms = await api('GET', `/api/users/${u.id}/rooms`);
     const list = document.getElementById('my-rooms-list');
@@ -2459,12 +2524,28 @@ async function loadProfile() {
       return;
     }
     list.innerHTML = rooms.map(r => `
-      <div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="goToRoom(${r.room_id})">
-        <div style="font-weight:700;font-size:0.9rem;">${r.group_name} — ${r.year}</div>
-        <div style="font-size:0.8rem;color:var(--muted);">${r.institution_name} · ${r.role === 'admin' ? 'ADM' : r.role === 'co_admin' ? 'Co-ADM' : 'Membro'}</div>
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="goToRoom(${r.room_id})">
+        <div>
+          <div style="font-weight:700;font-size:0.9rem;">${escHtml(r.group_name)} — ${r.year}</div>
+          <div style="font-size:0.8rem;color:var(--muted);">${escHtml(r.institution_name)} · ${r.role === 'admin' ? 'ADM' : r.role === 'co_admin' ? 'Co-ADM' : 'Membro'}</div>
+        </div>
+        <span style="color:var(--muted);font-size:0.9rem;">›</span>
       </div>
     `).join('');
   } catch(err) {}
+}
+
+function previewProfilePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('profile-avatar-preview').src = e.target.result;
+    document.getElementById('profile-avatar-preview-wrap').classList.remove('hidden');
+    // Atualiza avatar principal também
+    document.getElementById('profile-avatar-display').innerHTML = `<img src="${e.target.result}" alt=""/>`;
+  };
+  reader.readAsDataURL(file);
 }
 
 async function goToRoom(roomId) {
@@ -2478,9 +2559,11 @@ async function saveProfile(e) {
   e.preventDefault();
   try {
     const fd = new FormData();
-    const city = document.getElementById('profile-city').value;
-    const profession = document.getElementById('profile-profession').value;
-    const bio = document.getElementById('profile-bio').value;
+    const fullName = document.getElementById('profile-full-name').value.trim();
+    const city = document.getElementById('profile-city').value.trim();
+    const profession = document.getElementById('profile-profession').value.trim();
+    const bio = document.getElementById('profile-bio').value.trim();
+    if (fullName) fd.append('full_name', fullName);
     if (city) fd.append('city', city);
     if (profession) fd.append('profession', profession);
     if (bio) fd.append('bio', bio);
@@ -2491,9 +2574,129 @@ async function saveProfile(e) {
     if (avatarFile) fd.append('avatar', avatarFile);
     const updated = await api('PUT', '/api/users/profile', fd, true);
     state.user = updated;
-    toast('Perfil atualizado!');
+    toast('Perfil atualizado! ✓');
     loadProfile();
   } catch(err) { toast(err.message, 'error'); }
+}
+
+function confirmDeleteAccount() {
+  if (!confirm('Tem certeza que deseja encerrar sua conta?\n\nSeus dados pessoais serão removidos. Esta ação não pode ser desfeita.')) return;
+  if (!confirm('Última confirmação: ENCERRAR minha conta no TimeMates?')) return;
+  deleteAccount();
+}
+
+async function deleteAccount() {
+  try {
+    await api('DELETE', '/api/users/me');
+    toast('Conta encerrada. Obrigado por fazer parte do TimeMates! 💙','info');
+    setTimeout(() => logout(), 2000);
+  } catch(err) { toast(err.message,'error'); }
+}
+
+// ── TOUR INTERATIVO ───────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  {
+    targetId: null, // tela cheia — boas-vindas
+    title: '👋 Bem-vindo ao TimeMates!',
+    text: 'Em 30 segundos você vai entender tudo. Deixa eu te mostrar como encontrar sua turma.',
+  },
+  {
+    targetId: 'nav-search-area',
+    title: '🔍 Busque sua instituição',
+    text: 'Digite o nome da sua escola, faculdade ou empresa aqui. Ela provavelmente já está cadastrada!',
+    fallbackSelector: '.hero-search',
+  },
+  {
+    targetId: null,
+    targetSelector: '.explore-tabs',
+    title: '🏫 Explore por tipo',
+    text: 'Filtre por Escolas, Faculdades, Empresas ou Cidades. Tem muita coisa te esperando!',
+  },
+  {
+    targetId: null,
+    targetSelector: '.room-tab',
+    title: '💬 Dentro de cada sala',
+    text: 'Chat em tempo real com a turma, fotos, membros e até uma lista de pessoas que vocês ainda lembram.',
+    waitForPage: 'room',
+  },
+  {
+    targetId: 'btn-profile',
+    title: '👤 Seu perfil',
+    text: 'Complete seu perfil com foto, cidade e profissão. Quanto mais informações, mais fácil seus colegas te reconhecem!',
+  },
+];
+
+let _tourStep = 0;
+let _tourEl = null;
+
+function startTour() {
+  if (localStorage.getItem('tm_tour_done')) return;
+  _tourStep = 0;
+  renderTourStep();
+}
+
+function renderTourStep() {
+  removeTourEl();
+  if (_tourStep >= TOUR_STEPS.length) {
+    localStorage.setItem('tm_tour_done', '1');
+    return;
+  }
+  const step = TOUR_STEPS[_tourStep];
+  const overlay = document.createElement('div');
+  overlay.className = 'tour-overlay';
+  overlay.id = 'tour-overlay';
+
+  // Tooltip
+  const tip = document.createElement('div');
+  tip.className = 'tour-tooltip';
+  tip.innerHTML = `
+    <div class="tour-progress">Passo ${_tourStep + 1} de ${TOUR_STEPS.length}</div>
+    <h4>${step.title}</h4>
+    <p>${step.text}</p>
+    <div class="tour-btns">
+      <button class="tour-skip" onclick="skipTour()">Pular tour</button>
+      <button class="tour-next" onclick="nextTourStep()">${_tourStep === TOUR_STEPS.length - 1 ? '✓ Fechar' : 'Próximo →'}</button>
+    </div>
+  `;
+
+  // Posicionar tooltip
+  let target = null;
+  if (step.targetId) target = document.getElementById(step.targetId);
+  if (!target && step.targetSelector) target = document.querySelector(step.targetSelector);
+
+  if (target) {
+    const rect = target.getBoundingClientRect();
+    const hl = document.createElement('div');
+    hl.className = 'tour-highlight';
+    hl.style.cssText = `top:${rect.top - 4 + window.scrollY}px;left:${rect.left - 4}px;width:${rect.width + 8}px;height:${rect.height + 8}px;`;
+    overlay.appendChild(hl);
+    // Posicionar tooltip abaixo do elemento
+    const tipTop = rect.bottom + 12 + window.scrollY;
+    const tipLeft = Math.max(12, Math.min(rect.left, window.innerWidth - 300));
+    tip.style.cssText = `top:${tipTop}px;left:${tipLeft}px;`;
+  } else {
+    // Centro da tela
+    tip.style.cssText = 'top:50%;left:50%;transform:translate(-50%,-50%);';
+  }
+
+  overlay.appendChild(tip);
+  document.body.appendChild(overlay);
+  _tourEl = overlay;
+}
+
+function nextTourStep() {
+  _tourStep++;
+  renderTourStep();
+}
+
+function skipTour() {
+  localStorage.setItem('tm_tour_done', '1');
+  removeTourEl();
+}
+
+function removeTourEl() {
+  const el = document.getElementById('tour-overlay');
+  if (el) el.remove();
 }
 
 // ── SUGGEST INSTITUTION ───────────────────────────────────────────────────────
