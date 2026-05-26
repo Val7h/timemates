@@ -107,56 +107,19 @@ manager = ConnectionManager()
 
 # ─── Debug / Health ──────────────────────────────────────────────────────────
 
-@app.get("/api/dbstatus")
-def db_status():
-    """Diagnóstico da conexão com o banco de dados."""
-    import re, sys
-    from database import SQLALCHEMY_DATABASE_URL
+@app.get("/api/health")
+def health_check():
+    """Verifica saúde da aplicação e conexão com o banco."""
     from sqlalchemy import text as sa_text
-
-    url_safe = re.sub(r':[^:@]+@', ':***@', SQLALCHEMY_DATABASE_URL)
-    engine_url = str(engine.url)
-    engine_url_safe = re.sub(r':[^:@]+@', ':***@', engine_url)
-    engine_dialect = engine.dialect.name  # 'sqlite' ou 'postgresql'
-
-    # psycopg2 import test
-    try:
-        import psycopg2
-        pg2_version = psycopg2.__version__
-    except Exception as e:
-        pg2_version = f"ERRO: {e}"
-
-    # engine connection test
+    dialect = engine.dialect.name
     try:
         with engine.connect() as conn:
-            q = "SELECT sqlite_version()" if engine_dialect == "sqlite" else "SELECT version()"
-            version = conn.execute(sa_text(q)).scalar()
-        connected = True
+            q = "SELECT 1"
+            conn.execute(sa_text(q))
+        db_ok = True
     except Exception as e:
-        connected = False
-        version = str(e)[:300]
-
-    # direct psycopg2 test to Neon
-    pg_direct_error = None
-    if "postgresql" in SQLALCHEMY_DATABASE_URL:
-        try:
-            import psycopg2 as pg
-            conn2 = pg.connect(SQLALCHEMY_DATABASE_URL)
-            conn2.close()
-            pg_direct_error = "OK"
-        except Exception as e:
-            pg_direct_error = str(e)[:300]
-
-    return {
-        "configured_url": url_safe,
-        "engine_url": engine_url_safe,
-        "engine_dialect": engine_dialect,
-        "psycopg2_version": pg2_version,
-        "engine_connected": connected,
-        "engine_version_or_error": version,
-        "psycopg2_direct_neon": pg_direct_error,
-        "python_version": sys.version,
-    }
+        db_ok = False
+    return {"status": "ok", "db": dialect, "db_connected": db_ok}
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
