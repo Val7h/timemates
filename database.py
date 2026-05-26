@@ -21,7 +21,23 @@ def _make_engine():
         return create_engine(url, connect_args={"check_same_thread": False})
     try:
         from sqlalchemy.pool import NullPool
-        return create_engine(url, poolclass=NullPool)
+        import ssl as _ssl
+        # Converte para dialeto pg8000 (Python puro, sem dependências C)
+        pg8000_url = url.replace("postgresql://", "postgresql+pg8000://", 1)
+        pg8000_url = pg8000_url.replace("postgres://", "postgresql+pg8000://", 1)
+        # Remove parâmetros SSL da URL (pg8000 usa connect_args)
+        if "?" in pg8000_url:
+            pg8000_url = pg8000_url.split("?")[0]
+        # Configura SSL para Neon
+        ssl_ctx = _ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = _ssl.CERT_NONE
+        print(f"[DB] Conectando com pg8000 em {pg8000_url[:40]}...")
+        return create_engine(
+            pg8000_url,
+            poolclass=NullPool,
+            connect_args={"ssl_context": ssl_ctx},
+        )
     except Exception as e:
         print(f"[DB] PostgreSQL engine falhou ({e}), usando SQLite fallback")
         return create_engine("sqlite:///./fallback.db",
