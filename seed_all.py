@@ -598,8 +598,8 @@ def seed_db(db):
         [(n, "company",    s, c) for n, s, c in EMPRESAS] +
         [(n, "university", s, c) for n, s, c in UNIVERSIDADES]
     )
-    db.bulk_insert_mappings(Institution, [
-        {"name": n, "type": t, "state": s, "city": c, "approved": True}
+    db.add_all([
+        Institution(name=n, type=t, state=s, city=c, approved=True)
         for n, t, s, c in items
     ])
     db.commit()

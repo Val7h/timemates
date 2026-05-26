@@ -15,11 +15,18 @@ if _db_url.startswith("postgres://"):
 
 SQLALCHEMY_DATABASE_URL = _db_url
 
-_kwargs = {}
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    _kwargs["connect_args"] = {"check_same_thread": False}
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL, **_kwargs)
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    # PostgreSQL: NullPool evita problemas com poolers (Neon/PgBouncer)
+    from sqlalchemy.pool import NullPool
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        poolclass=NullPool,
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

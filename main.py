@@ -42,13 +42,15 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app):
-    # Seed automático se o banco estiver vazio
-    from seed_all import seed_db
-    db = SessionLocal()
     try:
-        seed_db(db)
-    finally:
-        db.close()
+        from seed_all import seed_db
+        db = SessionLocal()
+        try:
+            seed_db(db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[SEED] Erro no startup (nao critico): {e}")
     yield
 
 app = FastAPI(title="TimeMates API", version="1.0.0", lifespan=lifespan)
