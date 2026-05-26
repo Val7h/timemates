@@ -1528,7 +1528,7 @@ def _page_html(title: str, desc: str, canonical: str, body: str, year: int = Non
 <meta property="og:image" content="{BASE_URL}/static/og-card.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
-<meta name="google-site-verification" content="_CAIfv-vYcBhk0WeyPAj9RQkRuwETlAKHoz4cqoArjw"/>
+<meta name="google-site-verification" content="MBtOa2SdYo58vO8Z1XgOOrJ_Apm3VN7aqi16-_XJXck"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="{_esc(title)}"/>
 <meta name="twitter:description" content="{_esc(desc)}"/>
