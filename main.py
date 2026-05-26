@@ -1596,6 +1596,7 @@ def institution_public_page(
                f"Você fez parte de {inst.name}? Encontre seus colegas no TimeMates!")
 
     place_word = {"school":"escola","university":"faculdade","company":"empresa","city":"cidade"}.get(inst.type,"lugar")
+    verb_past  = {"school":"estudou em","university":"estudou em","company":"trabalhou na","city":"viveu em"}.get(inst.type,"passou por")
     rooms_html = "".join(
         f'<a href="{BASE_URL}/r/{r.id}" class="rc">'
         f'<span class="rc-year">{r.year}</span>'
@@ -1605,8 +1606,8 @@ def institution_public_page(
         for r, mc in rows
     ) or '<div class="empty-r">Nenhuma turma ainda. Seja o primeiro a criar uma!</div>'
 
-    share_text = (f"📚 Ei, você estudou/trabalhou em {inst.name}?\n\n"
-                  f"Tem uma sala no TimeMates onde ex-{place_word}s estão se reencontrando! "
+    share_text = (f"📚 Ei, você {verb_past} {inst.name}?\n\n"
+                  f"Tem uma sala no TimeMates onde ex-colegas estão se reencontrando! "
                   f"É grátis e você pode encontrar quem não vê faz tempo 🥹\n\n"
                   f"👉 {canonical}")
     wa_url = f"https://wa.me/?text={_re.sub(chr(10), '%0A', share_text).replace(' ','%20')}"
