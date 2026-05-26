@@ -1324,6 +1324,12 @@ async function doRegister(e) {
 // ── EXPLORE ──────────────────────────────────────────────────────────────────
 function setExploreType(type, btn) {
   state.exploreType = type;
+  // Garante que voltamos ao modo instituições
+  _exploreMode = 'inst';
+  document.getElementById('inst-list')?.classList.remove('hidden');
+  document.getElementById('people-list')?.classList.add('hidden');
+  document.getElementById('suggest-box')?.classList.remove('hidden');
+  document.getElementById('explore-state').style.display = '';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadInstitutions();
@@ -1747,7 +1753,12 @@ function setExploreMode(mode, btn) {
   const inp = document.getElementById('explore-search');
   inp.placeholder = mode === 'inst' ? 'Buscar por nome...' : 'Buscar pessoa por nome...';
   inp.value = '';
-  if (mode === 'people') inp.focus();
+  if (mode === 'people') {
+    inp.focus();
+    searchPeople(); // mostra empty state imediatamente
+  } else {
+    loadInstitutions(); // recarrega instituições ao voltar
+  }
 }
 
 function onExploreSearch() {
