@@ -320,9 +320,23 @@ def list_institutions(
     type: Optional[str] = None,
     state: Optional[str] = None,
     search: Optional[str] = None,
+    limit: int = 200,
     db: Session = Depends(get_db),
 ):
-    q = db.query(Institution).filter(Institution.approved == True)
+    from sqlalchemy import func, distinct as sa_distinct
+    from database import Room as RoomModel
+
+    limit = min(limit, 500)  # teto de segurança
+
+    # Query única com contagem de turmas por JOIN — sem N+1
+    q = (
+        db.query(
+            Institution,
+            func.count(sa_distinct(RoomModel.id)).label("room_count"),
+        )
+        .outerjoin(RoomModel, RoomModel.institution_id == Institution.id)
+        .filter(Institution.approved == True)
+    )
     if type:
         q = q.filter(Institution.type == type)
     if state:
@@ -330,16 +344,10 @@ def list_institutions(
     if search:
         q = q.filter(Institution.name.ilike(f"%{search}%"))
 
-    result = []
-    for inst in q.order_by(Institution.name).all():
-        room_ids = [r.id for r in inst.rooms]
-        member_count = (
-            db.query(RoomMembership)
-            .filter(RoomMembership.room_id.in_(room_ids), RoomMembership.status == "approved")
-            .count()
-            if room_ids else 0
-        )
-        result.append({
+    rows = q.group_by(Institution.id).order_by(Institution.name).limit(limit).all()
+
+    return [
+        {
             "id": inst.id,
             "name": inst.name,
             "type": inst.type,
@@ -347,10 +355,11 @@ def list_institutions(
             "city": inst.city,
             "neighborhood": inst.neighborhood,
             "sector": inst.sector,
-            "room_count": len(inst.rooms),
-            "member_count": member_count,
-        })
-    return result
+            "room_count": room_count,
+            "member_count": 0,  # calculado sob demanda em /institutions/{id}
+        }
+        for inst, room_count in rows
+    ]
 
 
 @app.get("/api/institutions/{institution_id}")
