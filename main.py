@@ -36,7 +36,10 @@ from auth import (
     hash_password, verify_password, create_access_token, validate_cpf
 )
 
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as _e:
+    print(f"[DB] create_all erro: {_e}")
 
 from contextlib import asynccontextmanager
 
