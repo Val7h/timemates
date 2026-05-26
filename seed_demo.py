@@ -7,7 +7,7 @@ import hashlib, uuid
 from datetime import datetime, timedelta
 import random
 
-DEMO_TAG = "DEMO_SEED_V1"   # marca no e-mail para identificar registros demo
+DEMO_TAG = "DEMO_SEED_V2"   # marca no e-mail para identificar registros demo
 
 # ── Instituições fictícias ────────────────────────────────────────────────────
 SCHOOLS = [
@@ -17,6 +17,47 @@ SCHOOLS = [
     {"name": "Colégio Estadual Dom Pedro II",      "state": "PR", "city": "Curitiba"},
     {"name": "Instituto Estadual de Educação",     "state": "RS", "city": "Porto Alegre"},
     {"name": "Escola Municipal Santos Dumont",     "state": "BA", "city": "Salvador"},
+]
+
+# ── Empresas fictícias ───────────────────────────────────────────────────────
+COMPANIES = [
+    {"name": "Construtora Horizonte",         "state": "SP", "city": "São Paulo",        "sector": "Construção Civil"},
+    {"name": "TechSul Sistemas",              "state": "RS", "city": "Porto Alegre",     "sector": "Tecnologia"},
+    {"name": "Banco Meridional",              "state": "RJ", "city": "Rio de Janeiro",   "sector": "Financeiro"},
+    {"name": "Supermercados Bom Preço",       "state": "MG", "city": "Belo Horizonte",   "sector": "Varejo"},
+    {"name": "Clínica São Lucas",             "state": "PR", "city": "Curitiba",         "sector": "Saúde"},
+    {"name": "Agência Criativa NordBrand",    "state": "BA", "city": "Salvador",         "sector": "Marketing"},
+    {"name": "Transportadora Rota Sul",       "state": "SC", "city": "Florianópolis",    "sector": "Logística"},
+    {"name": "Escola de Idiomas GlobalTalk",  "state": "GO", "city": "Goiânia",          "sector": "Educação"},
+]
+
+# ── Turmas de empresa (por período de trabalho) ───────────────────────────────
+COMPANY_ROOM_TEMPLATES = [
+    (2008, "Turno da Manhã — Setor Administrativo"),
+    (2010, "Equipe de Vendas"),
+    (2013, "TI & Suporte"),
+    (2015, "Recursos Humanos"),
+    (2018, "Operações"),
+    (2020, "Equipe Remota"),
+]
+
+# ── Mensagens de empresa ──────────────────────────────────────────────────────
+COMPANY_MESSAGES = [
+    "Saudade da galera do escritório! 🥹",
+    "Quem lembra do cafezinho das 10h? ☕",
+    "Aquele happy hour de sexta-feira era imperdível!",
+    "Oi pessoal! Que surpresa boa te encontrar aqui!",
+    "Os melhores anos da minha carreira foram lá.",
+    "Ainda guardo aquela caneca da empresa hahaha",
+    "O RH era tão animado naquela época!",
+    "Alguém sabe onde está o pessoal do setor 3?",
+    "Que time incrível a gente formou! Saudades 💙",
+    "Ainda me lembro do treinamento de integração...",
+    "A festa de fim de ano de 2015 foi épica!",
+    "Alguém ainda fala com a gerente Maria José?",
+    "Quantas histórias naquele lugar...",
+    "Trabalhei lá por 5 anos, os melhores da vida.",
+    "Vamos marcar um almoço de ex-funcionários!",
 ]
 
 # ── Alunos fictícios ──────────────────────────────────────────────────────────
@@ -41,6 +82,19 @@ STUDENTS = [
     ("Vinícius Rocha",        "vinirochat", "BA", "Economista"),
     ("Beatriz Mendes",        "beamendes",  "SP", "Farmacêutica"),
     ("Diego Castro",          "diegoc",     "MG", "Professor"),
+    # Funcionários de empresa
+    ("Carlos Eduardo Pinto",  "carlosedu",  "SP", "Analista Financeiro"),
+    ("Priscila Mota",         "priscilam",  "RS", "Gerente de Projetos"),
+    ("Henrique Tavares",      "henriquet",  "RJ", "Desenvolvedor Sênior"),
+    ("Sabrina Leal",          "sabrinal",   "MG", "Coordenadora de RH"),
+    ("Fábio Nunes",           "fabionunes", "PR", "Supervisor de Vendas"),
+    ("Denise Queiroz",        "denisequei", "BA", "Analista de Marketing"),
+    ("Maurício Freitas",      "mauriciof",  "SC", "Gerente Operacional"),
+    ("Renata Borges",         "renatab",    "GO", "Assistente Administrativo"),
+    ("Leandro Campos",        "leandrocam", "SP", "Técnico de TI"),
+    ("Tatiana Assis",         "tatianaa",   "RS", "Consultora de Negócios"),
+    ("Marcelo Fontes",        "marcelof",   "RJ", "Diretor Comercial"),
+    ("Viviane Correia",       "vivianec",   "MG", "Especialista em Logística"),
 ]
 
 # ── Turmas por escola ─────────────────────────────────────────────────────────
@@ -80,10 +134,15 @@ def _hash_pw(password: str) -> str:
 def seed_demo(db):
     from database import User, Institution, Room, RoomMembership, Message
 
-    # Verifica se demo já foi criado
-    already = db.query(User).filter(User.email.like(f"%@demo.timemates%")).count()
-    if already > 0:
-        print("[DEMO] Seed demo já existe, pulando.")
+    # Verifica se demo de empresas já foi criado
+    already_companies = db.query(Institution).filter(
+        Institution.name == "Construtora Horizonte", Institution.type == "company"
+    ).first()
+
+    # Verifica se demo de escolas já foi criado
+    already_schools = db.query(User).filter(User.email.like("%@demo.timemates%")).count()
+    if already_schools > 0 and already_companies:
+        print("[DEMO] Seed demo completo já existe, pulando.")
         return
 
     print("[DEMO] Criando dados de demonstração...")
@@ -194,5 +253,90 @@ def seed_demo(db):
                 db.add(msg)
 
     db.commit()
-    print("[DEMO] Salas, membros e mensagens criados com sucesso!")
+    print("[DEMO] Escolas: salas, membros e mensagens OK")
+
+    # ── 4. Empresas ───────────────────────────────────────────────────────────
+    if not already_companies:
+        company_objs = []
+        for c in COMPANIES:
+            existing = db.query(Institution).filter(
+                Institution.name == c["name"], Institution.type == "company"
+            ).first()
+            if not existing:
+                inst = Institution(
+                    name=c["name"], type="company",
+                    state=c["state"], city=c["city"],
+                    sector=c.get("sector"),
+                    approved=True,
+                )
+                db.add(inst)
+                db.flush()
+                company_objs.append(inst)
+            else:
+                company_objs.append(existing)
+        db.commit()
+        print(f"[DEMO] {len(company_objs)} empresas criadas")
+
+        # Adiciona funcionários extras que ainda não existem
+        all_users = db.query(User).filter(User.email.like("%@demo.timemates%")).all()
+        for name, handle, state, prof in STUDENTS[20:]:  # pega os funcionários novos
+            email = f"{handle}@demo.timemates"
+            if not any(u.email == email for u in all_users):
+                cpf_hash = hashlib.sha256(f"demo-{uuid.uuid4()}".encode()).hexdigest()
+                u = User(
+                    full_name=name, email=email,
+                    password_hash=pw_hash, cpf_hash=cpf_hash,
+                    city=state, profession=prof,
+                    show_city=True, show_profession=True, is_active=True,
+                )
+                db.add(u)
+                db.flush()
+                all_users.append(u)
+        db.commit()
+
+        # Cria salas de empresa com funcionários e mensagens
+        for company in company_objs:
+            templates = rng.sample(COMPANY_ROOM_TEMPLATES, k=rng.randint(2, 4))
+            for year, group_name in templates:
+                existing_room = db.query(Room).filter(
+                    Room.institution_id == company.id,
+                    Room.year == year,
+                    Room.group_name == group_name,
+                ).first()
+                if existing_room:
+                    continue
+
+                members_sample = rng.sample(all_users, k=rng.randint(6, 14))
+                admin_user = members_sample[0]
+
+                room = Room(
+                    institution_id=company.id,
+                    year=year, group_name=group_name,
+                    created_by_id=admin_user.id,
+                    created_at=datetime.utcnow() - timedelta(days=rng.randint(1, 180)),
+                )
+                db.add(room)
+                db.flush()
+
+                for j, u in enumerate(members_sample):
+                    db.add(RoomMembership(
+                        room_id=room.id, user_id=u.id,
+                        role="admin" if j == 0 else "member",
+                        status="approved",
+                        approved_at=datetime.utcnow() - timedelta(days=rng.randint(0, 120)),
+                    ))
+
+                msgs = rng.sample(COMPANY_MESSAGES, k=rng.randint(5, 10))
+                base_time = datetime.utcnow() - timedelta(days=rng.randint(0, 60))
+                for k, content in enumerate(msgs):
+                    db.add(Message(
+                        room_id=room.id,
+                        user_id=rng.choice(members_sample).id,
+                        content=content,
+                        created_at=base_time + timedelta(hours=k * rng.randint(1, 8)),
+                    ))
+
+        db.commit()
+        print("[DEMO] Salas de empresa, membros e mensagens OK")
+
     print("[DEMO] Seed demo concluído ✅")
