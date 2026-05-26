@@ -105,6 +105,40 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+# ─── Debug / Health ──────────────────────────────────────────────────────────
+
+@app.get("/api/dbstatus")
+def db_status():
+    """Diagnóstico da conexão com o banco de dados."""
+    from database import SQLALCHEMY_DATABASE_URL
+    url_safe = SQLALCHEMY_DATABASE_URL
+    # oculta senha
+    try:
+        import re
+        url_safe = re.sub(r':[^:@]+@', ':***@', url_safe)
+    except Exception:
+        pass
+    db_type = "postgresql" if "postgresql" in SQLALCHEMY_DATABASE_URL else "sqlite"
+    try:
+        with engine.connect() as conn:
+            if db_type == "postgresql":
+                result = conn.execute(__import__('sqlalchemy').text("SELECT version()"))
+                version = result.scalar()
+            else:
+                result = conn.execute(__import__('sqlalchemy').text("SELECT sqlite_version()"))
+                version = result.scalar()
+        connected = True
+    except Exception as e:
+        connected = False
+        version = str(e)
+    return {
+        "db_type": db_type,
+        "url": url_safe,
+        "connected": connected,
+        "version_or_error": version,
+    }
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def user_to_dict(u: User) -> dict:
