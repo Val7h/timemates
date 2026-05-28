@@ -1,7 +1,6 @@
-const CACHE = 'timemates-v1';
+const CACHE = 'timemates-v2';
 const STATIC = [
   '/',
-  '/index.html',
   '/static/manifest.json',
 ];
 
@@ -19,9 +18,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // API e WebSocket: sempre vai para rede
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) return;
-  // Estratégia: network first, fallback para cache
   e.respondWith(
     fetch(e.request)
       .then(res => {
@@ -32,5 +29,32 @@ self.addEventListener('fetch', e => {
         return res;
       })
       .catch(() => caches.match(e.request))
+  );
+});
+
+// ── Push Notifications ────────────────────────────────────────────────────────
+self.addEventListener('push', e => {
+  let data = { title: 'TimeMates', body: 'Nova notificação', url: '/' };
+  try { data = { ...data, ...e.data.json() }; } catch(_) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/static/icon-192.png',
+      badge: '/static/icon-192.png',
+      data: { url: data.url },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => c.url.includes(self.location.origin));
+      if (existing) { existing.focus(); existing.navigate(url); }
+      else clients.openWindow(url);
+    })
   );
 });

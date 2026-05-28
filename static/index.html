@@ -439,6 +439,32 @@ nav {
 .tour-skip { background: none; border: none; color: var(--muted); font-size: 0.8rem; cursor: pointer; padding: 0; }
 .tour-next { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 
+/* ── DM PAGE ── */
+.dm-layout { display: flex; height: calc(100vh - 60px); }
+.dm-sidebar { width: 300px; border-right: 1px solid var(--border); background: var(--surface); overflow-y: auto; flex-shrink: 0; }
+.dm-sidebar-header { padding: 16px 20px; font-weight: 700; font-size: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.dm-conv-item { display: flex; align-items: center; gap: 12px; padding: 13px 18px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+.dm-conv-item:hover, .dm-conv-item.active { background: var(--bg); }
+.dm-conv-name { font-weight: 600; font-size: 0.88rem; }
+.dm-conv-last { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.dm-unread { background: var(--primary); color: #fff; border-radius: 20px; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; }
+.dm-thread { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.dm-thread-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 12px; }
+.dm-msgs { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+.dm-msg { max-width: 70%; padding: 10px 14px; border-radius: 16px; font-size: 0.9rem; line-height: 1.5; }
+.dm-msg.mine { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+.dm-msg.theirs { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.dm-msg-time { font-size: 0.7rem; opacity: 0.65; margin-top: 4px; }
+.dm-input-row { display: flex; gap: 10px; padding: 14px 20px; background: var(--surface); border-top: 1px solid var(--border); }
+.dm-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--muted); flex-direction: column; gap: 12px; font-size: 0.9rem; }
+@media (max-width: 640px) { .dm-sidebar { width: 100%; } .dm-layout { flex-direction: column; } }
+
+/* ── DIVULGAÇÃO ── */
+.div-template { background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.div-tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.div-tab { padding: 6px 14px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 0.82rem; cursor: pointer; background: var(--surface); transition: all 0.15s; }
+.div-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
 /* ── MODALS ── */
 .modal-overlay {
   position: fixed; inset: 0;
@@ -574,6 +600,7 @@ nav {
     <button class="nav-btn" id="btn-login" onclick="openModal('modal-login')">Entrar</button>
     <button class="nav-btn primary" id="btn-register" onclick="openModal('modal-register')">Cadastrar</button>
     <button class="nav-bell hidden" id="bell-btn" onclick="toggleNotifPanel()">🔔<span class="badge hidden" id="notif-badge">0</span></button>
+    <button class="nav-bell hidden" id="btn-dm" onclick="showPage('dm')" title="Mensagens">💬<span class="badge hidden" id="dm-badge">0</span></button>
     <div class="nav-avatar hidden" id="btn-profile" onclick="showPage('profile')" title="Meu Perfil">?</div>
     <button class="nav-btn hidden" id="btn-admin" onclick="showPage('admin')">⚙️ Admin</button>
     <button class="nav-btn hidden" id="btn-logout" onclick="logout()">Sair</button>
@@ -964,11 +991,66 @@ nav {
       <div id="my-rooms-list"></div>
     </div>
 
+    <!-- Notificações push -->
+    <div style="background:var(--surface);border-radius:var(--radius);padding:20px 24px;border:1px solid var(--border);margin-top:16px;">
+      <h3 style="font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:10px;">🔔 Notificações</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">Receba alertas no celular quando alguém entrar na sua sala, te lembrar ou enviar uma mensagem direta.</p>
+      <button id="push-btn" class="btn btn-primary btn-sm" onclick="requestPushPermission()">🔔 Ativar notificações</button>
+    </div>
+
+    <!-- Kit de divulgação -->
+    <div style="background:var(--surface);border-radius:var(--radius);padding:20px 24px;border:1px solid var(--border);margin-top:16px;">
+      <h3 style="font-size:1rem;font-weight:700;color:var(--primary);margin-bottom:10px;">🚀 Divulgar TimeMates</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">Textos prontos para convidar colegas por WhatsApp, Facebook, Instagram e e-mail.</p>
+      <button class="btn btn-accent btn-sm" onclick="openDivulgacao()">📢 Ver kit de divulgação</button>
+    </div>
+
     <!-- Zona de perigo -->
     <div class="danger-zone">
       <h3>⚠️ Zona de Perigo</h3>
       <p style="font-size:0.85rem;color:#6b7280;margin-bottom:14px;">Encerrar sua conta remove seus dados pessoais. Suas mensagens e fotos permanecem no histórico das salas.</p>
       <button class="btn btn-danger btn-sm" onclick="confirmDeleteAccount()">Encerrar minha conta</button>
+    </div>
+  </div>
+</div>
+
+<!-- DM PAGE -->
+<div id="page-dm" class="page hidden">
+  <div class="dm-layout">
+    <!-- Sidebar: lista de conversas -->
+    <div class="dm-sidebar">
+      <div class="dm-sidebar-header">
+        💬 Mensagens
+        <span id="dm-total-unread" class="dm-unread hidden">0</span>
+      </div>
+      <div id="dm-conv-list">
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="empty-icon">💬</div>
+          <p style="font-size:0.85rem;color:var(--muted);">Nenhuma conversa ainda.<br>Clique em "Mensagem" no perfil de um colega.</p>
+        </div>
+      </div>
+    </div>
+    <!-- Thread: mensagens da conversa ativa -->
+    <div class="dm-thread" id="dm-thread">
+      <div class="dm-empty" id="dm-thread-empty">
+        <div style="font-size:2.5rem;">💬</div>
+        <p>Selecione uma conversa ou inicie uma nova</p>
+      </div>
+      <div class="dm-thread-header hidden" id="dm-thread-header">
+        <div class="member-avatar" id="dm-other-avatar" style="width:38px;height:38px;font-size:0.8rem;flex-shrink:0;"></div>
+        <div>
+          <div id="dm-other-name" style="font-weight:700;font-size:0.95rem;"></div>
+          <div id="dm-other-sub" style="font-size:0.78rem;color:var(--muted);"></div>
+        </div>
+        <a id="dm-other-link" href="#" target="_blank" style="margin-left:auto;font-size:0.8rem;color:var(--muted);">ver perfil →</a>
+      </div>
+      <div class="dm-msgs hidden" id="dm-msgs"></div>
+      <div class="dm-input-row hidden" id="dm-input-row">
+        <input id="dm-input" type="text" placeholder="Escrever mensagem…"
+          style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;outline:none;font-size:0.9rem;"
+          onkeydown="if(event.key==='Enter')sendDM()"/>
+        <button class="btn btn-primary" onclick="sendDM()">➤</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1383,6 +1465,31 @@ nav {
   </div>
 </div>
 
+<!-- KIT DE DIVULGAÇÃO MODAL -->
+<div id="modal-div" class="modal-overlay hidden">
+  <div class="modal" style="max-width:560px;">
+    <button class="modal-close" onclick="closeModal('modal-div')">✕</button>
+    <h2>🚀 Kit de Divulgação</h2>
+    <p class="subtitle">Textos prontos para divulgar sua turma e trazer mais colegas.</p>
+    <div class="div-tabs">
+      <div class="div-tab active" onclick="switchDivTab('wa',this)">💬 WhatsApp</div>
+      <div class="div-tab" onclick="switchDivTab('fb',this)">👥 Grupo Facebook</div>
+      <div class="div-tab" onclick="switchDivTab('ig',this)">📸 Instagram Stories</div>
+      <div class="div-tab" onclick="switchDivTab('email',this)">📧 E-mail</div>
+    </div>
+    <div id="div-template-wa" class="div-template"></div>
+    <div id="div-template-fb" class="div-template hidden"></div>
+    <div id="div-template-ig" class="div-template hidden"></div>
+    <div id="div-template-email" class="div-template hidden"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="copyDivTemplate()">📋 Copiar texto</button>
+      <a id="div-wa-btn" href="#" target="_blank" rel="noopener"
+         class="btn hidden" style="background:#25D366;color:#fff;font-weight:700;">💬 Abrir WhatsApp</a>
+    </div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:12px;">💡 Dica: substitua os campos em [colchetes] com os dados da sua turma antes de enviar.</p>
+  </div>
+</div>
+
 <!-- ═════════════════════════════ SCRIPT ═════════════════════════════ -->
 <script>
 const API = '';
@@ -1394,9 +1501,11 @@ const state = {
   currentRoom: null,
   currentRoomRole: null,
   ws: null,
+  wsdm: null,
   exploreType: '',
   inviteToken: null,
   notifPanelOpen: false,
+  dmCurrentUser: null,
 };
 
 // ── API ──────────────────────────────────────────────────────────────────────
@@ -1454,11 +1563,19 @@ function showPage(page) {
   if (page === 'explore') loadInstitutions();
   if (page === 'profile') loadProfile();
   if (page === 'admin') { loadAdminStats(); }
+  if (page === 'dm') { loadDMConversations(); connectDMSocket(); }
   if (state.ws && page !== 'room') { state.ws.close(); state.ws = null; }
 }
 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 async function init() {
+  // Carrega configurações (GA + VAPID)
+  try {
+    const cfg = await api('GET', '/api/config');
+    if (cfg.ga_id) initGA(cfg.ga_id);
+    if (cfg.vapid_public_key) state.vapidPublicKey = cfg.vapid_public_key;
+  } catch(_) {}
+
   if (state.token) {
     try {
       const user = await api('GET', '/api/auth/me');
@@ -1467,6 +1584,23 @@ async function init() {
   }
   checkInviteInURL();
   checkResetTokenInURL();
+}
+
+// ── GOOGLE ANALYTICS ─────────────────────────────────────────────────────────
+function initGA(gid) {
+  if (!gid || window._gaLoaded) return;
+  window._gaLoaded = true;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = `https://www.googletagmanager.com/gtag/js?id=${gid}`;
+  document.head.appendChild(s);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function(){ dataLayer.push(arguments); };
+  gtag('js', new Date());
+  gtag('config', gid, { send_page_view: true });
+}
+function gaEvent(name, params = {}) {
+  if (window.gtag) gtag('event', name, params);
 }
 
 function checkResetTokenInURL() {
@@ -1483,11 +1617,13 @@ function setUser(user) {
   document.getElementById('btn-login').classList.add('hidden');
   document.getElementById('btn-register').classList.add('hidden');
   document.getElementById('bell-btn').classList.remove('hidden');
+  document.getElementById('btn-dm').classList.remove('hidden');
   document.getElementById('btn-profile').classList.remove('hidden');
   document.getElementById('btn-logout').classList.remove('hidden');
   if (user.is_system_admin) document.getElementById('btn-admin').classList.remove('hidden');
   updateNavAvatar(user);
   loadNotifications();
+  loadDMBadge();
 }
 
 function logout() {
@@ -1497,10 +1633,12 @@ function logout() {
   document.getElementById('btn-login').classList.remove('hidden');
   document.getElementById('btn-register').classList.remove('hidden');
   document.getElementById('bell-btn').classList.add('hidden');
+  document.getElementById('btn-dm').classList.add('hidden');
   document.getElementById('btn-profile').classList.add('hidden');
   document.getElementById('btn-logout').classList.add('hidden');
   document.getElementById('btn-admin').classList.add('hidden');
   if (state.ws) { state.ws.close(); state.ws = null; }
+  if (state.wsdm) { state.wsdm.close(); state.wsdm = null; }
   showPage('landing');
   toast('Você saiu da conta', 'info');
 }
@@ -1518,7 +1656,7 @@ async function doLogin(e) {
     closeModal('modal-login');
     toast(`Bem-vindo, ${res.user.full_name.split(' ')[0]}!`);
     e.target.reset();
-    // Inicia tour se ainda não viu
+    gaEvent('login', { method: 'email' });
     setTimeout(() => startTour(), 600);
   } catch(err) { toast(err.message, 'error'); }
 }
@@ -1569,6 +1707,7 @@ async function doRegister(e) {
     setUser(res.user);
     closeModal('modal-register');
     e.target.reset();
+    gaEvent('sign_up', { method: 'email' });
     // Lança onboarding se ainda não foi feito
     if (!localStorage.getItem('tm_onboarding_done')) {
       setTimeout(() => openModal('modal-onboarding'), 400);
@@ -1665,6 +1804,7 @@ async function openInstitution(id) {
   try {
     const inst = await api('GET', `/api/institutions/${id}`);
     state.currentInstitution = inst;
+    gaEvent('institution_view', { institution_id: id, institution_name: inst.name });
     state.muralEntries = [];
     document.getElementById('inst-name').textContent = inst.name;
     document.getElementById('inst-sub').textContent = `${typeLabels[inst.type] || ''} · ${inst.city ? inst.city + ', ' : ''}${inst.state || ''}`;
@@ -1919,6 +2059,7 @@ async function doJoinRoom(e) {
 // ── OPEN ROOM ─────────────────────────────────────────────────────────────────
 async function openRoom(room) {
   state.currentRoom = room;
+  gaEvent('room_open', { room_id: room.id, room_name: room.group_name, year: room.year });
   document.getElementById('room-title').textContent = `${room.group_name} — ${room.year}`;
   document.getElementById('room-subtitle').textContent = room.institution_name;
   state.currentRoomRole = room.my_membership?.role;
@@ -2197,11 +2338,12 @@ async function loadMembers() {
             <h4><a href="/u/${m.user_id}" target="_blank" style="color:var(--text);text-decoration:none;">${m.full_name}</a> ${roleBadge}</h4>
             <p>${[m.profession, m.city].filter(Boolean).join(' · ') || 'Sem informações adicionais'}</p>
           </div>
-          ${(state.currentRoomRole === 'admin' && m.user_id !== state.user?.id) ? `
-            <div style="display:flex;gap:6px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${m.user_id !== state.user?.id ? `<button class="btn btn-sm btn-outline" onclick="openDMWith(${m.user_id})">💬 Msg</button>` : ''}
+            ${(state.currentRoomRole === 'admin' && m.user_id !== state.user?.id) ? `
               ${m.role === 'member' ? `<button class="btn btn-sm btn-outline" onclick="promoteUser(${m.user_id})">↑ Co-ADM</button>` : ''}
-              <button class="btn btn-sm btn-danger" onclick="removeMember(${m.user_id})">✕</button>
-            </div>` : ''}
+              <button class="btn btn-sm btn-danger" onclick="removeMember(${m.user_id})">✕</button>` : ''}
+          </div>
         </div>`;
     }).join('');
   } catch(err) { toast(err.message, 'error'); }
@@ -2516,6 +2658,8 @@ async function loadProfile() {
   // Reset foto preview
   document.getElementById('profile-avatar-preview-wrap')?.classList.add('hidden');
   updateNavAvatar(u);
+  // Verifica push
+  checkPushSubscription();
   try {
     const rooms = await api('GET', `/api/users/${u.id}/rooms`);
     const list = document.getElementById('my-rooms-list');
@@ -2956,6 +3100,278 @@ setInterval(() => {
     fetch('/api/ping').catch(() => {});
   }
 }, 9 * 60 * 1000); // a cada 9 minutos
+
+// ── MENSAGENS DIRETAS (DM) ────────────────────────────────────────────────────
+async function loadDMConversations() {
+  if (!state.user) return;
+  try {
+    const convs = await api('GET', '/api/dm/conversations');
+    const list = document.getElementById('dm-conv-list');
+    if (!convs.length) {
+      list.innerHTML = `<div class="empty-state" style="padding:40px 20px;"><div class="empty-icon">💬</div><p style="font-size:0.85rem;color:var(--muted);">Nenhuma conversa ainda.<br>Clique em "💬 Msg" no perfil de um colega.</p></div>`;
+      return;
+    }
+    const totalUnread = convs.reduce((s, c) => s + c.unread, 0);
+    updateDMBadge(totalUnread);
+    list.innerHTML = convs.map(c => {
+      const initials = c.other_name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+      const avatar = c.other_photo ? `<img src="${c.other_photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>` : initials;
+      return `
+        <div class="dm-conv-item ${state.dmCurrentUser?.id === c.other_user_id ? 'active' : ''}" onclick="openDMWith(${c.other_user_id})">
+          <div class="member-avatar" style="width:42px;height:42px;font-size:0.85rem;flex-shrink:0;">${avatar}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="dm-conv-name">${escHtml(c.other_name)}</div>
+            <div class="dm-conv-last">${c.last_message ? escHtml(c.last_message) : 'Sem mensagens ainda'}</div>
+          </div>
+          ${c.unread > 0 ? `<span class="dm-unread">${c.unread}</span>` : ''}
+        </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function loadDMBadge() {
+  if (!state.user) return;
+  try {
+    const convs = await api('GET', '/api/dm/conversations');
+    const total = convs.reduce((s, c) => s + c.unread, 0);
+    updateDMBadge(total);
+  } catch(_) {}
+}
+
+function updateDMBadge(n) {
+  const b = document.getElementById('dm-badge');
+  if (!b) return;
+  b.textContent = n;
+  b.classList.toggle('hidden', n === 0);
+}
+
+async function openDMWith(userId) {
+  if (!state.user) { openModal('modal-login'); return; }
+  showPage('dm');
+  try {
+    const data = await api('GET', `/api/dm/${userId}/messages`);
+    state.dmCurrentUser = { id: userId, ...data.other };
+    const other = data.other;
+    // Header
+    const initials = other.full_name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    document.getElementById('dm-other-avatar').innerHTML = other.profile_photo ? `<img src="${other.profile_photo}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>` : initials;
+    document.getElementById('dm-other-name').textContent = other.full_name;
+    document.getElementById('dm-other-sub').textContent = [other.profession, other.city].filter(Boolean).join(' · ') || '';
+    document.getElementById('dm-other-link').href = `/u/${other.id}`;
+    document.getElementById('dm-thread-empty').classList.add('hidden');
+    document.getElementById('dm-thread-header').classList.remove('hidden');
+    document.getElementById('dm-msgs').classList.remove('hidden');
+    document.getElementById('dm-input-row').classList.remove('hidden');
+    renderDMMessages(data.messages);
+    loadDMConversations();
+    loadDMBadge();
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function renderDMMessages(msgs) {
+  const container = document.getElementById('dm-msgs');
+  if (!msgs.length) {
+    container.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:0.85rem;padding:20px;">Nenhuma mensagem ainda. Diga olá! 👋</div>`;
+    return;
+  }
+  container.innerHTML = msgs.map(m => {
+    const mine = m.sender_id === state.user?.id;
+    const time = new Date(m.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    return `
+      <div style="display:flex;flex-direction:column;${mine ? 'align-items:flex-end' : 'align-items:flex-start'}">
+        <div class="dm-msg ${mine ? 'mine' : 'theirs'}">${escHtml(m.content)}</div>
+        <div class="dm-msg-time" style="${mine ? 'text-align:right' : ''}">${time}${mine && m.read ? ' ✓✓' : ''}</div>
+      </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendDM() {
+  const input = document.getElementById('dm-input');
+  const content = input.value.trim();
+  if (!content || !state.dmCurrentUser) return;
+  input.value = '';
+  try {
+    const fd = new FormData();
+    fd.append('content', content);
+    const msg = await api('POST', `/api/dm/${state.dmCurrentUser.id}/send`, fd, true);
+    // Adiciona mensagem enviada ao thread
+    const container = document.getElementById('dm-msgs');
+    const time = new Date(msg.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end';
+    div.innerHTML = `<div class="dm-msg mine">${escHtml(msg.content)}</div><div class="dm-msg-time" style="text-align:right">${time}</div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    gaEvent('dm_sent');
+  } catch(err) { toast(err.message, 'error'); }
+}
+
+function connectDMSocket() {
+  if (!state.token || state.wsdm) return;
+  const wsUrl = (location.protocol === 'https:' ? 'wss' : 'ws') + `://${location.host}/ws/dm?token=${state.token}`;
+  state.wsdm = new WebSocket(wsUrl);
+  state.wsdm.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'dm') {
+        // Se a conversa aberta é com o remetente, adiciona a mensagem
+        if (state.currentPage === 'dm' && data.sender_id === state.dmCurrentUser?.id) {
+          const container = document.getElementById('dm-msgs');
+          const time = new Date(data.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+          const div = document.createElement('div');
+          div.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start';
+          div.innerHTML = `<div class="dm-msg theirs">${escHtml(data.content)}</div><div class="dm-msg-time">${time}</div>`;
+          container.appendChild(div);
+          container.scrollTop = container.scrollHeight;
+          // Marca como lido
+          api('GET', `/api/dm/${data.sender_id}/messages`).catch(_=>{});
+        } else {
+          // Atualiza badge
+          loadDMBadge();
+          loadDMConversations();
+        }
+      }
+    } catch(_) {}
+  };
+  state.wsdm.onclose = () => { state.wsdm = null; };
+}
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────────
+async function requestPushPermission() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    toast('Seu navegador não suporta notificações push.', 'error'); return;
+  }
+  if (!state.vapidPublicKey) {
+    toast('Push notifications não configuradas no servidor.', 'error'); return;
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    toast('Permissão de notificação negada.', 'info'); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(state.vapidPublicKey),
+    });
+    const j = sub.toJSON();
+    const fd = new FormData();
+    fd.append('endpoint', j.endpoint);
+    fd.append('p256dh', j.keys.p256dh);
+    fd.append('auth', j.keys.auth);
+    await api('POST', '/api/push/subscribe', fd, true);
+    toast('🔔 Notificações ativadas!');
+    document.getElementById('push-btn')?.classList.add('hidden');
+  } catch(err) { toast('Erro ao ativar notificações: ' + err.message, 'error'); }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function checkPushSubscription() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const btn = document.getElementById('push-btn');
+  if (!btn) return;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  btn.classList.toggle('hidden', !!sub || Notification.permission === 'denied');
+}
+
+// ── KIT DE DIVULGAÇÃO ────────────────────────────────────────────────────────
+let _divTab = 'wa';
+
+const DIV_TEMPLATES = {
+  school: {
+    wa: (inst, room) => `🎓 *Galera do ${room?.year || '[ANO]'} da ${inst?.name || '[ESCOLA]'}!*
+
+Oi pessoal! Achei uma plataforma incrível que reúne ex-alunos da nossa escola numa sala só, com chat e fotos. 😄
+
+Entra lá: ${location.origin}/r/${room?.id || ''}
+
+Já tem ${room?.member_count || ''} pessoas da turma lá! Quem mais lembra de mim? 🥹`,
+    fb: (inst, room) => `🏫 ${inst?.name || '[ESCOLA]'} — turma de ${room?.year || '[ANO]'}
+
+Alguém mais sente saudade do tempo de escola? 😭
+
+Encontrei o TimeMates, uma plataforma que conecta ex-alunos de escolas, faculdades e empresas. Nossa turma já tem uma sala lá!
+
+👉 ${location.origin}/r/${room?.id || ''}
+
+Quem vir, se apresenta! Quero saber o que todo mundo está fazendo hoje. 🥹`,
+    ig: (inst, room) => `Saudades da turma de ${room?.year || '[ANO]'} da ${inst?.name || '[ESCOLA]'} 😭🥹\n\nLink no perfil!\n\n#saudade #escola #turma #timemates`,
+    email: (inst, room) => `Assunto: Turma de ${room?.year || '[ANO]'} — ${inst?.name || '[ESCOLA]'} no TimeMates!\n\nOi [NOME],\n\nTe lembras de mim? [SEU NOME], da turma de ${room?.year || '[ANO]'}!\n\nEncontrei um site que reúne ex-alunos da ${inst?.name || 'nossa escola'} numa sala de chat. Já tem vários colegas lá.\n\nEntra aqui: ${location.origin}/r/${room?.id || ''}\n\nEspero te ver lá! 😄`,
+  },
+  university: {
+    wa: (inst, room) => `🎓 *Galera de ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} da ${inst?.name || '[FACULDADE]'}!*
+
+Oi pessoal! Tem uma plataforma chamada TimeMates que conecta ex-alunos por turma. Criei uma sala pra gente.
+
+${location.origin}/r/${room?.id || ''}
+
+Quem está lá? 🥹`,
+    fb: (inst, room) => `👨‍🎓 ${inst?.name || '[FACULDADE]'} — ${room?.group_name || '[CURSO]'} turma ${room?.year || '[ANO]'}\n\nSaudades dos tempos de faculdade! 😄\n\nCriei uma sala no TimeMates pra reunir a galera:\n👉 ${location.origin}/r/${room?.id || ''}\n\nQuem quiser relembrar histórias, entra lá!`,
+    ig: (inst, room) => `${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} — ${inst?.name || '[FACULDADE]'} 🎓\n\nQuem mais sente saudades? Link na bio!\n\n#faculdade #saudade #timemates`,
+    email: (inst, room) => `Assunto: Galera de ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} no TimeMates!\n\nOi [NOME],\n\nSou [SEU NOME] do ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} da ${inst?.name || '[FACULDADE]'}.\n\nEncontrei um site para reconectar com ex-colegas. Tem uma sala da nossa turma:\n${location.origin}/r/${room?.id || ''}\n\nEspero te ver lá! 🥹`,
+  },
+  company: {
+    wa: (inst, room) => `👔 *Galera que trabalhou na ${inst?.name || '[EMPRESA]'}!*\n\nTem uma plataforma chamada TimeMates para reconectar ex-colegas de trabalho. Criei uma sala pra gente.\n\n${location.origin}/r/${room?.id || ''}\n\nQuem se lembra de mim? 😄`,
+    fb: (inst, room) => `🏢 Ex-funcionários da ${inst?.name || '[EMPRESA]'} — turma ${room?.year || '[ANO]'}\n\nSaudades dos tempos de trabalho juntos! Criei uma sala no TimeMates para reconectar.\n\n👉 ${location.origin}/r/${room?.id || ''}\n\nQuem esteve lá nessa época, entra! 🥹`,
+    ig: (inst, room) => `Ex-${inst?.name || '[EMPRESA]'} ${room?.year || '[ANO]'} 💼\nSaudades dos colegas de trabalho! Link na bio.\n#trabalho #saudade #timemates`,
+    email: (inst, room) => `Assunto: Ex-colegas da ${inst?.name || '[EMPRESA]'} no TimeMates!\n\nOi [NOME],\n\nSou [SEU NOME], trabalhei com você na ${inst?.name || '[EMPRESA]'} por volta de ${room?.year || '[ANO]'}.\n\nCriei uma sala para reconectarmos:\n${location.origin}/r/${room?.id || ''}\n\nEspero te ver lá! 😄`,
+  },
+  default: {
+    wa: (inst, room) => `🌟 Oi! Encontrei uma plataforma incrível chamada *TimeMates* que ajuda a reconectar com ex-colegas de escolas, faculdades e empresas.\n\nÉ grátis! Entra em: ${location.origin}\n\nQuem sabe a gente se encontra lá! 😄`,
+    fb: (inst, room) => `Já ouviram falar do TimeMates? 🌟\n\nÉ uma plataforma gratuita para reconectar com ex-colegas de escola, faculdade e trabalho. Você encontra a turma por ano e instituição, e entra numa sala de chat com fotos e memórias.\n\n👉 ${location.origin}\n\nVale muito a pena conferir!`,
+    ig: (inst, room) => `TimeMates — reconecte com quem fez parte da sua história 🥹\nGrátis! Link na bio.\n#saudade #escola #faculdade #timemates`,
+    email: (inst, room) => `Assunto: Conhece o TimeMates?\n\nOi [NOME],\n\nQueria te apresentar uma plataforma que estou usando para reconectar com ex-colegas: TimeMates.\n\nVocê encontra sua escola, faculdade ou empresa, entra na sala da turma e reencontra quem não vê faz tempo. É grátis!\n\n👉 ${location.origin}\n\nEspero que você curta! 😄`,
+  },
+};
+
+function openDivulgacao() {
+  const inst = state.currentInstitution;
+  const room = state.currentRoom;
+  _divTab = 'wa';
+  document.querySelectorAll('.div-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.getElementById('div-wa-btn').classList.remove('hidden');
+  renderDivTemplate(inst, room);
+  openModal('modal-div');
+}
+
+function switchDivTab(tab, el) {
+  _divTab = tab;
+  document.querySelectorAll('.div-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['wa','fb','ig','email'].forEach(t => {
+    document.getElementById(`div-template-${t}`)?.classList.toggle('hidden', t !== tab);
+  });
+  document.getElementById('div-wa-btn')?.classList.toggle('hidden', tab !== 'wa');
+  renderDivTemplate(state.currentInstitution, state.currentRoom);
+}
+
+function renderDivTemplate(inst, room) {
+  const type = inst?.type || 'default';
+  const tmpl = DIV_TEMPLATES[type] || DIV_TEMPLATES.default;
+  const fn = tmpl[_divTab] || DIV_TEMPLATES.default[_divTab];
+  const text = fn(inst, room);
+  const el = document.getElementById(`div-template-${_divTab}`);
+  if (el) el.textContent = text;
+  // WA button
+  const waBtn = document.getElementById('div-wa-btn');
+  if (waBtn && _divTab === 'wa') {
+    waBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  }
+}
+
+function copyDivTemplate() {
+  const el = document.getElementById(`div-template-${_divTab}`);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => toast('Texto copiado! 📋'));
+}
 
 // ── START ──────────────────────────────────────────────────────────────────────
 init();

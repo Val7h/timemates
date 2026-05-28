@@ -265,6 +265,50 @@ class EmailLog(Base):
     sent_at = Column(DateTime, default=datetime.utcnow)
 
 
+class PushSubscription(Base):
+    """Subscription Web Push do usuário (para notificações em background)."""
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    endpoint = Column(Text, nullable=False, unique=True)
+    p256dh = Column(Text, nullable=False)
+    auth = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class DMConversation(Base):
+    """Conversa direta entre dois usuários."""
+    __tablename__ = "dm_conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_a_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_b_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    messages = relationship("DMMessage", back_populates="conversation", order_by="DMMessage.created_at")
+    user_a = relationship("User", foreign_keys=[user_a_id])
+    user_b = relationship("User", foreign_keys=[user_b_id])
+
+
+class DMMessage(Base):
+    """Mensagem em uma conversa direta."""
+    __tablename__ = "dm_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("dm_conversations.id"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    conversation = relationship("DMConversation", back_populates="messages")
+    sender = relationship("User", foreign_keys=[sender_id])
+
+
 def get_db():
     db = SessionLocal()
     try:

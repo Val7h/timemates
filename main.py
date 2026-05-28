@@ -30,7 +30,7 @@ from database import (
     User, Institution, Room, RoomMembership, Message,
     Photo, RememberedPerson, RememberedPersonConfirmation,
     InviteLink, Notification, CurrentStudent, MessageReaction,
-    Testimony, EmailLog
+    Testimony, EmailLog, PushSubscription, DMConversation, DMMessage
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -224,7 +224,99 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
+# ─── DM WebSocket Manager ─────────────────────────────────────────────────────
+
+class DMManager:
+    """Gerencia conexões WebSocket para mensagens diretas (por user_id)."""
+    def __init__(self):
+        self.connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, ws: WebSocket, user_id: int):
+        await ws.accept()
+        self.connections.setdefault(user_id, []).append(ws)
+
+    def disconnect(self, ws: WebSocket, user_id: int):
+        if user_id in self.connections:
+            try:
+                self.connections[user_id].remove(ws)
+            except ValueError:
+                pass
+
+    async def send_to_user(self, data: dict, user_id: int):
+        for ws in list(self.connections.get(user_id, [])):
+            try:
+                await ws.send_json(data)
+            except Exception:
+                pass
+
+
+dm_manager = DMManager()
+
+
+# ─── VAPID / Web Push ─────────────────────────────────────────────────────────
+
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_PUBLIC_KEY  = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_EMAIL       = os.getenv("VAPID_EMAIL", "admin@timemates.onrender.com")
+_VAPID_FILE = os.path.join(os.path.dirname(__file__), "vapid_keys.json")
+
+def _ensure_vapid():
+    global VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY
+    if VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY:
+        return
+    if os.path.exists(_VAPID_FILE):
+        try:
+            d = json.loads(open(_VAPID_FILE).read())
+            VAPID_PRIVATE_KEY = d["private"]
+            VAPID_PUBLIC_KEY  = d["public"]
+            print(f"[PUSH] Loaded VAPID keys from file")
+            return
+        except Exception:
+            pass
+    try:
+        from py_vapid import Vapid
+        v = Vapid()
+        v.generate_keys()
+        VAPID_PRIVATE_KEY = v.private_pem().decode()
+        VAPID_PUBLIC_KEY  = v.public_key
+        with open(_VAPID_FILE, "w") as f:
+            json.dump({"private": VAPID_PRIVATE_KEY, "public": VAPID_PUBLIC_KEY}, f)
+        print(f"[PUSH] Generated VAPID. Public key: {VAPID_PUBLIC_KEY[:30]}...")
+    except Exception as e:
+        print(f"[PUSH] VAPID setup failed: {e}. Push notifications disabled.")
+
+_ensure_vapid()
+
+
+def _send_push(subscription: PushSubscription, title: str, body: str, url: str = "/"):
+    """Envia push notification de forma síncrona (chame em thread separada se necessário)."""
+    if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+        return
+    try:
+        from pywebpush import webpush, WebPushException
+        webpush(
+            subscription_info={
+                "endpoint": subscription.endpoint,
+                "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+            },
+            data=json.dumps({"title": title, "body": body, "url": url}),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": f"mailto:{VAPID_EMAIL}"},
+        )
+    except Exception as e:
+        print(f"[PUSH] Send error: {e}")
+
+
+def _push_to_user(db: Session, user_id: int, title: str, body: str, url: str = "/"):
+    """Envia push para todas as subscriptions de um usuário."""
+    subs = db.query(PushSubscription).filter(PushSubscription.user_id == user_id).all()
+    for s in subs:
+        _send_push(s, title, body, url)
+
+
 BASE_URL = os.getenv("BASE_URL", "https://timemates.onrender.com")
+GOOGLE_ANALYTICS_ID = os.getenv("GOOGLE_ANALYTICS_ID", "")
 
 
 # ─── Debug / Health ──────────────────────────────────────────────────────────
@@ -348,6 +440,9 @@ def notify_room_admins(room_id: int, requester: User, db: Session):
             message=f"{requester.full_name} quer entrar em '{room.group_name} - {room.year}'",
             related_room_id=room_id,
         ))
+        db.commit()
+        _push_to_user(db, a.user_id, "Nova solicitação de entrada",
+                      f"{requester.full_name} quer entrar em {room.group_name} - {room.year}")
         admin_user = db.query(User).filter(User.id == a.user_id).first()
         if admin_user:
             mail.send_join_request_to_admin(
@@ -398,6 +493,9 @@ def check_remembered_match(user: User, room_id: int, db: Session):
                 message=f"Um colega da sala {room_label} ({inst_name}) te adicionou nos Lembrados.",
                 related_room_id=room_id,
             ))
+            db.commit()
+            _push_to_user(db, user.id, "🥹 Alguém lembra de você!",
+                          f"Um colega de {inst_name} te adicionou nos Lembrados.", "/")
             mail.send_you_were_remembered(
                 to_email=user.email,
                 name=user.full_name,
@@ -417,6 +515,15 @@ def public_stats(db: Session = Depends(get_db)):
         "rooms": db.query(Room).count(),
         "institutions": db.query(Institution).filter(Institution.approved == True).count(),
     }
+
+@app.get("/api/config")
+def get_config():
+    """Configurações públicas do frontend."""
+    return {
+        "ga_id": GOOGLE_ANALYTICS_ID,
+        "vapid_public_key": VAPID_PUBLIC_KEY,
+    }
+
 
 @app.get("/api/ping")
 def ping():
@@ -892,6 +999,8 @@ def approve_member(
         related_room_id=room_id,
     ))
     db.commit()
+    _push_to_user(db, user_id, "Acesso aprovado! 🎉",
+                  f"Você entrou em {room.group_name} - {room.year}", "/")
     approved_user = db.query(User).filter(User.id == user_id).first()
     if approved_user:
         mail.send_approved(
@@ -1621,6 +1730,219 @@ def add_testimony(
         ))
     db.commit()
     return {"message": "Depoimento salvo! ❤️"}
+
+
+# ─── Push Notifications ──────────────────────────────────────────────────────
+
+@app.get("/api/push/vapid-public-key")
+def get_vapid_key():
+    if not VAPID_PUBLIC_KEY:
+        raise HTTPException(status_code=503, detail="Push não configurado")
+    return {"public_key": VAPID_PUBLIC_KEY}
+
+
+@app.post("/api/push/subscribe")
+def push_subscribe(
+    endpoint: str = Form(...),
+    p256dh: str = Form(...),
+    auth: str = Form(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    existing = db.query(PushSubscription).filter(
+        PushSubscription.endpoint == endpoint
+    ).first()
+    if existing:
+        existing.user_id = current_user.id
+        existing.p256dh = p256dh
+        existing.auth = auth
+    else:
+        db.add(PushSubscription(
+            user_id=current_user.id,
+            endpoint=endpoint,
+            p256dh=p256dh,
+            auth=auth,
+        ))
+    db.commit()
+    return {"message": "Subscribed"}
+
+
+@app.delete("/api/push/unsubscribe")
+def push_unsubscribe(
+    endpoint: str = Form(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    db.query(PushSubscription).filter(
+        PushSubscription.user_id == current_user.id,
+        PushSubscription.endpoint == endpoint,
+    ).delete()
+    db.commit()
+    return {"message": "Unsubscribed"}
+
+
+# ─── Mensagens Diretas (DM) ───────────────────────────────────────────────────
+
+def _get_or_create_conv(db: Session, user_a: int, user_b: int) -> DMConversation:
+    conv = db.query(DMConversation).filter(
+        ((DMConversation.user_a_id == user_a) & (DMConversation.user_b_id == user_b)) |
+        ((DMConversation.user_a_id == user_b) & (DMConversation.user_b_id == user_a))
+    ).first()
+    if not conv:
+        conv = DMConversation(user_a_id=user_a, user_b_id=user_b)
+        db.add(conv)
+        db.commit()
+        db.refresh(conv)
+    return conv
+
+
+@app.get("/api/dm/conversations")
+def list_dm_conversations(
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    convs = db.query(DMConversation).filter(
+        (DMConversation.user_a_id == current_user.id) |
+        (DMConversation.user_b_id == current_user.id)
+    ).order_by(DMConversation.updated_at.desc()).all()
+
+    result = []
+    for c in convs:
+        other = c.user_b if c.user_a_id == current_user.id else c.user_a
+        last_msg = db.query(DMMessage).filter(
+            DMMessage.conversation_id == c.id
+        ).order_by(DMMessage.created_at.desc()).first()
+        unread = db.query(DMMessage).filter(
+            DMMessage.conversation_id == c.id,
+            DMMessage.sender_id != current_user.id,
+            DMMessage.read == False,
+        ).count()
+        result.append({
+            "conv_id": c.id,
+            "other_user_id": other.id,
+            "other_name": other.full_name,
+            "other_photo": other.profile_photo,
+            "last_message": last_msg.content[:80] if last_msg else None,
+            "last_at": last_msg.created_at.isoformat() if last_msg else c.created_at.isoformat(),
+            "unread": unread,
+        })
+    return result
+
+
+@app.get("/api/dm/{other_user_id}/messages")
+def get_dm_messages(
+    other_user_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    other = db.query(User).filter(User.id == other_user_id, User.is_active == True).first()
+    if not other:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    conv = _get_or_create_conv(db, current_user.id, other_user_id)
+    # Marca como lido
+    db.query(DMMessage).filter(
+        DMMessage.conversation_id == conv.id,
+        DMMessage.sender_id == other_user_id,
+        DMMessage.read == False,
+    ).update({"read": True})
+    db.commit()
+    msgs = db.query(DMMessage).filter(
+        DMMessage.conversation_id == conv.id
+    ).order_by(DMMessage.created_at.asc()).limit(100).all()
+    return {
+        "conv_id": conv.id,
+        "other": {
+            "id": other.id,
+            "full_name": other.full_name,
+            "profile_photo": other.profile_photo,
+            "city": other.city if other.show_city else None,
+            "profession": other.profession if other.show_profession else None,
+        },
+        "messages": [{
+            "id": m.id,
+            "sender_id": m.sender_id,
+            "content": m.content,
+            "read": m.read,
+            "created_at": m.created_at.isoformat(),
+        } for m in msgs],
+    }
+
+
+@app.post("/api/dm/{other_user_id}/send")
+async def send_dm(
+    other_user_id: int,
+    content: str = Form(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="Mensagem vazia")
+    if len(content) > 2000:
+        raise HTTPException(status_code=400, detail="Mensagem muito longa")
+    other = db.query(User).filter(User.id == other_user_id, User.is_active == True).first()
+    if not other:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    conv = _get_or_create_conv(db, current_user.id, other_user_id)
+    msg = DMMessage(
+        conversation_id=conv.id,
+        sender_id=current_user.id,
+        content=content.strip(),
+    )
+    db.add(msg)
+    conv.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(msg)
+
+    payload = {
+        "type": "dm",
+        "conv_id": conv.id,
+        "msg_id": msg.id,
+        "sender_id": current_user.id,
+        "sender_name": current_user.full_name,
+        "sender_photo": current_user.profile_photo,
+        "content": msg.content,
+        "created_at": msg.created_at.isoformat(),
+    }
+    # Broadcast via WS para remetente e destinatário
+    await dm_manager.send_to_user(payload, other_user_id)
+    await dm_manager.send_to_user(payload, current_user.id)
+
+    # Push notification para destinatário
+    _push_to_user(
+        db, other_user_id,
+        title=f"💬 {current_user.full_name}",
+        body=content[:100],
+        url="/?dm=1",
+    )
+    return payload
+
+
+@app.websocket("/ws/dm")
+async def ws_dm(websocket: WebSocket, token: str = Query(None)):
+    if not token:
+        await websocket.close(code=4001)
+        return
+    from auth import decode_token
+    try:
+        payload = decode_token(token)
+        user_id = int(payload["sub"])
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    db.close()
+    if not user:
+        await websocket.close(code=4001)
+        return
+
+    await dm_manager.connect(websocket, user_id)
+    try:
+        while True:
+            await websocket.receive_text()   # heartbeat / ping
+    except WebSocketDisconnect:
+        dm_manager.disconnect(websocket, user_id)
 
 
 # ─── SEO / Páginas públicas ───────────────────────────────────────────────────
