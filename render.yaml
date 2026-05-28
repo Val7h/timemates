@@ -32,3 +32,5 @@ services:
         value: G-2BSK5VVYFD
       - key: VAPID_EMAIL
         value: valthguime@gmail.com
+      - key: SEED_KEY
+        value: "tm-seed-ufcg-2024-xK9p"
