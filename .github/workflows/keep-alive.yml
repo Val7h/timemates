@@ -1,0 +1,21 @@
+name: Keep Alive — TimeMates
+
+on:
+  schedule:
+    # Pinga a cada 14 minutos (Render dorme após 15 min de inatividade)
+    - cron: '*/14 * * * *'
+  workflow_dispatch: # permite rodar manualmente também
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping servidor
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://timemates.onrender.com/api/config)
+          echo "Status HTTP: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ Servidor respondeu normalmente"
+          else
+            echo "⚠️ Servidor retornou $STATUS (pode estar acordando)"
+          fi
