@@ -29,6 +29,6 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: GOOGLE_ANALYTICS_ID
-        sync: false
+        value: G-2BSK5VVYFD
       - key: VAPID_EMAIL
         value: valthguime@gmail.com
