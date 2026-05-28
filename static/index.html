@@ -1586,6 +1586,79 @@ async function init() {
   }
   checkInviteInURL();
   checkResetTokenInURL();
+  await checkDeepLinkInURL();
+}
+
+// ── Deep links /r/{id} e /i/{id} ──────────────────────────────────────────────
+async function checkDeepLinkInURL() {
+  const rMatch = location.pathname.match(/^\/r\/(\d+)/);
+  const iMatch = location.pathname.match(/^\/i\/(\d+)/);
+  if (!rMatch && !iMatch) return;
+
+  history.replaceState({}, '', '/'); // limpa a URL sem reload
+
+  if (rMatch) {
+    const roomId = parseInt(rMatch[1]);
+    if (state.user) {
+      await _openOrJoinRoom(roomId);
+    } else {
+      localStorage.setItem('pending_deeplink', JSON.stringify({ type: 'room', id: roomId }));
+      // Busca info pública da sala para personalizar o aviso
+      try {
+        const info = await api('GET', `/api/rooms/${roomId}`);
+        toast(`Cadastre-se para entrar em "${info.group_name}" — ${info.institution_name} 🥹`, 'info');
+      } catch {
+        toast('Cadastre-se para entrar nessa sala de ex-alunos! 🥹', 'info');
+      }
+      openModal('modal-register');
+    }
+  } else {
+    const instId = parseInt(iMatch[1]);
+    if (state.user) {
+      await openInstitution(instId);
+    } else {
+      localStorage.setItem('pending_deeplink', JSON.stringify({ type: 'institution', id: instId }));
+      toast('Cadastre-se para ver essa instituição e entrar nas salas! 🥹', 'info');
+      openModal('modal-register');
+    }
+  }
+}
+
+async function _openOrJoinRoom(roomId) {
+  try {
+    const room = await api('GET', `/api/rooms/${roomId}`);
+    if (room.my_membership?.status === 'approved') {
+      await openRoom(room);
+    } else if (room.my_membership?.status === 'pending') {
+      toast('Seu pedido de entrada ainda está pendente.', 'info');
+      await openInstitution(room.institution_id);
+    } else {
+      // Não é membro — entra automaticamente
+      const fd = new FormData();
+      const res = await api('POST', `/api/rooms/${roomId}/join`, fd, true);
+      toast(res.message);
+      if (res.auto_approved) {
+        const updated = await api('GET', `/api/rooms/${roomId}`);
+        await openRoom(updated);
+      } else {
+        await openInstitution(room.institution_id);
+      }
+    }
+  } catch(err) { toast(err.message || 'Sala não encontrada', 'error'); }
+}
+
+async function checkPendingDeepLink() {
+  const raw = localStorage.getItem('pending_deeplink');
+  if (!raw) return;
+  localStorage.removeItem('pending_deeplink');
+  try {
+    const link = JSON.parse(raw);
+    if (link.type === 'room') {
+      await _openOrJoinRoom(link.id);
+    } else if (link.type === 'institution') {
+      await openInstitution(link.id);
+    }
+  } catch {}
 }
 
 // ── GOOGLE ANALYTICS ─────────────────────────────────────────────────────────
@@ -1659,7 +1732,8 @@ async function doLogin(e) {
     toast(`Bem-vindo, ${res.user.full_name.split(' ')[0]}!`);
     e.target.reset();
     gaEvent('login', { method: 'email' });
-    setTimeout(() => startTour(), 600);
+    const hasPending = localStorage.getItem('pending_deeplink');
+    if (hasPending) { await checkPendingDeepLink(); } else { setTimeout(() => startTour(), 600); }
   } catch(err) { toast(err.message, 'error'); }
 }
 
@@ -1710,8 +1784,11 @@ async function doRegister(e) {
     closeModal('modal-register');
     e.target.reset();
     gaEvent('sign_up', { method: 'email' });
-    // Lança onboarding se ainda não foi feito
-    if (!localStorage.getItem('tm_onboarding_done')) {
+    // Se veio de um deep link, vai direto pra sala/instituição
+    const hasPendingLink = localStorage.getItem('pending_deeplink');
+    if (hasPendingLink) {
+      await checkPendingDeepLink();
+    } else if (!localStorage.getItem('tm_onboarding_done')) {
       setTimeout(() => openModal('modal-onboarding'), 400);
     } else {
       toast('Conta criada com sucesso! Bem-vindo ao TimeMates! 🎉');

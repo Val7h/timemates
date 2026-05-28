@@ -922,11 +922,20 @@ def join_room(
         notify_room_admins(room_id, current_user, db)
         return {"message": "Solicitação reenviada!"}
 
+    # Salas criadas pelo admin do sistema entram direto (sem fila de aprovação)
+    creator = db.query(User).filter(User.id == room.created_by_id).first()
+    auto_approve = creator and creator.is_system_admin
+    status = "approved" if auto_approve else "pending"
+    approved_at = datetime.utcnow() if auto_approve else None
+
     db.add(RoomMembership(
         room_id=room_id, user_id=current_user.id,
-        role="member", status="pending", message=message,
+        role="member", status=status, message=message,
+        approved_at=approved_at,
     ))
     db.commit()
+    if auto_approve:
+        return {"message": "Você entrou na sala! 🎉", "auto_approved": True}
     notify_room_admins(room_id, current_user, db)
     return {"message": "Solicitação enviada! Aguarde aprovação do ADM."}
 
