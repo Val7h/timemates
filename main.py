@@ -2380,6 +2380,71 @@ def invite_page(token: str):
     return FileResponse("static/index.html")
 
 
+# ─── Open Graph deep links (/r/{id} e /i/{id}) ───────────────────────────────
+# Servem o mesmo SPA mas com OG tags dinâmicas para preview no Facebook/WhatsApp.
+
+def _inject_og(og_title: str, og_desc: str, og_url: str) -> Response:
+    """Lê index.html, substitui as OG tags estáticas por tags dinâmicas e retorna."""
+    try:
+        with open("static/index.html", "r", encoding="utf-8") as f:
+            html = f.read()
+    except Exception:
+        return FileResponse("static/index.html")
+
+    og_block = (
+        f'<meta property="og:title" content="{og_title}"/>\n'
+        f'<meta property="og:description" content="{og_desc}"/>\n'
+        f'<meta property="og:url" content="{og_url}"/>\n'
+        f'<meta name="twitter:title" content="{og_title}"/>\n'
+        f'<meta name="twitter:description" content="{og_desc}"/>\n'
+    )
+    # Substitui apenas as tags og:title, og:description, og:url e twitter equivalentes
+    import re as _re
+    for tag in ("og:title", "og:description", "og:url", "twitter:title", "twitter:description"):
+        html = _re.sub(rf'<meta property="{tag}"[^/]*/>', "", html)
+        html = _re.sub(rf'<meta name="{tag}"[^/]*/>', "", html)
+    # Insere logo após <meta name="theme-color"...>
+    html = _re.sub(
+        r'(<meta name="theme-color"[^/]*/>)',
+        r'\1\n' + og_block,
+        html, count=1,
+    )
+    return Response(content=html, media_type="text/html")
+
+
+@app.get("/r/{room_id}")
+def room_og_page(room_id: int, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        return FileResponse("static/index.html")
+    count = db.query(RoomMembership).filter(
+        RoomMembership.room_id == room_id, RoomMembership.status == "approved"
+    ).count()
+    title = f"{room.group_name} — {room.institution.name} | TimeMates"
+    desc  = (
+        f"{'Já somos' if count > 1 else 'Seja o primeiro!'} "
+        f"{count} ex-aluno{'s' if count != 1 else ''} nessa sala. "
+        f"Entre e reencontre seus colegas de {room.institution.city or 'escola'} — grátis!"
+    )
+    url = f"https://timemates.onrender.com/r/{room_id}"
+    return _inject_og(title, desc, url)
+
+
+@app.get("/i/{institution_id}")
+def institution_og_page(institution_id: int, db: Session = Depends(get_db)):
+    inst = db.query(Institution).filter(Institution.id == institution_id).first()
+    if not inst:
+        return FileResponse("static/index.html")
+    room_count = db.query(Room).filter(Room.institution_id == institution_id).count()
+    title = f"{inst.name} | TimeMates"
+    desc  = (
+        f"{room_count} sala{'s' if room_count != 1 else ''} de ex-alunos de "
+        f"{inst.city or inst.name}. Entre, escolha sua época e reencontre seus colegas — grátis!"
+    )
+    url = f"https://timemates.onrender.com/i/{institution_id}"
+    return _inject_og(title, desc, url)
+
+
 
 
 @app.get("/{full_path:path}")
