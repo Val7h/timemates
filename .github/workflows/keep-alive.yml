@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping servidor
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://timemates.onrender.com/api/config)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://timemates.onrender.com/api/ping)
           echo "Status HTTP: $STATUS"
           if [ "$STATUS" = "200" ]; then
             echo "✅ Servidor respondeu normalmente"

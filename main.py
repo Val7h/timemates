@@ -275,11 +275,15 @@ def _ensure_vapid():
         except Exception:
             pass
     try:
+        import base64
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
         from py_vapid import Vapid
         v = Vapid()
         v.generate_keys()
         VAPID_PRIVATE_KEY = v.private_pem().decode()
-        VAPID_PUBLIC_KEY  = v.public_key
+        # Converte EC key object → base64url string (necessário para JSON + frontend)
+        raw_pub = v.public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+        VAPID_PUBLIC_KEY = base64.urlsafe_b64encode(raw_pub).decode("utf-8").rstrip("=")
         with open(_VAPID_FILE, "w") as f:
             json.dump({"private": VAPID_PRIVATE_KEY, "public": VAPID_PUBLIC_KEY}, f)
         print(f"[PUSH] Generated VAPID. Public key: {VAPID_PUBLIC_KEY[:30]}...")
