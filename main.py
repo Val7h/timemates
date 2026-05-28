@@ -2374,48 +2374,62 @@ def invite_page(token: str):
 # ─── Seed temporário (REMOVER APÓS USO) ───────────────────────────────────────
 @app.post("/api/seed")
 def seed_data(key: str = Form(...), db: Session = Depends(get_db)):
-    if key != "tm-ufcg-seed-9p2k":
+    if key != "tm-lourdes-seed-7r4q":
         raise HTTPException(status_code=403, detail="Chave inválida")
     result = {}
-    ufcg = db.query(Institution).filter(
-        Institution.name.ilike("%Universidade Federal de Campina Grande%")
+    admin_user = db.query(User).filter(User.is_system_admin == True).first()
+    if not admin_user:
+        raise HTTPException(status_code=400, detail="Crie uma conta primeiro em timemates.onrender.com.")
+
+    # 1. Cria ou busca o Colégio Nossa Senhora de Lourdes
+    school = db.query(Institution).filter(
+        Institution.name.ilike("%Nossa Senhora de Lourdes%"),
+        Institution.city.ilike("%Palmares%"),
     ).first()
-    if not ufcg:
-        admin_user = db.query(User).filter(User.is_system_admin == True).first()
-        ufcg = Institution(
-            name="Universidade Federal de Campina Grande",
-            type="university", state="PB", city="Campina Grande",
-            sector="Saúde / CCBS", approved=True,
-            approved_by_id=admin_user.id if admin_user else None,
+    if not school:
+        school = Institution(
+            name="Colégio Nossa Senhora de Lourdes",
+            type="school", state="PE", city="Palmares",
+            approved=True,
+            approved_by_id=admin_user.id,
         )
-        db.add(ufcg); db.commit(); db.refresh(ufcg)
+        db.add(school); db.commit(); db.refresh(school)
         result["institution"] = "criada"
     else:
         result["institution"] = "já existia"
-    result["institution_id"] = ufcg.id
-    admin_user = db.query(User).filter(User.is_system_admin == True).first()
-    if not admin_user:
-        raise HTTPException(status_code=400, detail="Crie uma conta primeiro.")
-    room = db.query(Room).filter(
-        Room.institution_id == ufcg.id, Room.year == 2000, Room.group_name == "Medicina"
-    ).first()
-    if not room:
-        room = Room(
-            institution_id=ufcg.id, year=2000, group_name="Medicina",
-            description="Turma de Medicina da UFCG — entrada 2000. Venha reencontrar os colegas!",
-            created_by_id=admin_user.id,
-        )
-        db.add(room); db.commit(); db.refresh(room)
-        db.add(RoomMembership(
-            room_id=room.id, user_id=admin_user.id,
-            role="admin", status="approved", approved_at=datetime.utcnow(),
-        ))
-        db.commit()
-        result["room"] = "criada"
-    else:
-        result["room"] = "já existia"
-    result["room_id"] = room.id
-    result["room_url"] = f"/r/{room.id}"
+    result["institution_id"] = school.id
+
+    # 2. Cria as salas por década (para abranger todos os ex-alunos)
+    rooms_created = []
+    for decade_year, decade_label in [
+        (1980, "Ex-Alunos Anos 80"),
+        (1990, "Ex-Alunos Anos 90"),
+        (2000, "Ex-Alunos Anos 2000"),
+        (2010, "Ex-Alunos Anos 2010"),
+        (2020, "Ex-Alunos Anos 2020"),
+    ]:
+        existing = db.query(Room).filter(
+            Room.institution_id == school.id,
+            Room.year == decade_year,
+        ).first()
+        if not existing:
+            room = Room(
+                institution_id=school.id,
+                year=decade_year,
+                group_name=decade_label,
+                description=f"Sala dos ex-alunos do Colégio Nossa Senhora de Lourdes — {decade_label}. Venha reencontrar seus colegas!",
+                created_by_id=admin_user.id,
+            )
+            db.add(room); db.commit(); db.refresh(room)
+            db.add(RoomMembership(
+                room_id=room.id, user_id=admin_user.id,
+                role="admin", status="approved", approved_at=datetime.utcnow(),
+            ))
+            db.commit()
+            rooms_created.append({"year": decade_year, "label": decade_label, "room_id": room.id})
+
+    result["rooms_created"] = rooms_created
+    result["school_url"] = f"/i/{school.id}"
     return result
 
 
