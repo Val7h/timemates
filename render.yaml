@@ -28,3 +28,7 @@ services:
         value: https://timemates.onrender.com
       - key: SECRET_KEY
         generateValue: true
+      - key: GOOGLE_ANALYTICS_ID
+        sync: false
+      - key: VAPID_EMAIL
+        value: valthguime@gmail.com
