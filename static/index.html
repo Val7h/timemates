@@ -1485,6 +1485,8 @@ nav {
       <button class="btn btn-primary" onclick="copyDivTemplate()">📋 Copiar texto</button>
       <a id="div-wa-btn" href="#" target="_blank" rel="noopener"
          class="btn hidden" style="background:#25D366;color:#fff;font-weight:700;">💬 Abrir WhatsApp</a>
+      <a id="div-fb-btn" href="#" target="_blank" rel="noopener"
+         class="btn hidden" style="background:#1877F2;color:#fff;font-weight:700;">👥 Compartilhar no Facebook</a>
     </div>
     <p style="font-size:0.78rem;color:var(--muted);margin-top:12px;">💡 Dica: substitua os campos em [colchetes] com os dados da sua turma antes de enviar.</p>
   </div>
@@ -3285,13 +3287,19 @@ async function checkPushSubscription() {
 // ── KIT DE DIVULGAÇÃO ────────────────────────────────────────────────────────
 let _divTab = 'wa';
 
+/** Appends UTM params to a URL for conversion tracking in GA4. */
+function _utm(url, source, medium = 'social') {
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}utm_source=${source}&utm_medium=${medium}&utm_campaign=divulgacao`;
+}
+
 const DIV_TEMPLATES = {
   school: {
     wa: (inst, room) => `🎓 *Galera do ${room?.year || '[ANO]'} da ${inst?.name || '[ESCOLA]'}!*
 
 Oi pessoal! Achei uma plataforma incrível que reúne ex-alunos da nossa escola numa sala só, com chat e fotos. 😄
 
-Entra lá: ${location.origin}/r/${room?.id || ''}
+Entra lá: ${_utm(`${location.origin}/r/${room?.id || ''}`, 'whatsapp')}
 
 Já tem ${room?.member_count || ''} pessoas da turma lá! Quem mais lembra de mim? 🥹`,
     fb: (inst, room) => `🏫 ${inst?.name || '[ESCOLA]'} — turma de ${room?.year || '[ANO]'}
@@ -3300,35 +3308,35 @@ Alguém mais sente saudade do tempo de escola? 😭
 
 Encontrei o TimeMates, uma plataforma que conecta ex-alunos de escolas, faculdades e empresas. Nossa turma já tem uma sala lá!
 
-👉 ${location.origin}/r/${room?.id || ''}
+👉 ${_utm(`${location.origin}/r/${room?.id || ''}`, 'facebook')}
 
 Quem vir, se apresenta! Quero saber o que todo mundo está fazendo hoje. 🥹`,
-    ig: (inst, room) => `Saudades da turma de ${room?.year || '[ANO]'} da ${inst?.name || '[ESCOLA]'} 😭🥹\n\nLink no perfil!\n\n#saudade #escola #turma #timemates`,
-    email: (inst, room) => `Assunto: Turma de ${room?.year || '[ANO]'} — ${inst?.name || '[ESCOLA]'} no TimeMates!\n\nOi [NOME],\n\nTe lembras de mim? [SEU NOME], da turma de ${room?.year || '[ANO]'}!\n\nEncontrei um site que reúne ex-alunos da ${inst?.name || 'nossa escola'} numa sala de chat. Já tem vários colegas lá.\n\nEntra aqui: ${location.origin}/r/${room?.id || ''}\n\nEspero te ver lá! 😄`,
+    ig: (inst, room) => `Saudades da turma de ${room?.year || '[ANO]'} da ${inst?.name || '[ESCOLA]'} 😭🥹\n\nLink no perfil: ${_utm(location.origin, 'instagram')}\n\n#saudade #escola #turma #timemates`,
+    email: (inst, room) => `Assunto: Turma de ${room?.year || '[ANO]'} — ${inst?.name || '[ESCOLA]'} no TimeMates!\n\nOi [NOME],\n\nTe lembras de mim? [SEU NOME], da turma de ${room?.year || '[ANO]'}!\n\nEncontrei um site que reúne ex-alunos da ${inst?.name || 'nossa escola'} numa sala de chat. Já tem vários colegas lá.\n\nEntra aqui: ${_utm(`${location.origin}/r/${room?.id || ''}`, 'email', 'email')}\n\nEspero te ver lá! 😄`,
   },
   university: {
     wa: (inst, room) => `🎓 *Galera de ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} da ${inst?.name || '[FACULDADE]'}!*
 
 Oi pessoal! Tem uma plataforma chamada TimeMates que conecta ex-alunos por turma. Criei uma sala pra gente.
 
-${location.origin}/r/${room?.id || ''}
+${_utm(`${location.origin}/r/${room?.id || ''}`, 'whatsapp')}
 
 Quem está lá? 🥹`,
-    fb: (inst, room) => `👨‍🎓 ${inst?.name || '[FACULDADE]'} — ${room?.group_name || '[CURSO]'} turma ${room?.year || '[ANO]'}\n\nSaudades dos tempos de faculdade! 😄\n\nCriei uma sala no TimeMates pra reunir a galera:\n👉 ${location.origin}/r/${room?.id || ''}\n\nQuem quiser relembrar histórias, entra lá!`,
-    ig: (inst, room) => `${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} — ${inst?.name || '[FACULDADE]'} 🎓\n\nQuem mais sente saudades? Link na bio!\n\n#faculdade #saudade #timemates`,
-    email: (inst, room) => `Assunto: Galera de ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} no TimeMates!\n\nOi [NOME],\n\nSou [SEU NOME] do ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} da ${inst?.name || '[FACULDADE]'}.\n\nEncontrei um site para reconectar com ex-colegas. Tem uma sala da nossa turma:\n${location.origin}/r/${room?.id || ''}\n\nEspero te ver lá! 🥹`,
+    fb: (inst, room) => `👨‍🎓 ${inst?.name || '[FACULDADE]'} — ${room?.group_name || '[CURSO]'} turma ${room?.year || '[ANO]'}\n\nSaudades dos tempos de faculdade! 😄\n\nCriei uma sala no TimeMates pra reunir a galera:\n👉 ${_utm(`${location.origin}/r/${room?.id || ''}`, 'facebook')}\n\nQuem quiser relembrar histórias, entra lá!`,
+    ig: (inst, room) => `${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} — ${inst?.name || '[FACULDADE]'} 🎓\n\nQuem mais sente saudades? Link na bio: ${_utm(location.origin, 'instagram')}\n\n#faculdade #saudade #timemates`,
+    email: (inst, room) => `Assunto: Galera de ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} no TimeMates!\n\nOi [NOME],\n\nSou [SEU NOME] do ${room?.group_name || '[CURSO]'} ${room?.year || '[ANO]'} da ${inst?.name || '[FACULDADE]'}.\n\nEncontrei um site para reconectar com ex-colegas. Tem uma sala da nossa turma:\n${_utm(`${location.origin}/r/${room?.id || ''}`, 'email', 'email')}\n\nEspero te ver lá! 🥹`,
   },
   company: {
-    wa: (inst, room) => `👔 *Galera que trabalhou na ${inst?.name || '[EMPRESA]'}!*\n\nTem uma plataforma chamada TimeMates para reconectar ex-colegas de trabalho. Criei uma sala pra gente.\n\n${location.origin}/r/${room?.id || ''}\n\nQuem se lembra de mim? 😄`,
-    fb: (inst, room) => `🏢 Ex-funcionários da ${inst?.name || '[EMPRESA]'} — turma ${room?.year || '[ANO]'}\n\nSaudades dos tempos de trabalho juntos! Criei uma sala no TimeMates para reconectar.\n\n👉 ${location.origin}/r/${room?.id || ''}\n\nQuem esteve lá nessa época, entra! 🥹`,
-    ig: (inst, room) => `Ex-${inst?.name || '[EMPRESA]'} ${room?.year || '[ANO]'} 💼\nSaudades dos colegas de trabalho! Link na bio.\n#trabalho #saudade #timemates`,
-    email: (inst, room) => `Assunto: Ex-colegas da ${inst?.name || '[EMPRESA]'} no TimeMates!\n\nOi [NOME],\n\nSou [SEU NOME], trabalhei com você na ${inst?.name || '[EMPRESA]'} por volta de ${room?.year || '[ANO]'}.\n\nCriei uma sala para reconectarmos:\n${location.origin}/r/${room?.id || ''}\n\nEspero te ver lá! 😄`,
+    wa: (inst, room) => `👔 *Galera que trabalhou na ${inst?.name || '[EMPRESA]'}!*\n\nTem uma plataforma chamada TimeMates para reconectar ex-colegas de trabalho. Criei uma sala pra gente.\n\n${_utm(`${location.origin}/r/${room?.id || ''}`, 'whatsapp')}\n\nQuem se lembra de mim? 😄`,
+    fb: (inst, room) => `🏢 Ex-funcionários da ${inst?.name || '[EMPRESA]'} — turma ${room?.year || '[ANO]'}\n\nSaudades dos tempos de trabalho juntos! Criei uma sala no TimeMates para reconectar.\n\n👉 ${_utm(`${location.origin}/r/${room?.id || ''}`, 'facebook')}\n\nQuem esteve lá nessa época, entra! 🥹`,
+    ig: (inst, room) => `Ex-${inst?.name || '[EMPRESA]'} ${room?.year || '[ANO]'} 💼\nSaudades dos colegas de trabalho! Link na bio: ${_utm(location.origin, 'instagram')}\n#trabalho #saudade #timemates`,
+    email: (inst, room) => `Assunto: Ex-colegas da ${inst?.name || '[EMPRESA]'} no TimeMates!\n\nOi [NOME],\n\nSou [SEU NOME], trabalhei com você na ${inst?.name || '[EMPRESA]'} por volta de ${room?.year || '[ANO]'}.\n\nCriei uma sala para reconectarmos:\n${_utm(`${location.origin}/r/${room?.id || ''}`, 'email', 'email')}\n\nEspero te ver lá! 😄`,
   },
   default: {
-    wa: (inst, room) => `🌟 Oi! Encontrei uma plataforma incrível chamada *TimeMates* que ajuda a reconectar com ex-colegas de escolas, faculdades e empresas.\n\nÉ grátis! Entra em: ${location.origin}\n\nQuem sabe a gente se encontra lá! 😄`,
-    fb: (inst, room) => `Já ouviram falar do TimeMates? 🌟\n\nÉ uma plataforma gratuita para reconectar com ex-colegas de escola, faculdade e trabalho. Você encontra a turma por ano e instituição, e entra numa sala de chat com fotos e memórias.\n\n👉 ${location.origin}\n\nVale muito a pena conferir!`,
-    ig: (inst, room) => `TimeMates — reconecte com quem fez parte da sua história 🥹\nGrátis! Link na bio.\n#saudade #escola #faculdade #timemates`,
-    email: (inst, room) => `Assunto: Conhece o TimeMates?\n\nOi [NOME],\n\nQueria te apresentar uma plataforma que estou usando para reconectar com ex-colegas: TimeMates.\n\nVocê encontra sua escola, faculdade ou empresa, entra na sala da turma e reencontra quem não vê faz tempo. É grátis!\n\n👉 ${location.origin}\n\nEspero que você curta! 😄`,
+    wa: (inst, room) => `🌟 Oi! Encontrei uma plataforma incrível chamada *TimeMates* que ajuda a reconectar com ex-colegas de escolas, faculdades e empresas.\n\nÉ grátis! Entra em: ${_utm(location.origin, 'whatsapp')}\n\nQuem sabe a gente se encontra lá! 😄`,
+    fb: (inst, room) => `Já ouviram falar do TimeMates? 🌟\n\nÉ uma plataforma gratuita para reconectar com ex-colegas de escola, faculdade e trabalho. Você encontra a turma por ano e instituição, e entra numa sala de chat com fotos e memórias.\n\n👉 ${_utm(location.origin, 'facebook')}\n\nVale muito a pena conferir!`,
+    ig: (inst, room) => `TimeMates — reconecte com quem fez parte da sua história 🥹\nGrátis! Link na bio: ${_utm(location.origin, 'instagram')}\n#saudade #escola #faculdade #timemates`,
+    email: (inst, room) => `Assunto: Conhece o TimeMates?\n\nOi [NOME],\n\nQueria te apresentar uma plataforma que estou usando para reconectar com ex-colegas: TimeMates.\n\nVocê encontra sua escola, faculdade ou empresa, entra na sala da turma e reencontra quem não vê faz tempo. É grátis!\n\n👉 ${_utm(location.origin, 'email', 'email')}\n\nEspero que você curta! 😄`,
   },
 };
 
@@ -3338,8 +3346,10 @@ function openDivulgacao() {
   _divTab = 'wa';
   document.querySelectorAll('.div-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.getElementById('div-wa-btn').classList.remove('hidden');
+  document.getElementById('div-fb-btn')?.classList.add('hidden');
   renderDivTemplate(inst, room);
   openModal('modal-div');
+  gaEvent('divulgacao_open', { institution_type: inst?.type || 'default' });
 }
 
 function switchDivTab(tab, el) {
@@ -3350,6 +3360,7 @@ function switchDivTab(tab, el) {
     document.getElementById(`div-template-${t}`)?.classList.toggle('hidden', t !== tab);
   });
   document.getElementById('div-wa-btn')?.classList.toggle('hidden', tab !== 'wa');
+  document.getElementById('div-fb-btn')?.classList.toggle('hidden', tab !== 'fb');
   renderDivTemplate(state.currentInstitution, state.currentRoom);
 }
 
@@ -3360,17 +3371,26 @@ function renderDivTemplate(inst, room) {
   const text = fn(inst, room);
   const el = document.getElementById(`div-template-${_divTab}`);
   if (el) el.textContent = text;
-  // WA button
+  // WA button — deep-links to WhatsApp with pre-filled message
   const waBtn = document.getElementById('div-wa-btn');
   if (waBtn && _divTab === 'wa') {
     waBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  }
+  // FB button — shares the UTM-tracked room link via Facebook dialog
+  const fbBtn = document.getElementById('div-fb-btn');
+  if (fbBtn && _divTab === 'fb') {
+    const shareUrl = _utm(`${location.origin}/r/${room?.id || ''}`, 'facebook');
+    fbBtn.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
   }
 }
 
 function copyDivTemplate() {
   const el = document.getElementById(`div-template-${_divTab}`);
   if (!el) return;
-  navigator.clipboard.writeText(el.textContent).then(() => toast('Texto copiado! 📋'));
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    toast('Texto copiado! 📋');
+    gaEvent('divulgacao_copy', { channel: _divTab });
+  });
 }
 
 // ── START ──────────────────────────────────────────────────────────────────────
