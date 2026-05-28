@@ -2371,84 +2371,51 @@ def invite_page(token: str):
     return FileResponse("static/index.html")
 
 
-# ─── Seed temporário ──────────────────────────────────────────────────────────
-# REMOVER APÓS USO
-
-SEED_KEY = os.getenv("SEED_KEY", "")
-
+# ─── Seed temporário (REMOVER APÓS USO) ───────────────────────────────────────
 @app.post("/api/seed")
-def seed_data(
-    key: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    """Endpoint temporário para seed de dados iniciais. Protegido por SEED_KEY."""
-    if not SEED_KEY or key != SEED_KEY:
+def seed_data(key: str = Form(...), db: Session = Depends(get_db)):
+    if key != "tm-ufcg-seed-9p2k":
         raise HTTPException(status_code=403, detail="Chave inválida")
-
     result = {}
-
-    # 1. Cria ou busca a UFCG
     ufcg = db.query(Institution).filter(
         Institution.name.ilike("%Universidade Federal de Campina Grande%")
     ).first()
     if not ufcg:
-        # Usa o primeiro admin para approved_by_id
         admin_user = db.query(User).filter(User.is_system_admin == True).first()
         ufcg = Institution(
             name="Universidade Federal de Campina Grande",
-            type="university",
-            state="PB",
-            city="Campina Grande",
-            sector="Saúde / CCBS",
-            approved=True,
+            type="university", state="PB", city="Campina Grande",
+            sector="Saúde / CCBS", approved=True,
             approved_by_id=admin_user.id if admin_user else None,
         )
-        db.add(ufcg)
-        db.commit()
-        db.refresh(ufcg)
+        db.add(ufcg); db.commit(); db.refresh(ufcg)
         result["institution"] = "criada"
     else:
         result["institution"] = "já existia"
     result["institution_id"] = ufcg.id
-
-    # 2. Cria a sala de Medicina 2000 se não existir
     admin_user = db.query(User).filter(User.is_system_admin == True).first()
     if not admin_user:
-        raise HTTPException(status_code=400, detail="Nenhum admin encontrado. Crie uma conta primeiro.")
-
+        raise HTTPException(status_code=400, detail="Crie uma conta primeiro.")
     room = db.query(Room).filter(
-        Room.institution_id == ufcg.id,
-        Room.year == 2000,
-        Room.group_name == "Medicina",
+        Room.institution_id == ufcg.id, Room.year == 2000, Room.group_name == "Medicina"
     ).first()
     if not room:
         room = Room(
-            institution_id=ufcg.id,
-            year=2000,
-            group_name="Medicina",
+            institution_id=ufcg.id, year=2000, group_name="Medicina",
             description="Turma de Medicina da UFCG — entrada 2000. Venha reencontrar os colegas!",
             created_by_id=admin_user.id,
         )
-        db.add(room)
-        db.commit()
-        db.refresh(room)
-
-        # Admin vira membro aprovado da sala
-        membership = RoomMembership(
-            room_id=room.id,
-            user_id=admin_user.id,
-            role="admin",
-            status="approved",
-            approved_at=datetime.utcnow(),
-        )
-        db.add(membership)
+        db.add(room); db.commit(); db.refresh(room)
+        db.add(RoomMembership(
+            room_id=room.id, user_id=admin_user.id,
+            role="admin", status="approved", approved_at=datetime.utcnow(),
+        ))
         db.commit()
         result["room"] = "criada"
     else:
         result["room"] = "já existia"
     result["room_id"] = room.id
     result["room_url"] = f"/r/{room.id}"
-
     return result
 
 
