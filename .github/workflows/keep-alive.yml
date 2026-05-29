@@ -3,7 +3,7 @@ name: Keep Alive — TimeMates
 on:
   schedule:
     # Pinga a cada 14 minutos (Render dorme após 15 min de inatividade)
-    - cron: '*/14 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch: # permite rodar manualmente também
 
 jobs:
