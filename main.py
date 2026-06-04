@@ -1595,6 +1595,47 @@ def delete_account(
     return {"message": "Conta encerrada. Sentiremos sua falta! 💙"}
 
 
+@app.get("/api/users/{user_id}")
+def get_user_profile(
+    user_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Perfil público de outro usuário — dados sensíveis respeitam as preferências de privacidade."""
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    # Salas em comum (para exibir na tela de perfil)
+    my_rooms = {
+        m.room_id for m in db.query(RoomMembership).filter(
+            RoomMembership.user_id == current_user.id,
+            RoomMembership.status == "approved"
+        ).all()
+    }
+    their_rooms = db.query(RoomMembership).filter(
+        RoomMembership.user_id == user_id,
+        RoomMembership.status == "approved"
+    ).all()
+    shared_rooms = [
+        {
+            "room_id": m.room_id,
+            "group_name": m.room.group_name,
+            "institution_name": m.room.institution.name,
+        }
+        for m in their_rooms if m.room_id in my_rooms
+    ]
+    return {
+        "id": user.id,
+        "full_name": user.full_name,
+        "profile_photo": user.profile_photo,
+        "city": user.city if user.show_city else None,
+        "profession": user.profession if user.show_profession else None,
+        "bio": user.bio if user.show_bio else None,
+        "member_since": user.created_at.isoformat(),
+        "shared_rooms": shared_rooms,
+    }
+
+
 @app.get("/api/users/{user_id}/rooms")
 def get_user_rooms(
     user_id: int,
