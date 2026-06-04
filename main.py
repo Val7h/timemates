@@ -927,6 +927,9 @@ def join_room(
         return {"message": "Solicitação reenviada!"}
 
     # Salas criadas pelo admin do sistema entram direto (sem fila de aprovação)
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Sala não encontrada")
     creator = db.query(User).filter(User.id == room.created_by_id).first()
     auto_approve = creator and creator.is_system_admin
     status = "approved" if auto_approve else "pending"
