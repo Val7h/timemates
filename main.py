@@ -2406,13 +2406,14 @@ def _inject_og(og_title: str, og_desc: str, og_url: str) -> Response:
         f'<meta name="twitter:description" content="{og_desc}"/>\n'
     )
     # Substitui apenas as tags og:title, og:description, og:url e twitter equivalentes
+    # Usa [^>]* em vez de [^/]* para não travar em URLs que contêm barras (://)
     import re as _re
     for tag in ("og:title", "og:description", "og:url", "twitter:title", "twitter:description"):
-        html = _re.sub(rf'<meta property="{tag}"[^/]*/>', "", html)
-        html = _re.sub(rf'<meta name="{tag}"[^/]*/>', "", html)
+        html = _re.sub(rf'<meta property="{tag}"[^>]*/>', "", html)
+        html = _re.sub(rf'<meta name="{tag}"[^>]*/>', "", html)
     # Insere logo após <meta name="theme-color"...>
     html = _re.sub(
-        r'(<meta name="theme-color"[^/]*/>)',
+        r'(<meta name="theme-color"[^>]*/>)',
         r'\1\n' + og_block,
         html, count=1,
     )
