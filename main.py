@@ -4,6 +4,15 @@ import json
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 
+# Rate Limiting
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Stripe
+import stripe
+from fastapi import Request
+
 # Carrega .env se existir (sem dependência externa)
 _env_path = os.path.join(os.path.dirname(__file__), ".env")
 if os.path.exists(_env_path):
@@ -30,12 +39,13 @@ from database import (
     User, Institution, Room, RoomMembership, Message,
     Photo, RememberedPerson, RememberedPersonConfirmation,
     InviteLink, Notification, CurrentStudent, MessageReaction,
-    Testimony, EmailLog, PushSubscription, DMConversation, DMMessage
+    Testimony, EmailLog, PushSubscription, DMConversation, DMMessage, Subscription
 )
 from auth import (
     get_current_user, get_current_user_required,
     hash_password, verify_password, create_access_token, validate_cpf
 )
+from billing_routes import router as billing_router
 
 try:
     Base.metadata.create_all(bind=engine)
@@ -178,6 +188,24 @@ def _run_email_sequence():
 
 app = FastAPI(title="TimeMates API", version="1.0.0", lifespan=lifespan)
 
+# ===== RATE LIMITING SETUP =====
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+RATE_LIMITS = {
+    'auth': '5/minute',
+    'messages': '100/minute',
+    'search': '50/minute',
+    'general': '200/minute'
+}
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc):
+    return {"error": "rate_limit_exceeded", "message": "Muitos requests. Tente novamente em 1 minuto.", "retry_after": 60}
+
+# Stripe Setup
+stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+
 # Tokens de recuperação de senha: { token: {"user_id": int, "expires": datetime} }
 _reset_tokens: Dict[str, dict] = {}
 
@@ -196,6 +224,8 @@ os.makedirs("static", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/static", StaticFiles(directory="static"), name="static_files")
 
+# ─── Billing Routes (Stripe) ──────────────────────────────────────────────────
+app.include_router(billing_router)
 
 # ─── WebSocket Manager ────────────────────────────────────────────────────────
 
@@ -2495,6 +2525,22 @@ def institution_og_page(institution_id: int, db: Session = Depends(get_db)):
 
 
 
+
+# ===== LANDING PAGE & LEGAL DOCS =====
+@app.get("/", response_class=FileResponse)
+async def landing_page():
+    return FileResponse("public/landing/index.html")
+
+@app.get("/privacy", response_class=FileResponse)
+async def privacy_policy():
+    return FileResponse("public/landing/privacy.html")
+
+@app.get("/terms", response_class=FileResponse)
+async def terms_of_service():
+    return FileResponse("public/landing/terms.html")
+
+# Mount landing folder as static files
+app.mount("/landing", StaticFiles(directory="public/landing", html=True), name="landing")
 
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):

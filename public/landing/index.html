@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeMates - Reencontre seus colegas</title>
+    <meta name="description" content="Rede social para reencontrar ex-colegas de escola, faculdade e empresa">
+    <meta property="og:title" content="TimeMates - Reencontre seus colegas">
+    <meta property="og:description" content="Reencontre quem fez parte da sua história">
+    <meta property="og:url" content="https://timemates.onrender.com">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        header { background: white; padding: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        nav { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: bold; color: #1E3A5F; }
+        nav a { color: #333; text-decoration: none; margin-left: 30px; }
+        nav a:hover { color: #D4A853; }
+        .btn-primary { background: #1E3A5F; color: white; padding: 12px 30px; border-radius: 4px; text-decoration: none; border: none; cursor: pointer; font-size: 16px; }
+        .btn-primary:hover { background: #0f1f3f; }
+        .hero { background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%); color: white; padding: 100px 0; text-align: center; }
+        .hero h1 { font-size: 48px; margin-bottom: 20px; }
+        .hero p { font-size: 20px; margin-bottom: 30px; opacity: 0.9; }
+        .hero .btn-primary { background: #D4A853; color: #1E3A5F; margin-top: 20px; }
+        .features { padding: 60px 0; }
+        .features h2 { text-align: center; font-size: 36px; margin-bottom: 50px; color: #1E3A5F; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; }
+        .feature { padding: 30px; background: #f9f9f9; border-radius: 8px; text-align: center; }
+        .feature .icon { font-size: 48px; margin-bottom: 15px; }
+        .feature h3 { color: #1E3A5F; margin-bottom: 10px; }
+        .stats { background: #f5f5f5; padding: 60px 0; text-align: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; }
+        .stat-number { font-size: 36px; font-weight: bold; color: #D4A853; }
+        .stat-label { color: #666; margin-top: 10px; }
+        .pricing { padding: 60px 0; }
+        .pricing h2 { text-align: center; font-size: 36px; margin-bottom: 50px; color: #1E3A5F; }
+        .pricing-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+        .pricing-card { padding: 40px; background: #f9f9f9; border-radius: 8px; border: 2px solid #ddd; }
+        .pricing-card.featured { border-color: #D4A853; background: white; }
+        .pricing-card h3 { color: #1E3A5F; margin-bottom: 20px; }
+        .price { font-size: 32px; font-weight: bold; color: #D4A853; margin-bottom: 20px; }
+        .pricing-card ul { list-style: none; margin: 20px 0; }
+        .pricing-card li { padding: 10px 0; }
+        .faq { padding: 60px 0; }
+        .faq h2 { text-align: center; font-size: 36px; margin-bottom: 50px; color: #1E3A5F; }
+        details { margin-bottom: 20px; padding: 20px; background: #f9f9f9; border-radius: 4px; }
+        details summary { cursor: pointer; font-weight: bold; color: #1E3A5F; }
+        details summary:hover { color: #D4A853; }
+        .cta { background: #1E3A5F; color: white; padding: 60px 0; text-align: center; }
+        .cta h2 { font-size: 36px; margin-bottom: 20px; }
+        footer { background: #333; color: white; padding: 40px 0; text-align: center; }
+        footer a { color: #D4A853; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <div class="logo">TimeMates</div>
+            <div>
+                <a href="#features">Features</a>
+                <a href="#pricing">Preços</a>
+                <a href="#faq">FAQ</a>
+                <a href="/signup" class="btn-primary">Entrar</a>
+            </div>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Reconecte com quem fez parte da sua história</h1>
+            <p>Reencontre ex-colegas de escola, faculdade e empresa</p>
+            <a href="/signup" class="btn-primary">Começar Agora</a>
+            <p style="margin-top: 30px; font-size: 16px;">Grátis. Sem cartão. 1000+ usuários já dentro</p>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Por que TimeMates?</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <div class="icon">🎓</div>
+                    <h3>Encontre sua turma</h3>
+                    <p>Busque seus colégios, universidades e empresas</p>
+                </div>
+                <div class="feature">
+                    <div class="icon">💬</div>
+                    <h3>Chat em tempo real</h3>
+                    <p>Converse com colegas antigos como se fosse ontem</p>
+                </div>
+                <div class="feature">
+                    <div class="icon">🔗</div>
+                    <h3>Compartilhe no WhatsApp</h3>
+                    <p>Convide amigos com um clique</p>
+                </div>
+                <div class="feature">
+                    <div class="icon">📸</div>
+                    <h3>Galeria de fotos</h3>
+                    <p>Compartilhe memórias da sua turma</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div>
+                    <div class="stat-number">1000+</div>
+                    <div class="stat-label">Usuários em Campina Grande</div>
+                </div>
+                <div>
+                    <div class="stat-number">126</div>
+                    <div class="stat-label">Salas criadas</div>
+                </div>
+                <div>
+                    <div class="stat-number">6000+</div>
+                    <div class="stat-label">Instituições suportadas</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <h2>Preços</h2>
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <h3>Básico</h3>
+                    <div class="price">Grátis</div>
+                    <ul>
+                        <li>✅ Acesso ilimitado</li>
+                        <li>✅ Chat em tempo real</li>
+                        <li>✅ Galeria de fotos</li>
+                        <li>⚠️ Com anúncios</li>
+                    </ul>
+                    <a href="/signup" class="btn-primary" style="display: inline-block;">Começar Grátis</a>
+                </div>
+                <div class="pricing-card featured">
+                    <h3>Premium</h3>
+                    <div class="price">R$ 9,90<span style="font-size: 16px;">/mês</span></div>
+                    <ul>
+                        <li>✅ Sem anúncios</li>
+                        <li>✅ Stories destacadas</li>
+                        <li>✅ Busca avançada</li>
+                        <li>✅ Suporte prioritário</li>
+                    </ul>
+                    <a href="/upgrade" class="btn-primary" style="display: inline-block; background: #D4A853; color: #1E3A5F;">Upgrade agora</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="faq" class="faq">
+        <div class="container">
+            <h2>Dúvidas?</h2>
+            <details>
+                <summary>É realmente grátis?</summary>
+                <p>Sim! Você pode usar TimeMates grátis. Premium é opcional (R$ 9,90/mês)</p>
+            </details>
+            <details>
+                <summary>Meus dados são seguros?</summary>
+                <p>Sim. Usamos HTTPS, criptografia e seguimos LGPD. Veja nossa <a href="/privacy">Privacy Policy</a>.</p>
+            </details>
+            <details>
+                <summary>Posso deletar minha conta?</summary>
+                <p>Sim. Vá em Settings → Deletar Conta. Todos seus dados serão apagados em 24h.</p>
+            </details>
+            <details>
+                <summary>Como funciona o pagamento?</summary>
+                <p>Usamos Stripe. Seu cartão é seguro e pode cancelar a qualquer momento.</p>
+            </details>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>Tá esperando o quê?</h2>
+            <p>1000+ colegas já estão lá. Vem reconectar!</p>
+            <a href="/signup" class="btn-primary" style="background: #D4A853; color: #1E3A5F; display: inline-block; margin-top: 20px;">Criar Conta Agora</a>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div style="margin-bottom: 20px;">
+                <a href="/" style="margin-right: 20px;">Home</a>
+                <a href="/privacy" style="margin-right: 20px;">Privacy</a>
+                <a href="/terms" style="margin-right: 20px;">Terms</a>
+                <a href="mailto:support@timemates.com">Support</a>
+            </div>
+            <p>&copy; 2026 TimeMates. Todos os direitos reservados.</p>
+        </div>
+    </footer>
+</body>
+</html>
