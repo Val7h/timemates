@@ -2994,12 +2994,54 @@ def get_news_stats(db: Session = Depends(get_db)):
 
 # ===== CITIES & GAMIFICATION API (27 CAPITAIS BRASILEIRAS) =====
 
+# Função para normalizar texto (remover acentos)
+import unicodedata
+
+def normalize_text(text):
+    """Remove acentos e normaliza para busca"""
+    nfd = unicodedata.normalize('NFD', str(text))
+    return ''.join(char for char in nfd if unicodedata.category(char) != 'Mn').lower()
+
 # Importar serviço IBGE
 try:
     from ibge_service import IBGEService, get_city_data_with_ibge
 except ImportError:
     print("[WARN] ibge_service não encontrado, IBGE integration desabilitada")
     IBGEService = None
+
+@app.get("/api/cities/search")
+@limiter.limit("60/minute")
+def search_cities(request: Request, q: str = "", db: Session = Depends(get_db)):
+    """🔍 Buscar cidades por nome (funciona com e sem acentos)"""
+    if len(q.strip()) < 1:
+        return {"success": True, "data": [], "query": q}
+
+    # Normalizar query
+    q_normalized = normalize_text(q)
+
+    # Buscar todas as cidades
+    all_cities = db.query(City).all()
+
+    # Filtrar com normalização
+    results = []
+    for city in all_cities:
+        city_normalized = normalize_text(city.name)
+        if q_normalized in city_normalized or city_normalized in q_normalized:
+            results.append({
+                "id": city.id,
+                "slug": city.slug,
+                "name": city.name,
+                "state": city.state,
+                "population": city.population,
+            })
+
+    return {
+        "success": True,
+        "query": q,
+        "data": results,
+        "total": len(results)
+    }
+
 
 @app.get("/api/cities")
 @limiter.limit("60/minute")
