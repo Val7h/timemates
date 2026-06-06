@@ -221,7 +221,11 @@ app.add_middleware(
 @app.middleware("http")
 async def add_utf8_header(request, call_next):
     response = await call_next(request)
-    response.headers["Content-Type"] = "application/json; charset=utf-8"
+    # Só adiciona charset se for JSON
+    if "application/json" in response.headers.get("content-type", ""):
+        response.headers["Content-Type"] = "application/json; charset=utf-8"
+    elif "text/html" in response.headers.get("content-type", ""):
+        response.headers["Content-Type"] = "text/html; charset=utf-8"
     return response
 
 os.makedirs("uploads/photos", exist_ok=True)

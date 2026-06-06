@@ -1,0 +1,238 @@
+================================================================================
+  FLUXO DE DEPLOYMENT - LANDING PAGE TIMEMATES
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              INÍCIO DO PROCESSO                             │
+│                      Você executa o script PowerShell                       │
+│          powershell -ExecutionPolicy Bypass -File DEPLOY_LANDING_PAGE.ps1  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          PASSO 1: VALIDAÇÕES (1-2s)                        │
+│                      ✓ Verifica repositório Git                            │
+│                      ✓ Confirma diretório correto                          │
+│                      ✓ Valida estrutura do projeto                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      PASSO 2: CRIAR PASTAS (1-2s)                          │
+│                      Cria: public/landing/                                 │
+│                                                                             │
+│                           public/landing/                                  │
+│                              ├── (vazio, aguardando arquivos)              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PASSO 3: GERAR ARQUIVOS (3-5s)                         │
+│                                                                             │
+│    Cria index.html (300+ linhas)                                           │
+│    ├─ Navbar com logo e menu                                              │
+│    ├─ Hero section                                                        │
+│    ├─ Features grid (6 cartões)                                           │
+│    ├─ How it works (3 passos)                                             │
+│    ├─ Pricing (3 planos)                                                  │
+│    ├─ CTA section                                                         │
+│    └─ Footer                                                              │
+│                                                                             │
+│    Cria style.css (500+ linhas)                                            │
+│    ├─ Variables (cores, fonts)                                            │
+│    ├─ Reset & base styles                                                │
+│    ├─ Component styles                                                   │
+│    ├─ Responsive media queries                                            │
+│    └─ Mobile optimizations                                               │
+│                                                                             │
+│    Cria script.js (30 linhas)                                              │
+│    ├─ Analytics tracking                                                  │
+│    ├─ Event listeners                                                     │
+│    └─ Interatividade básica                                               │
+│                                                                             │
+│                           public/landing/                                  │
+│                              ├── index.html ✓                             │
+│                              ├── style.css ✓                              │
+│                              └── script.js ✓                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        PASSO 4: GIT ADD (2-3s)                             │
+│                      git add public/landing/                               │
+│                                                                             │
+│    Arquivos agora no staging area:                                        │
+│    └─ public/landing/index.html (new)                                     │
+│    └─ public/landing/style.css (new)                                      │
+│    └─ public/landing/script.js (new)                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       PASSO 5: GIT COMMIT (2-3s)                           │
+│         git commit -m "feat: add landing page - static HTML..."           │
+│                                                                             │
+│    Mensagem: "feat: add landing page - static HTML, CSS, JS for homepage" │
+│    Tamanho commit: ~25 KB                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        PASSO 6: GIT PUSH (5-10s)                           │
+│                    git push origin master                                  │
+│                                                                             │
+│    ✓ Código enviado para GitHub                                           │
+│    ✓ Webhook Render acionado automaticamente                              │
+│    ✓ URL: https://github.com/seu-usuario/timemates                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+                            ⏱️  AGUARDE ~2-3 MINUTOS
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          RENDER: WEBHOOK (10-20s)                          │
+│                                                                             │
+│    1. GitHub envia evento de push ao Render                                │
+│    2. Render verifica novo commit                                          │
+│    3. Render prepara para build                                            │
+│    4. Status: "In progress" (laranja)                                      │
+│                                                                             │
+│    Dashboard: https://dashboard.render.com/                                │
+│    Service: timemates                                                     │
+│    Tab: Deployments                                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      RENDER: BUILD (60-90 segundos)                        │
+│                                                                             │
+│    1. Pull novo código do GitHub                                           │
+│    2. Instala dependências (pip install -r requirements.txt)              │
+│    3. Compila aplicação                                                   │
+│    4. Executa testes (se houver)                                          │
+│    5. Prepara containers                                                  │
+│                                                                             │
+│    ✓ Sem erros: Status fica amarelo (Building)                           │
+│    ✗ Com erros: Status fica vermelho (Failed)                            │
+│                     → Verifique logs para diagnosticar                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        RENDER: DEPLOY (30-60s)                             │
+│                                                                             │
+│    1. Para servidor antigo (graceful shutdown)                             │
+│    2. Inicia novo servidor com código novo                                 │
+│    3. Faz health check                                                    │
+│    4. Ativa novo servidor se OK                                            │
+│    5. Status muda para VERDE (Live)                                       │
+│                                                                             │
+│    ✓ Seu site está online!                                                │
+│    ✓ URL: https://timemates.onrender.com                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SITE AO VIVO! (Pronto!)                             │
+│                                                                             │
+│    Abra no navegador:                                                     │
+│    https://timemates.onrender.com                                         │
+│                                                                             │
+│    Verificar:                                                             │
+│    ✓ Página carrega em <3 segundos                                        │
+│    ✓ CSS está visível (cores roxo/branco)                                 │
+│    ✓ Navbar aparece no topo                                               │
+│    ✓ Botões têm hover effects                                             │
+│    ✓ Menu responsivo em mobile                                            │
+│    ✓ Links funcionam                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                                TIMELINE
+================================================================================
+
+                    Você              GitHub              Render
+                     │                  │                   │
+  0s:   Script exec  │                  │                   │
+        ├─ Validar   │                  │                   │
+        ├─ Criar dir │                  │                   │
+        ├─ Gen files │                  │                   │
+        ├─ Git add   │                  │                   │
+        ├─ Git commit├─────────────────→│                   │
+        └─ Git push  │                  │                   │
+                     │         ~5-10s   │                   │
+                     │                  ├──────────Webhook──→│
+  30s:               │                  │      (10-20s)     │
+                     │                  │                   ├─ Detecta push
+                     │                  │                   ├─ Pull code
+                     │                  │                   ├─ Inicia build
+  90s:               │                  │      ~60-90s      │
+                     │                  │                   ├─ npm/pip install
+                     │                  │                   ├─ Compila
+                     │                  │                   ├─ Testa
+  180s:              │                  │                   │
+                     │                  │    ~30-60s        │
+                     │                  │                   ├─ Para old server
+                     │                  │                   ├─ Inicia novo
+                     │                  │                   ├─ Health checks
+                     │                  │                   └─ Status: LIVE ✓
+  240s:              │                  │                   │
+                     │                  │                   └─ Site online!
+        Pronto para  │                  │                   │
+        testar!      │                  │                   │
+
+                         Tempo Total: 3-4 minutos
+
+================================================================================
+                            ESTRUTURA FINAL
+================================================================================
+
+timeMates/
+├── main.py                              (Seu código - INALTERADO)
+├── database.py                          (Sua DB - INALTERADO)
+├── requirements.txt                     (Suas dependências - INALTERADO)
+├── static/                              (Seu static - INALTERADO)
+│   └── index.html
+├── public/                              (✓ NOVO)
+│   └── landing/                         (✓ NOVO)
+│       ├── index.html                   (✓ NOVO - Landing page)
+│       ├── style.css                    (✓ NOVO - Estilos)
+│       └── script.js                    (✓ NOVO - Interatividade)
+│
+├── DEPLOY_LANDING_PAGE.ps1              (✓ Script PowerShell)
+├── deploy-landing.sh                    (✓ Script Bash)
+├── DEPLOY_LANDING_PAGE.md               (✓ Documentação completa)
+├── DEPLOY_CHECKLIST.md                  (✓ Checklist de testes)
+├── QUICK_START_PT-BR.md                 (✓ Guia rápido)
+├── DEPLOYMENT_SUMMARY.txt               (✓ Resumo)
+└── DEPLOY_FLOW.txt                      (✓ Este arquivo - Fluxo visual)
+
+================================================================================
+                            RESULTADO
+================================================================================
+
+✓ Landing page criada: https://timemates.onrender.com
+✓ Totalmente responsiva (mobile/tablet/desktop)
+✓ 3 arquivos criados (HTML + CSS + JS)
+✓ ~150 linhas de código por arquivo
+✓ Design profissional em roxo/branco
+✓ 6+ seções (Hero, Features, Pricing, etc)
+✓ 0 custos adicionais (Render free tier)
+✓ Deploy automático (via Git push)
+✓ Atualizações futuras: mesmo fluxo (git push → auto deploy)
+
+================================================================================
+                          PRÓXIMAS EXECUÇÕES
+================================================================================
+
+Para fazer deploy de alterações futuras na landing page:
+
+1. Edite: public/landing/index.html (ou CSS/JS)
+2. Execute: git add public/landing/
+3. Execute: git commit -m "feat: update landing page..."
+4. Execute: git push origin master
+5. Render auto-detecta → auto-build → auto-deploy
+6. Site atualizado em 2-3 minutos
+
+================================================================================
