@@ -2987,6 +2987,13 @@ def get_news_stats(db: Session = Depends(get_db)):
 
 # ===== CITIES & GAMIFICATION API (27 CAPITAIS BRASILEIRAS) =====
 
+# Importar serviço IBGE
+try:
+    from ibge_service import IBGEService, get_city_data_with_ibge
+except ImportError:
+    print("[WARN] ibge_service não encontrado, IBGE integration desabilitada")
+    IBGEService = None
+
 @app.get("/api/cities")
 @limiter.limit("60/minute")
 def list_cities(request: Request, db: Session = Depends(get_db)):
@@ -3016,6 +3023,86 @@ def list_cities(request: Request, db: Session = Depends(get_db)):
         })
 
     return {"success": True, "data": result, "total": len(result)}
+
+
+@app.get("/api/city/{slug}/info-ibge")
+@limiter.limit("30/minute")
+def get_city_ibge_info(request: Request, slug: str, db: Session = Depends(get_db)):
+    """📊 Informações de uma cidade com dados do IBGE (população em tempo real)"""
+    city = db.query(City).filter(City.slug == slug).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="Cidade não encontrada")
+
+    result = {
+        "success": True,
+        "city": {
+            "id": city.id,
+            "slug": city.slug,
+            "name": city.name,
+            "state": city.state,
+            "landmark": city.landmark_image,
+            "coordinates": city.coordinates
+        },
+        "population": {
+            "stored_in_db": city.population,
+            "last_updated": city.created_at.isoformat() if city.created_at else None
+        },
+        "ibge": {
+            "enabled": IBGEService is not None,
+            "note": "Integração com IBGE para população em tempo real"
+        }
+    }
+
+    # Se IBGE service disponível, tenta buscar dados atualizados
+    if IBGEService:
+        try:
+            # Encontrar código IBGE (simplificado - em produção seria mais robusto)
+            ibge_code_map = {
+                "sao-paulo": 3550308,
+                "rio-de-janeiro": 3304557,
+                "belo-horizonte": 3106200,
+                "brasilia": 5300108,
+                "salvador": 2704302,
+                "fortaleza": 2304400,
+                "curitiba": 4106902,
+                "porto-alegre": 4314902,
+                "recife": 2611606,
+                "manaus": 1302603,
+                "belem": 1501402,
+                "sao-luis": 2111300,
+                "teresina": 2211001,
+                "natal": 2408102,
+                "joao-pessoa": 2507507,
+                "maceio": 2704302,
+                "goiania": 5208707,
+                "cuiaba": 5103403,
+                "campo-grande": 5002704,
+                "florianopolis": 4204402,
+                "vitoria": 3505708,
+                "macapa": 1600055,
+                "porto-velho": 1100205,
+                "boa-vista": 1400100,
+                "palmas": 2804901,
+                "campina-grande": 2504009
+            }
+
+            ibge_code = ibge_code_map.get(slug)
+            if ibge_code:
+                ibge_info = IBGEService.get_city_info(ibge_code)
+                ibge_pop = IBGEService.get_population_estimate(ibge_code)
+
+                result["ibge"]["info"] = ibge_info
+                result["ibge"]["population"] = ibge_pop
+
+                # Se conseguiu buscar do IBGE, atualiza resultado
+                if ibge_pop.get("success"):
+                    result["population"]["ibge_current"] = ibge_pop.get("population")
+                    result["population"]["source"] = "IBGE API"
+
+        except Exception as e:
+            result["ibge"]["error"] = str(e)
+
+    return result
 
 
 @app.get("/api/city/{slug}")

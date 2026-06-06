@@ -9,42 +9,42 @@ import json
 
 CAPITAIS_BRASILEIRAS = [
     # NORTE
-    {"slug": "macapa", "name": "Macapá", "state": "AP", "population": 512902, "landmark": "Forte de São José de Macapá"},
-    {"slug": "porto-velho", "name": "Porto Velho", "state": "RO", "population": 539205, "landmark": "Estação Férrea Madeira-Mamoré"},
-    {"slug": "boa-vista", "name": "Boa Vista", "state": "RR", "population": 330120, "landmark": "Catedral de Boa Vista"},
-    {"slug": "manaus", "name": "Manaus", "state": "AM", "population": 1802014, "landmark": "Teatro Amazonas"},
-    {"slug": "belem", "name": "Belém", "state": "PA", "population": 1506476, "landmark": "Basílica de Nazaré"},
-    {"slug": "palmas", "name": "Palmas", "state": "TO", "population": 305296, "landmark": "Praia da Graciosa"},
+    {"slug": "macapa", "name": "Macapá", "state": "AP", "population": 512902, "landmark": "Forte de São José de Macapá", "ibge_code": 1600055},
+    {"slug": "porto-velho", "name": "Porto Velho", "state": "RO", "population": 539205, "landmark": "Estação Férrea Madeira-Mamoré", "ibge_code": 1100205},
+    {"slug": "boa-vista", "name": "Boa Vista", "state": "RR", "population": 330120, "landmark": "Catedral de Boa Vista", "ibge_code": 1400100},
+    {"slug": "manaus", "name": "Manaus", "state": "AM", "population": 1802014, "landmark": "Teatro Amazonas", "ibge_code": 1302603},
+    {"slug": "belem", "name": "Belém", "state": "PA", "population": 1506476, "landmark": "Basílica de Nazaré", "ibge_code": 1501402},
+    {"slug": "palmas", "name": "Palmas", "state": "TO", "population": 305296, "landmark": "Praia da Graciosa", "ibge_code": 2804901},
 
     # NORDESTE
-    {"slug": "sao-luis", "name": "São Luís", "state": "MA", "population": 1108975, "landmark": "Centro Histórico"},
-    {"slug": "teresina", "name": "Teresina", "state": "PI", "population": 866383, "landmark": "Ponte Getúlio Vargas"},
-    {"slug": "fortaleza", "name": "Fortaleza", "state": "CE", "population": 2669342, "landmark": "Praia de Iracema"},
-    {"slug": "natal", "name": "Natal", "state": "RN", "population": 885180, "landmark": "Ponte Newton Navarro"},
-    {"slug": "joao-pessoa", "name": "João Pessoa", "state": "PB", "population": 809051, "landmark": "Farol do Cabo Branco"},
-    {"slug": "recife", "name": "Recife", "state": "PE", "population": 1645727, "landmark": "Ponte Maurício de Nassau"},
-    {"slug": "maceio", "name": "Maceió", "state": "AL", "population": 1025360, "landmark": "Praia de Ponta Verde"},
-    {"slug": "salvador", "name": "Salvador", "state": "BA", "population": 2595140, "landmark": "Pelourinho"},
+    {"slug": "sao-luis", "name": "São Luís", "state": "MA", "population": 1108975, "landmark": "Centro Histórico", "ibge_code": 2111300},
+    {"slug": "teresina", "name": "Teresina", "state": "PI", "population": 866383, "landmark": "Ponte Getúlio Vargas", "ibge_code": 2211001},
+    {"slug": "fortaleza", "name": "Fortaleza", "state": "CE", "population": 2669342, "landmark": "Praia de Iracema", "ibge_code": 2304400},
+    {"slug": "natal", "name": "Natal", "state": "RN", "population": 885180, "landmark": "Ponte Newton Navarro", "ibge_code": 2408102},
+    {"slug": "joao-pessoa", "name": "João Pessoa", "state": "PB", "population": 809051, "landmark": "Farol do Cabo Branco", "ibge_code": 2507507},
+    {"slug": "recife", "name": "Recife", "state": "PE", "population": 1645727, "landmark": "Ponte Maurício de Nassau", "ibge_code": 2611606},
+    {"slug": "maceio", "name": "Maceió", "state": "AL", "population": 1025360, "landmark": "Praia de Ponta Verde", "ibge_code": 2704302},
+    {"slug": "salvador", "name": "Salvador", "state": "BA", "population": 2595140, "landmark": "Pelourinho", "ibge_code": 2704302},
 
     # CENTRO-OESTE
-    {"slug": "brasilia", "name": "Brasília", "state": "DF", "population": 3124186, "landmark": "Catedral Metropolitana"},
-    {"slug": "goiania", "name": "Goiânia", "state": "GO", "population": 1536097, "landmark": "Prça Cívica"},
-    {"slug": "cuiaba", "name": "Cuiabá", "state": "MT", "population": 612547, "landmark": "Basílica do Senhor Bom Jesus"},
-    {"slug": "campo-grande", "name": "Campo Grande", "state": "MS", "population": 889975, "landmark": "Avenida Afonso Pena"},
+    {"slug": "brasilia", "name": "Brasília", "state": "DF", "population": 3124186, "landmark": "Catedral Metropolitana", "ibge_code": 5300108},
+    {"slug": "goiania", "name": "Goiânia", "state": "GO", "population": 1536097, "landmark": "Praça Cívica", "ibge_code": 5208707},
+    {"slug": "cuiaba", "name": "Cuiabá", "state": "MT", "population": 612547, "landmark": "Basílica do Senhor Bom Jesus", "ibge_code": 5103403},
+    {"slug": "campo-grande", "name": "Campo Grande", "state": "MS", "population": 889975, "landmark": "Avenida Afonso Pena", "ibge_code": 5002704},
 
     # SUDESTE
-    {"slug": "sao-paulo", "name": "São Paulo", "state": "SP", "population": 11975881, "landmark": "MASP"},
-    {"slug": "rio-de-janeiro", "name": "Rio de Janeiro", "state": "RJ", "population": 6775561, "landmark": "Cristo Redentor"},
-    {"slug": "vitoria", "name": "Vitória", "state": "ES", "population": 365855, "landmark": "Convento da Penha"},
-    {"slug": "belo-horizonte", "name": "Belo Horizonte", "state": "MG", "population": 2530701, "landmark": "Praça da Liberdade"},
+    {"slug": "sao-paulo", "name": "São Paulo", "state": "SP", "population": 11975881, "landmark": "MASP", "ibge_code": 3550308},
+    {"slug": "rio-de-janeiro", "name": "Rio de Janeiro", "state": "RJ", "population": 6775561, "landmark": "Cristo Redentor", "ibge_code": 3304557},
+    {"slug": "vitoria", "name": "Vitória", "state": "ES", "population": 365855, "landmark": "Convento da Penha", "ibge_code": 3505708},
+    {"slug": "belo-horizonte", "name": "Belo Horizonte", "state": "MG", "population": 2530701, "landmark": "Praça da Liberdade", "ibge_code": 3106200},
 
     # SUL
-    {"slug": "curitiba", "name": "Curitiba", "state": "PR", "population": 1963726, "landmark": "Ópera de Arame"},
-    {"slug": "florianopolis", "name": "Florianópolis", "state": "SC", "population": 507178, "landmark": "Lagoa da Conceição"},
-    {"slug": "porto-alegre", "name": "Porto Alegre", "state": "RS", "population": 1440939, "landmark": "Guaíba"},
+    {"slug": "curitiba", "name": "Curitiba", "state": "PR", "population": 1963726, "landmark": "Ópera de Arame", "ibge_code": 4106902},
+    {"slug": "florianopolis", "name": "Florianópolis", "state": "SC", "population": 507178, "landmark": "Lagoa da Conceição", "ibge_code": 4204402},
+    {"slug": "porto-alegre", "name": "Porto Alegre", "state": "RS", "population": 1440939, "landmark": "Guaíba", "ibge_code": 4314902},
 
-    # Campina Grande é interior de PB, adicionando aqui como extra
-    {"slug": "campina-grande", "name": "Campina Grande", "state": "PB", "population": 410332, "landmark": "Açude Epitácio Pessoa"},
+    # Interior de PB (adicionado como referência)
+    {"slug": "campina-grande", "name": "Campina Grande", "state": "PB", "population": 410332, "landmark": "Açude Epitácio Pessoa", "ibge_code": 2504009},
 ]
 
 DESAFIOS_GLOBAIS = [
