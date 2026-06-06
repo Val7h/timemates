@@ -553,6 +553,41 @@ class UserStreak(Base):
     user = relationship("User", foreign_keys=[user_id])
 
 
+class CityNews(Base):
+    """Notícias sobre cidades - posts e atualizações relevantes."""
+    __tablename__ = "city_news"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    title = Column(String, nullable=False, index=True)
+    content = Column(Text)
+    source = Column(String)
+    published_at = Column(DateTime, default=datetime.utcnow, index=True)
+    views = Column(Integer, default=0)
+    engagement_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    city = relationship("City", foreign_keys=[city_id])
+
+
+class CityEvent(Base):
+    """Eventos locais em cidades - shows, feiras, competições."""
+    __tablename__ = "city_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    title = Column(String, nullable=False, index=True)
+    description = Column(Text)
+    location = Column(String)
+    category = Column(String)  # cultural, esporte, gastronomia, etc
+    date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime)
+    attendees = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    city = relationship("City", foreign_keys=[city_id])
+
+
 def get_db():
     db = SessionLocal()
     try:
