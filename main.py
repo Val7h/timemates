@@ -10,7 +10,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # Stripe
-import stripeh
+import stripe
 from fastapi import Request
 
 # Carrega .env se existir (sem dependência externa)
