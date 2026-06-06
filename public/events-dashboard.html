@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eventos Locais - TimeMates</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            color: #1E3A5F;
+            font-size: 28px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #1E3A5F;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #1E3A5F;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 10px 15px;
+            border: 2px solid #D4A853;
+            border-radius: 8px;
+            width: 250px;
+            font-size: 14px;
+        }
+
+        .back-btn {
+            background: #1E3A5F;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .back-btn:hover {
+            background: #152d47;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            border: 2px solid #D4A853;
+            border-radius: 8px;
+            padding: 4px;
+            background: white;
+        }
+
+        .view-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #1E3A5F;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .view-btn.active {
+            background: #D4A853;
+            color: #1E3A5F;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #D4A853;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .event-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .event-header {
+            background: linear-gradient(135deg, #D4A853 0%, #C49A3D 100%);
+            padding: 20px;
+            color: #1E3A5F;
+        }
+
+        .event-date {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .event-date-text {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .event-time {
+            margin-top: 5px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .event-content {
+            padding: 20px;
+        }
+
+        .event-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1E3A5F;
+            margin-bottom: 10px;
+        }
+
+        .event-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .event-location {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .event-location strong {
+            color: #D4A853;
+        }
+
+        .event-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .rsvp-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #D4A853;
+            background: white;
+            color: #D4A853;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .rsvp-btn:hover {
+            background: #D4A853;
+            color: white;
+        }
+
+        .calendar-view {
+            display: none;
+        }
+
+        .calendar-view.active {
+            display: block;
+        }
+
+        .calendar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .calendar-header h2 {
+            color: #1E3A5F;
+            font-size: 20px;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .calendar-nav button {
+            padding: 8px 16px;
+            border: none;
+            background: #D4A853;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .weekday {
+            text-align: center;
+            font-weight: 600;
+            color: #1E3A5F;
+            padding: 10px;
+        }
+
+        .days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+        }
+
+        .day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .day.has-events {
+            background: #D4A853;
+            color: white;
+        }
+
+        .day.today {
+            border: 2px solid #1E3A5F;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            color: #999;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .events-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>🎪 Eventos Locais</h1>
+            <div class="header-controls">
+                <select id="citySelect" onchange="loadEvents()">
+                    <option value="">Selecione uma cidade...</option>
+                </select>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Buscar evento..." onkeyup="filterEvents()">
+                </div>
+                <div class="view-toggle">
+                    <button class="view-btn active" onclick="setView('grid')">📋 Lista</button>
+                    <button class="view-btn" onclick="setView('calendar')">📅 Calendário</button>
+                </div>
+                <button class="back-btn" onclick="goBack()">← Voltar</button>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats" id="stats"></div>
+
+        <!-- Grid View -->
+        <div id="gridView" class="active">
+            <div id="eventsContainer">
+                <div class="loading">
+                    <span>Carregando eventos...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar View -->
+        <div id="calendarView" class="calendar-view">
+            <div class="calendar" id="calendarContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://timemates.onrender.com';
+        let allEvents = [];
+        let allCities = [];
+        let selectedCity = null;
+        let currentView = 'grid';
+        let currentMonth = new Date();
+
+        // Inicialização
+        async function init() {
+            await loadCities();
+            loadEvents();
+        }
+
+        // Carregar cidades
+        async function loadCities() {
+            try {
+                const response = await fetch(`${API_BASE}/api/cities`);
+                const data = await response.json();
+                allCities = data.data || [];
+
+                // Preencher dropdown
+                const select = document.getElementById('citySelect');
+                const options = allCities
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(city => `<option value="${city.name}">${city.name} (${city.state})</option>`)
+                    .join('');
+                select.innerHTML += options;
+
+                // Selecionar primeira cidade
+                if (allCities.length > 0) {
+                    selectedCity = allCities[0].name;
+                    select.value = selectedCity;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar cidades:', error);
+            }
+        }
+
+        // Carregar eventos
+        async function loadEvents() {
+            selectedCity = document.getElementById('citySelect').value;
+            if (!selectedCity) return;
+
+            document.getElementById('eventsContainer').innerHTML = '<div class="loading"><span>Carregando eventos...</span></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/events/${selectedCity.toLowerCase().replace(/ /g, '-')}`);
+                const data = await response.json();
+                allEvents = data.data || [];
+
+                updateStats();
+                renderEvents();
+                renderCalendar();
+            } catch (error) {
+                console.error('Erro ao carregar eventos:', error);
+                document.getElementById('eventsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <h3>Nenhum evento encontrado</h3>
+                        <p>Tente selecionar outra cidade</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Atualizar estatísticas
+        function updateStats() {
+            const stats = document.getElementById('stats');
+            const upcoming = allEvents.filter(e => new Date(e.date) >= new Date()).length;
+            const thisMonth = allEvents.filter(e => {
+                const eDate = new Date(e.date);
+                return eDate.getMonth() === new Date().getMonth() &&
+                       eDate.getFullYear() === new Date().getFullYear();
+            }).length;
+
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="number">${allEvents.length}</div>
+                    <div class="label">Total de Eventos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${upcoming}</div>
+                    <div class="label">Próximos Eventos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${thisMonth}</div>
+                    <div class="label">Este Mês</div>
+                </div>
+            `;
+        }
+
+        // Renderizar eventos
+        function renderEvents() {
+            let filtered = allEvents;
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(e =>
+                    e.title.toLowerCase().includes(searchTerm) ||
+                    e.description.toLowerCase().includes(searchTerm) ||
+                    e.location.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            const container = document.getElementById('eventsContainer');
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Nenhum evento encontrado</h3>
+                        <p>Tente ajustar seus filtros</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const eventsHTML = filtered
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map(event => {
+                    const date = new Date(event.date);
+                    const dateStr = date.toLocaleDateString('pt-BR');
+                    return `
+                        <div class="event-card">
+                            <div class="event-header">
+                                <div class="event-date">${date.getDate()}</div>
+                                <div class="event-date-text">${dateStr.split('/').slice(1).join('/')}</div>
+                                <div class="event-time">⏰ ${event.time || 'Horário não informado'}</div>
+                            </div>
+                            <div class="event-content">
+                                <div class="event-title">${event.title}</div>
+                                <div class="event-description">${event.description}</div>
+                                <div class="event-location">
+                                    <span>📍</span>
+                                    <strong>${event.location}</strong>
+                                </div>
+                                <div class="event-actions">
+                                    <button class="rsvp-btn" onclick="rsvpEvent(${event.id}, 'going')">Vou</button>
+                                    <button class="rsvp-btn" onclick="rsvpEvent(${event.id}, 'maybe')">Talvez</button>
+                                    <button class="rsvp-btn" onclick="rsvpEvent(${event.id}, 'not_going')">Não vou</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            container.innerHTML = eventsHTML;
+        }
+
+        // Renderizar calendário
+        function renderCalendar() {
+            const container = document.getElementById('calendarContainer');
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+
+            const monthName = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let html = `
+                <div class="calendar-header">
+                    <h2>${monthName}</h2>
+                    <div class="calendar-nav">
+                        <button onclick="previousMonth()">←</button>
+                        <button onclick="nextMonth()">→</button>
+                    </div>
+                </div>
+                <div class="weekdays">
+                    <div class="weekday">Dom</div>
+                    <div class="weekday">Seg</div>
+                    <div class="weekday">Ter</div>
+                    <div class="weekday">Qua</div>
+                    <div class="weekday">Qui</div>
+                    <div class="weekday">Sex</div>
+                    <div class="weekday">Sab</div>
+                </div>
+                <div class="days">
+            `;
+
+            // Dias vazios no início
+            for (let i = 0; i < firstDay; i++) {
+                html += '<div class="day"></div>';
+            }
+
+            // Dias do mês
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const hasEvents = allEvents.some(e => new Date(e.date).toDateString() === date.toDateString());
+                const isToday = date.toDateString() === new Date().toDateString();
+
+                html += `
+                    <div class="day ${hasEvents ? 'has-events' : ''} ${isToday ? 'today' : ''}">
+                        ${day}
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Navegação do calendário
+        function previousMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderCalendar();
+        }
+
+        // Mudar visualização
+        function setView(view) {
+            currentView = view;
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('gridView').classList.remove('active');
+            document.getElementById('calendarView').classList.remove('active');
+
+            if (view === 'grid') {
+                document.getElementById('gridView').classList.add('active');
+            } else {
+                document.getElementById('calendarView').classList.add('active');
+            }
+        }
+
+        // Filtrar eventos
+        function filterEvents() {
+            renderEvents();
+        }
+
+        // RSVP para evento
+        function rsvpEvent(eventId, status) {
+            alert(`RSVP '${status}' registrado para o evento #${eventId}`);
+            // TODO: Implementar chamada à API quando endpoint estiver pronto
+        }
+
+        // Voltar
+        function goBack() {
+            window.history.back();
+        }
+
+        // Iniciar ao carregar
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

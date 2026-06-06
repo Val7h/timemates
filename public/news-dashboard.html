@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notícias Locais - TimeMates</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            color: #1E3A5F;
+            font-size: 28px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #1E3A5F;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #1E3A5F;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 10px 15px;
+            border: 2px solid #D4A853;
+            border-radius: 8px;
+            width: 250px;
+            font-size: 14px;
+        }
+
+        .search-box input::placeholder {
+            color: #999;
+        }
+
+        .back-btn {
+            background: #1E3A5F;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .back-btn:hover {
+            background: #152d47;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #D4A853;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid white;
+            background: transparent;
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active {
+            background: #D4A853;
+            border-color: #D4A853;
+            color: #1E3A5F;
+        }
+
+        .filter-btn:hover {
+            border-color: #D4A853;
+        }
+
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .news-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+
+        .news-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        .news-header {
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            padding: 15px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+        }
+
+        .news-category {
+            display: inline-block;
+            background: #D4A853;
+            color: #1E3A5F;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .news-date {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .news-content {
+            padding: 20px;
+        }
+
+        .news-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1E3A5F;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .news-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .news-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            color: #999;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+        }
+
+        .loading span {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            margin: 0 5px;
+            animation: pulse 1.4s infinite;
+        }
+
+        .loading span:nth-child(2) { animation-delay: 0.2s; }
+        .loading span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .news-grid {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>📰 Notícias Locais</h1>
+            <div class="header-controls">
+                <select id="citySelect" onchange="loadNews()">
+                    <option value="">Selecione uma cidade...</option>
+                </select>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Buscar notícia..." onkeyup="filterNews()">
+                </div>
+                <button class="back-btn" onclick="goBack()">← Voltar</button>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats" id="stats"></div>
+
+        <!-- Filters -->
+        <div class="filters" id="filters"></div>
+
+        <!-- News Grid -->
+        <div id="newsContainer">
+            <div class="loading">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://timemates.onrender.com';
+        let allNews = [];
+        let allCities = [];
+        let selectedCity = null;
+        let selectedCategory = null;
+
+        // Inicialização
+        async function init() {
+            await loadCities();
+            loadNews();
+        }
+
+        // Carregar cidades
+        async function loadCities() {
+            try {
+                const response = await fetch(`${API_BASE}/api/cities`);
+                const data = await response.json();
+                allCities = data.data || [];
+
+                // Preencher dropdown
+                const select = document.getElementById('citySelect');
+                const options = allCities
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(city => `<option value="${city.name}">${city.name} (${city.state})</option>`)
+                    .join('');
+                select.innerHTML += options;
+
+                // Selecionar primeira cidade por padrão
+                if (allCities.length > 0) {
+                    selectedCity = allCities[0].name;
+                    select.value = selectedCity;
+                }
+            } catch (error) {
+                console.error('Erro ao carregar cidades:', error);
+            }
+        }
+
+        // Carregar notícias
+        async function loadNews() {
+            selectedCity = document.getElementById('citySelect').value;
+            if (!selectedCity) return;
+
+            document.getElementById('newsContainer').innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/news/${selectedCity.toLowerCase().replace(/ /g, '-')}`);
+                const data = await response.json();
+                allNews = data.data || [];
+
+                // Atualizar stats
+                updateStats();
+
+                // Atualizar filtros
+                updateFilters();
+
+                // Renderizar notícias
+                renderNews();
+            } catch (error) {
+                console.error('Erro ao carregar notícias:', error);
+                document.getElementById('newsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <h3>Nenhuma notícia encontrada</h3>
+                        <p>Tente selecionar outra cidade</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Atualizar estatísticas
+        function updateStats() {
+            const stats = document.getElementById('stats');
+            const uniqueCategories = new Set(allNews.map(n => n.category)).size;
+            const recentNews = allNews.filter(n => {
+                const date = new Date(n.published_at);
+                const daysAgo = (Date.now() - date) / (1000 * 60 * 60 * 24);
+                return daysAgo <= 7;
+            }).length;
+
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="number">${allNews.length}</div>
+                    <div class="label">Total de Notícias</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${recentNews}</div>
+                    <div class="label">Últimos 7 dias</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">${uniqueCategories}</div>
+                    <div class="label">Categorias</div>
+                </div>
+            `;
+        }
+
+        // Atualizar filtros
+        function updateFilters() {
+            const filters = document.getElementById('filters');
+            const categories = [...new Set(allNews.map(n => n.category))].sort();
+
+            const filterHTML = `
+                <button class="filter-btn active" onclick="selectCategory(null)">Todas</button>
+                ${categories.map(cat => `
+                    <button class="filter-btn" onclick="selectCategory('${cat}')">${formatCategory(cat)}</button>
+                `).join('')}
+            `;
+
+            filters.innerHTML = filterHTML;
+        }
+
+        // Selecionar categoria
+        function selectCategory(category) {
+            selectedCategory = category;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            renderNews();
+        }
+
+        // Renderizar notícias
+        function renderNews() {
+            let filtered = allNews;
+
+            if (selectedCategory) {
+                filtered = filtered.filter(n => n.category === selectedCategory);
+            }
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            if (searchTerm) {
+                filtered = filtered.filter(n =>
+                    n.title.toLowerCase().includes(searchTerm) ||
+                    n.content.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            const container = document.getElementById('newsContainer');
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Nenhuma notícia encontrada</h3>
+                        <p>Tente ajustar seus filtros</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const newsHTML = filtered
+                .sort((a, b) => new Date(b.published_at) - new Date(a.published_at))
+                .map(news => `
+                    <div class="news-card">
+                        <div class="news-header">
+                            <div style="flex: 1;">
+                                <span class="news-category">${formatCategory(news.category)}</span>
+                            </div>
+                            <div class="news-date">${formatDate(news.published_at)}</div>
+                        </div>
+                        <div class="news-content">
+                            <div class="news-title">${news.title}</div>
+                            <div class="news-description">${news.content}</div>
+                            <div class="news-footer">
+                                <span>📍 ${news.source || 'Local News'}</span>
+                                <span>⏰ ${formatTime(news.published_at)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            container.innerHTML = newsHTML;
+        }
+
+        // Filtrar notícias por busca
+        function filterNews() {
+            renderNews();
+        }
+
+        // Formatar categoria
+        function formatCategory(category) {
+            const map = {
+                'breaking_news': '🔴 Urgente',
+                'events': '🎪 Eventos',
+                'economy': '💰 Economia',
+                'education': '📚 Educação',
+                'culture': '🎭 Cultura',
+                'religion': '⛪ Religião',
+                'business': '💼 Negócios',
+                'tourism': '✈️ Turismo',
+                'urban_planning': '🏗️ Urbanismo',
+                'technology': '💻 Tecnologia',
+                'gastronomy': '🍽️ Gastronomia',
+                'politics': '🏛️ Política',
+                'news': '📰 Notícia',
+                'science': '🔬 Ciência',
+                'environment': '🌱 Meio Ambiente',
+            };
+            return map[category] || category;
+        }
+
+        // Formatar data
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const days = Math.floor((Date.now() - date) / (1000 * 60 * 60 * 24));
+
+            if (days === 0) return 'Hoje';
+            if (days === 1) return 'Ontem';
+            if (days < 7) return `${days}d atrás`;
+
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        // Formatar hora
+        function formatTime(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Voltar
+        function goBack() {
+            window.history.back();
+        }
+
+        // Iniciar ao carregar
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
