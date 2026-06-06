@@ -2985,6 +2985,250 @@ def get_news_stats(db: Session = Depends(get_db)):
     }
 
 
+# ===== CITIES & GAMIFICATION API (27 CAPITAIS BRASILEIRAS) =====
+
+@app.get("/api/cities")
+@limiter.limit("60/minute")
+def list_cities(request: Request, db: Session = Depends(get_db)):
+    """🌍 Listar todas as 27 capitais brasileiras com estatísticas"""
+    cities = db.query(City).all()
+
+    result = []
+    for city in cities:
+        news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
+        events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
+        users = db.query(RoomMembership).count()  # Simplified
+
+        result.append({
+            "id": city.id,
+            "slug": city.slug,
+            "name": city.name,
+            "state": city.state,
+            "population": city.population,
+            "coordinates": city.coordinates,
+            "landmark_image": city.landmark_image,
+            "stats": {
+                "news": news_count,
+                "events": events_count,
+                "users": max(10, users // 27),  # Distributed
+                "engagement_score": round((news_count + events_count) * 1.5, 1)
+            }
+        })
+
+    return {"success": True, "data": result, "total": len(result)}
+
+
+@app.get("/api/city/{slug}")
+@limiter.limit("60/minute")
+def get_city_dashboard(request: Request, slug: str, db: Session = Depends(get_db)):
+    """📊 Dashboard completo de uma cidade com notícias, eventos, desafios"""
+    city = db.query(City).filter(City.slug == slug).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="Cidade não encontrada")
+
+    news = db.query(LocalNews).filter(LocalNews.city == city.name).limit(5).all()
+    events = db.query(LocalEvent).filter(LocalEvent.city == city.name).limit(5).all()
+    challenges = db.query(CityChallenge).filter(CityChallenge.city_id == city.id).limit(5).all()
+    tips = db.query(LocalTip).filter(LocalTip.city_id == city.id).limit(5).all()
+
+    return {
+        "success": True,
+        "city": {
+            "id": city.id,
+            "slug": city.slug,
+            "name": city.name,
+            "state": city.state,
+            "population": city.population,
+            "landmark_image": city.landmark_image,
+            "coordinates": city.coordinates
+        },
+        "news": [{"id": n.id, "title": n.title, "category": n.category} for n in news],
+        "events": [{"id": e.id, "title": e.title, "date": e.date, "location": e.location} for e in events],
+        "challenges": [{"id": c.id, "title": c.title, "reward_points": c.reward_points} for c in challenges],
+        "tips": [{"id": t.id, "title": t.title, "rating": t.rating} for t in tips]
+    }
+
+
+@app.post("/api/city/{slug}/tips")
+@limiter.limit("30/minute")
+def submit_tip(
+    request: Request,
+    slug: str,
+    title: str = "",
+    description: str = "",
+    location: str = "",
+    rating: float = 5.0,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """💡 Submeter dica local sobre um lugar na cidade"""
+    city = db.query(City).filter(City.slug == slug).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="Cidade não encontrada")
+
+    tip = LocalTip(
+        city_id=city.id,
+        user_id=current_user.id,
+        title=title,
+        description=description,
+        location=location,
+        rating=min(5.0, max(0.0, rating))
+    )
+    db.add(tip)
+    db.commit()
+
+    return {"success": True, "tip_id": tip.id, "message": "Dica adicionada!"}
+
+
+@app.get("/api/city/{slug}/challenges")
+@limiter.limit("60/minute")
+def get_challenges(request: Request, slug: str, db: Session = Depends(get_db)):
+    """🎯 Listar desafios semanais de uma cidade"""
+    city = db.query(City).filter(City.slug == slug).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="Cidade não encontrada")
+
+    challenges = db.query(CityChallenge).filter(
+        CityChallenge.city_id == city.id,
+        CityChallenge.active == True
+    ).all()
+
+    return {
+        "success": True,
+        "city": city.name,
+        "challenges": [
+            {
+                "id": c.id,
+                "title": c.title,
+                "description": c.description,
+                "reward_points": c.reward_points,
+                "difficulty": c.difficulty,
+                "submissions": db.query(ChallengeSubmission).filter(
+                    ChallengeSubmission.challenge_id == c.id
+                ).count()
+            }
+            for c in challenges
+        ]
+    }
+
+
+@app.post("/api/city/{slug}/challenges/{challenge_id}/submit")
+@limiter.limit("30/minute")
+def submit_challenge(
+    request: Request,
+    slug: str,
+    challenge_id: int,
+    photo: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """📸 Submeter foto para desafio (prova de conclusão)"""
+    challenge = db.query(CityChallenge).filter(CityChallenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Desafio não encontrado")
+
+    import uuid
+    file_ext = photo.filename.split('.')[-1]
+    file_name = f"challenge_{challenge_id}_{current_user.id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+    file_path = f"uploads/challenges/{file_name}"
+
+    import os
+    os.makedirs("uploads/challenges", exist_ok=True)
+
+    with open(file_path, "wb") as f:
+        f.write(photo.file.read())
+
+    submission = ChallengeSubmission(
+        challenge_id=challenge_id,
+        user_id=current_user.id,
+        photo_url=f"/{file_path}",
+        approved=False  # Admin aprovação necessária
+    )
+    db.add(submission)
+    db.commit()
+
+    return {"success": True, "submission_id": submission.id, "message": "Foto submetida para aprovação!"}
+
+
+@app.get("/api/city/{slug}/leaderboard")
+@limiter.limit("60/minute")
+def get_city_leaderboard(request: Request, slug: str, db: Session = Depends(get_db)):
+    """🏆 Top 10 usuários mais engajados em uma cidade"""
+    city = db.query(City).filter(City.slug == slug).first()
+    if not city:
+        raise HTTPException(status_code=404, detail="Cidade não encontrada")
+
+    leaderboards = db.query(CityLeaderboard).filter(
+        CityLeaderboard.city_id == city.id
+    ).order_by(CityLeaderboard.engagement_score.desc()).limit(10).all()
+
+    return {
+        "success": True,
+        "city": city.name,
+        "leaderboard": [
+            {
+                "rank": idx + 1,
+                "user_id": lb.user_id,
+                "engagement_score": lb.engagement_score,
+                "rank_position": lb.rank
+            }
+            for idx, lb in enumerate(leaderboards)
+        ]
+    }
+
+
+@app.get("/api/user/badges")
+@limiter.limit("60/minute")
+def get_user_badges(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🏆 Listar badges desbloqueados do usuário"""
+    badges = db.query(CityBadge).filter(CityBadge.user_id == current_user.id).all()
+
+    return {
+        "success": True,
+        "user_id": current_user.id,
+        "badges": [
+            {
+                "id": b.id,
+                "badge_type": b.badge_type,
+                "city_id": b.city_id,
+                "unlocked_at": b.unlocked_at.isoformat() if b.unlocked_at else None
+            }
+            for b in badges
+        ],
+        "total_badges": len(badges)
+    }
+
+
+@app.get("/api/user/streak")
+@limiter.limit("60/minute")
+def get_user_streak(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🔥 Ver streak do usuário (dias consecutivos)"""
+    streak = db.query(UserStreak).filter(UserStreak.user_id == current_user.id).first()
+
+    if not streak:
+        return {
+            "success": True,
+            "current_streak": 0,
+            "longest_streak": 0,
+            "message": "Comece seu streak visitando o app!"
+        }
+
+    return {
+        "success": True,
+        "current_streak": streak.current_streak,
+        "longest_streak": streak.longest_streak,
+        "last_activity": streak.last_activity_date.isoformat() if streak.last_activity_date else None
+    }
+
+
 # ===== LANDING PAGE & LEGAL DOCS =====
 @app.get("/", response_class=FileResponse)
 async def landing_page():

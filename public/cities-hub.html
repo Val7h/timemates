@@ -1,0 +1,505 @@
+<!-- 🌍 TIMEMATES BRASIL - CITIES HUB -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeMates Brasil - 27 Capitais</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .cities-map {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .cities-map h2 {
+            color: #1E3A5F;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .map-visualization {
+            width: 100%;
+            height: 400px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 10px;
+            align-content: center;
+        }
+
+        .city-bubble {
+            aspect-ratio: 1;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            text-align: center;
+            padding: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .city-bubble:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .city-size-1 { width: 80px; height: 80px; background: linear-gradient(135deg, #EF4444, #DC2626); }
+        .city-size-2 { width: 70px; height: 70px; background: linear-gradient(135deg, #F97316, #EA580C); }
+        .city-size-3 { width: 60px; height: 60px; background: linear-gradient(135deg, #FBBF24, #F59E0B); }
+        .city-size-4 { width: 50px; height: 50px; background: linear-gradient(135deg, #60A5FA, #3B82F6); }
+
+        .ranking {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .ranking h2 {
+            color: #1E3A5F;
+            margin-bottom: 20px;
+        }
+
+        .ranking-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f9fbfd;
+            border-radius: 8px;
+            border-left: 4px solid #D4A853;
+            transition: all 0.3s;
+        }
+
+        .ranking-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(212, 168, 83, 0.2);
+        }
+
+        .ranking-rank {
+            font-size: 24px;
+            font-weight: 700;
+            color: #D4A853;
+            width: 50px;
+            text-align: center;
+        }
+
+        .ranking-rank.gold { color: #FBBF24; }
+        .ranking-rank.silver { color: #D1D5DB; }
+        .ranking-rank.bronze { color: #D97706; }
+
+        .ranking-info {
+            flex: 1;
+            margin-left: 15px;
+        }
+
+        .ranking-name {
+            font-weight: 600;
+            color: #1E3A5F;
+            margin-bottom: 5px;
+        }
+
+        .ranking-stats {
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            gap: 10px;
+        }
+
+        .ranking-badge {
+            background: linear-gradient(135deg, #D4A853, #F59E0B);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .challenges-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 30px;
+        }
+
+        .challenges-section h2 {
+            color: #1E3A5F;
+            margin-bottom: 20px;
+        }
+
+        .challenge-card {
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .challenge-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .challenge-info h3 {
+            margin-bottom: 5px;
+        }
+
+        .challenge-info p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .challenge-reward {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #D4A853;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 28px;
+            }
+
+            .map-visualization {
+                grid-template-columns: repeat(2, 1fr);
+                height: 300px;
+            }
+
+            .city-bubble {
+                font-size: 10px;
+            }
+
+            .challenge-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .challenge-reward {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 TimeMates Brasil</h1>
+            <p>Reconecte com ex-colegas em todas as 27 capitais</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- MAPA INTERATIVO -->
+            <div class="cities-map">
+                <h2>🗺️ Capitais Brasileiras</h2>
+                <div class="map-visualization">
+                    <!-- Tier 1: Megacidades (3) -->
+                    <div class="city-bubble city-size-1" onclick="openCity('sao-paulo')">
+                        <div>🏙️</div>
+                        <div>SP</div>
+                        <div>2500</div>
+                    </div>
+                    <div class="city-bubble city-size-1" onclick="openCity('rio-de-janeiro')">
+                        <div>🎭</div>
+                        <div>RJ</div>
+                        <div>1800</div>
+                    </div>
+                    <div class="city-bubble city-size-1" onclick="openCity('belo-horizonte')">
+                        <div>🏔️</div>
+                        <div>BH</div>
+                        <div>1200</div>
+                    </div>
+
+                    <!-- Tier 2: Major cities (6) -->
+                    <div class="city-bubble city-size-2" onclick="openCity('brasilia')">
+                        <div>🏛️</div>
+                        <div>Brasília</div>
+                        <div>850</div>
+                    </div>
+                    <div class="city-bubble city-size-2" onclick="openCity('salvador')">
+                        <div>🌴</div>
+                        <div>Salvador</div>
+                        <div>920</div>
+                    </div>
+                    <div class="city-bubble city-size-2" onclick="openCity('fortaleza')">
+                        <div>🏖️</div>
+                        <div>Fortaleza</div>
+                        <div>780</div>
+                    </div>
+
+                    <!-- Tier 3: Regional cities (6) -->
+                    <div class="city-bubble city-size-3" onclick="openCity('curitiba')">
+                        <div>❄️</div>
+                        <div>Curitiba</div>
+                        <div>650</div>
+                    </div>
+                    <div class="city-bubble city-size-3" onclick="openCity('porto-alegre')">
+                        <div>🌊</div>
+                        <div>P. Alegre</div>
+                        <div>620</div>
+                    </div>
+                    <div class="city-bubble city-size-3" onclick="openCity('recife')">
+                        <div>🏝️</div>
+                        <div>Recife</div>
+                        <div>580</div>
+                    </div>
+
+                    <!-- Tier 4: Smaller cities (8) -->
+                    <div class="city-bubble city-size-4" onclick="openCity('manaus')">
+                        <div>🌴</div>
+                        <div>Manaus</div>
+                        <div>450</div>
+                    </div>
+                    <div class="city-bubble city-size-4" onclick="openCity('belem')">
+                        <div>🦅</div>
+                        <div>Belém</div>
+                        <div>420</div>
+                    </div>
+                    <div class="city-bubble city-size-4" onclick="openCity('goiania')">
+                        <div>🌾</div>
+                        <div>Goiânia</div>
+                        <div>380</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RANKING POR ESTADO -->
+            <div class="ranking">
+                <h2>🏆 Top 10 Estados</h2>
+
+                <div class="ranking-item">
+                    <div class="ranking-rank gold">🥇</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">São Paulo</div>
+                        <div class="ranking-stats">
+                            <span>2500 usuários</span>
+                            <span>45 eventos</span>
+                            <span>234 trending</span>
+                        </div>
+                    </div>
+                    <div class="ranking-badge">+600% growth</div>
+                </div>
+
+                <div class="ranking-item">
+                    <div class="ranking-rank silver">🥈</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">Rio de Janeiro</div>
+                        <div class="ranking-stats">
+                            <span>1800 usuários</span>
+                            <span>32 eventos</span>
+                            <span>156 trending</span>
+                        </div>
+                    </div>
+                    <div class="ranking-badge">+550% growth</div>
+                </div>
+
+                <div class="ranking-item">
+                    <div class="ranking-rank bronze">🥉</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">Bahia</div>
+                        <div class="ranking-stats">
+                            <span>1200 usuários</span>
+                            <span>28 eventos</span>
+                            <span>120 trending</span>
+                        </div>
+                    </div>
+                    <div class="ranking-badge">+480% growth</div>
+                </div>
+
+                <div class="ranking-item">
+                    <div class="ranking-rank">4</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">Pernambuco</div>
+                        <div class="ranking-stats">
+                            <span>980 usuários</span>
+                            <span>22 eventos</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ranking-item">
+                    <div class="ranking-rank">5</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">Minas Gerais</div>
+                        <div class="ranking-stats">
+                            <span>850 usuários</span>
+                            <span>19 eventos</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DESAFIOS DA SEMANA -->
+        <div class="challenges-section">
+            <h2>🎯 Desafios Semanais</h2>
+
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    <h3>📸 Tire foto do landmark local</h3>
+                    <p>Fotografe o ponto turístico mais famoso da sua cidade</p>
+                </div>
+                <div class="challenge-reward">100 pts 🎉</div>
+            </div>
+
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    <h3>🤝 Conheça alguém de outra capital</h3>
+                    <p>Envie mensagem para alguém de uma cidade diferente</p>
+                </div>
+                <div class="challenge-reward">300 pts 🌍</div>
+            </div>
+
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    <h3>🎪 Organize um encontro na sua cidade</h3>
+                    <p>Crie um evento e consiga 5+ confirmações</p>
+                </div>
+                <div class="challenge-reward">250 pts 🏆</div>
+            </div>
+
+            <div class="challenge-card">
+                <div class="challenge-info">
+                    <h3>🔥 Visite 3 salas novas</h3>
+                    <p>Explore e entre em 3 salas diferentes em 24h</p>
+                </div>
+                <div class="challenge-reward">50 pts ⚡</div>
+            </div>
+        </div>
+
+        <!-- ESTATÍSTICAS GLOBAIS -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">27</div>
+                <div class="stat-label">Capitais Cobertas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">15K+</div>
+                <div class="stat-label">Usuários Ativos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">500+</div>
+                <div class="stat-label">Eventos por Semana</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">50K+</div>
+                <div class="stat-label">Trending Topics</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openCity(slug) {
+            // Redirecionar para dashboard da cidade
+            window.location.href = `/city/${slug}`;
+        }
+
+        // Carregar dados reais dos endpoints
+        async function loadCitiesData() {
+            try {
+                const response = await fetch('/api/cities');
+                const data = await response.json();
+                console.log('Cidades carregadas:', data);
+                // Renderizar dinamicamente com dados reais
+            } catch (error) {
+                console.error('Erro ao carregar cidades:', error);
+            }
+        }
+
+        // Carregar ao abrir página
+        window.addEventListener('load', loadCitiesData);
+    </script>
+</body>
+</html>

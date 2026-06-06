@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Boolean,
+    create_engine, Column, Integer, String, Boolean, Float,
     DateTime, ForeignKey, Text, JSON
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -418,6 +418,137 @@ class NewsDigest(Base):
     sent_at = Column(DateTime, nullable=True)
     news_items_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8 NOVAS TABELAS - SISTEMA DE CIDADES COM DESAFIOS E RANKINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class City(Base):
+    """Cidades brasileiras com metadados e localização."""
+    __tablename__ = "cities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String, unique=True, index=True)  # "rio-de-janeiro", "sao-paulo"
+    name = Column(String, index=True)
+    state = Column(String)  # "RJ", "SP", "MG"
+    population = Column(Integer)
+    landmark_image = Column(String, nullable=True)
+    coordinates = Column(JSON)  # {"latitude": float, "longitude": float}
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    local_tips = relationship("LocalTip", back_populates="city", cascade="all, delete-orphan")
+    challenges = relationship("CityChallenge", back_populates="city", cascade="all, delete-orphan")
+    badges = relationship("CityBadge", back_populates="city", cascade="all, delete-orphan")
+    pois = relationship("LocalPOI", back_populates="city", cascade="all, delete-orphan")
+    leaderboards = relationship("CityLeaderboard", back_populates="city", cascade="all, delete-orphan")
+
+
+class LocalTip(Base):
+    """Dica local sobre um lugar na cidade, submetida por usuário."""
+    __tablename__ = "local_tips"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, index=True)
+    description = Column(Text)
+    location = Column(String)
+    rating = Column(Float, default=0.0)  # 0-5
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    city = relationship("City", back_populates="local_tips")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class CityChallenge(Base):
+    """Desafio local para engajar usuários em cidades."""
+    __tablename__ = "city_challenges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    title = Column(String, index=True)
+    description = Column(Text)
+    reward_points = Column(Integer, default=100)
+    difficulty = Column(String)  # "facil", "medio", "dificil"
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    city = relationship("City", back_populates="challenges")
+    submissions = relationship("ChallengeSubmission", back_populates="challenge", cascade="all, delete-orphan")
+
+
+class ChallengeSubmission(Base):
+    """Submissão de um usuário para um desafio local."""
+    __tablename__ = "challenge_submissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    challenge_id = Column(Integer, ForeignKey("city_challenges.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    photo_url = Column(String)
+    approved = Column(Boolean, default=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    challenge = relationship("CityChallenge", back_populates="submissions")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class CityBadge(Base):
+    """Badge ou conquista do usuário relacionada a cidade."""
+    __tablename__ = "city_badges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    badge_type = Column(String, index=True)  # "explorador", "foodie", "cultural"
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    unlocked_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    city = relationship("City", back_populates="badges")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class LocalPOI(Base):
+    """Ponto de Interesse (POI) - lugar notável na cidade."""
+    __tablename__ = "local_pois"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    name = Column(String, index=True)
+    type = Column(String)  # "restaurant", "park", "museum", "landmark", "beach"
+    latitude = Column(Float)
+    longitude = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    city = relationship("City", back_populates="pois")
+
+
+class CityLeaderboard(Base):
+    """Leaderboard de engajamento de usuários por cidade."""
+    __tablename__ = "city_leaderboards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    engagement_score = Column(Float, default=0.0)
+    rank = Column(Integer)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    city = relationship("City", back_populates="leaderboards")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class UserStreak(Base):
+    """Controle de sequência de atividades do usuário."""
+    __tablename__ = "user_streaks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_activity_date = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])
 
