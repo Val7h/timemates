@@ -808,13 +808,15 @@ def get_institution(institution_id: int, db: Session = Depends(get_db)):
 
     rooms.sort(key=lambda x: x["last_activity"], reverse=True)
 
-    # Buscar população da cidade se existir
+    # Buscar população e nickname da cidade se existir
     city_population = None
+    city_nickname = None
     if inst.city:
         try:
             city_obj = db.query(City).filter(City.name == inst.city).first()
             if city_obj:
                 city_population = city_obj.population
+                city_nickname = city_obj.nickname
         except:
             pass
 
@@ -823,6 +825,7 @@ def get_institution(institution_id: int, db: Session = Depends(get_db)):
         "state": inst.state, "city": inst.city,
         "neighborhood": inst.neighborhood, "sector": inst.sector,
         "city_population": city_population,
+        "city_nickname": city_nickname,
         "rooms": rooms,
     }
 

@@ -435,6 +435,7 @@ class City(Base):
     name = Column(String, index=True)
     state = Column(String)  # "RJ", "SP", "MG"
     population = Column(Integer)
+    nickname = Column(String, nullable=True)  # "Cidade Maravilhosa", "Rainha da Borborema"
     landmark_image = Column(String, nullable=True)
     coordinates = Column(JSON)  # {"latitude": float, "longitude": float}
     created_at = Column(DateTime, default=datetime.utcnow)

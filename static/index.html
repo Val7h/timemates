@@ -798,6 +798,7 @@ nav {
     <h2 id="inst-name">—</h2>
     <p class="inst-sub" id="inst-sub">—</p>
     <p class="inst-population" id="inst-population" style="display:none; font-size:0.9rem; color:#666; margin:4px 0 0 0;">—</p>
+    <p class="inst-nickname" id="inst-nickname" style="display:none; font-size:0.85rem; color:#D4A853; margin:2px 0 0 0; font-weight:500;">—</p>
     <div class="inst-stats">
       <span class="inst-stat"><strong id="inst-rooms-count">0</strong> salas antigas</span>
       <span class="inst-stat"><strong id="inst-members-count">0</strong> ex-membros</span>
@@ -1904,11 +1905,20 @@ async function openInstitution(id) {
 
     // Mostrar população se for uma cidade
     const popEl = document.getElementById('inst-population');
+    const nickEl = document.getElementById('inst-nickname');
     if (inst.city && inst.city_population) {
       popEl.textContent = `👥 ${new Intl.NumberFormat('pt-BR').format(inst.city_population)} habitantes`;
       popEl.style.display = 'block';
     } else {
       popEl.style.display = 'none';
+    }
+
+    // Mostrar nickname se existir
+    if (inst.city_nickname) {
+      nickEl.textContent = `✨ ${inst.city_nickname}`;
+      nickEl.style.display = 'block';
+    } else {
+      nickEl.style.display = 'none';
     }
 
     const totalMembers = inst.rooms.reduce((s, r) => s + r.member_count, 0);
