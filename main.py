@@ -10,7 +10,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # Stripe
-import stripe
+import stripeh
 from fastapi import Request
 
 # Carrega .env se existir (sem dependência externa)
@@ -2994,7 +2994,7 @@ def admin_cancel_event(
 
 @app.get("/api/stats/news")
 @limiter.limit("100/minute")
-def get_news_stats(db: Session = Depends(get_db)):
+def get_news_stats(request: Request, db: Session = Depends(get_db)):
     """📊 Estatísticas de notícias locais"""
     news_count = db.query(LocalNews).count()
     events_count = db.query(LocalEvent).filter(LocalEvent.status == "active").count()
