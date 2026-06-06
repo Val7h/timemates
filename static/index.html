@@ -797,6 +797,7 @@ nav {
     <button class="back-btn" onclick="showPage('explore')">← Voltar</button>
     <h2 id="inst-name">—</h2>
     <p class="inst-sub" id="inst-sub">—</p>
+    <p class="inst-population" id="inst-population" style="display:none; font-size:0.9rem; color:#666; margin:4px 0 0 0;">—</p>
     <div class="inst-stats">
       <span class="inst-stat"><strong id="inst-rooms-count">0</strong> salas antigas</span>
       <span class="inst-stat"><strong id="inst-members-count">0</strong> ex-membros</span>
@@ -1900,6 +1901,16 @@ async function openInstitution(id) {
     state.muralEntries = [];
     document.getElementById('inst-name').textContent = inst.name;
     document.getElementById('inst-sub').textContent = `${typeLabels[inst.type] || ''} · ${inst.city ? inst.city + ', ' : ''}${inst.state || ''}`;
+
+    // Mostrar população se for uma cidade
+    const popEl = document.getElementById('inst-population');
+    if (inst.city && inst.city_population) {
+      popEl.textContent = `👥 ${new Intl.NumberFormat('pt-BR').format(inst.city_population)} habitantes`;
+      popEl.style.display = 'block';
+    } else {
+      popEl.style.display = 'none';
+    }
+
     const totalMembers = inst.rooms.reduce((s, r) => s + r.member_count, 0);
     document.getElementById('inst-rooms-count').textContent = inst.rooms.length;
     document.getElementById('inst-members-count').textContent = totalMembers;

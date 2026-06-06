@@ -39,7 +39,8 @@ from database import (
     User, Institution, Room, RoomMembership, Message,
     Photo, RememberedPerson, RememberedPersonConfirmation,
     InviteLink, Notification, CurrentStudent, MessageReaction,
-    Testimony, EmailLog, PushSubscription, DMConversation, DMMessage, Subscription
+    Testimony, EmailLog, PushSubscription, DMConversation, DMMessage, Subscription,
+    City
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -806,10 +807,22 @@ def get_institution(institution_id: int, db: Session = Depends(get_db)):
         })
 
     rooms.sort(key=lambda x: x["last_activity"], reverse=True)
+
+    # Buscar população da cidade se existir
+    city_population = None
+    if inst.city:
+        try:
+            city_obj = db.query(City).filter(City.name == inst.city).first()
+            if city_obj:
+                city_population = city_obj.population
+        except:
+            pass
+
     return {
         "id": inst.id, "name": inst.name, "type": inst.type,
         "state": inst.state, "city": inst.city,
         "neighborhood": inst.neighborhood, "sector": inst.sector,
+        "city_population": city_population,
         "rooms": rooms,
     }
 
