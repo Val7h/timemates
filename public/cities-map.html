@@ -1,0 +1,617 @@
+<!-- 🗺️ MAPA INTERATIVO - MAIORES CIDADES E REGIÕES METROPOLITANAS -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interativo - Maiores Cidades do Brasil</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .sidebar-left {
+            background: white;
+            overflow-y: auto;
+            border-right: 1px solid #eee;
+            padding: 20px;
+        }
+
+        .sidebar-left h2 {
+            color: #1E3A5F;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .city-list {
+            list-style: none;
+        }
+
+        .city-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f9fbfd;
+            border-left: 4px solid #D4A853;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .city-item:hover {
+            background: #e8f0ff;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(212, 168, 83, 0.2);
+        }
+
+        .city-item.active {
+            background: #1E3A5F;
+            color: white;
+            border-left-color: #D4A853;
+        }
+
+        .city-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .city-info {
+            font-size: 12px;
+            opacity: 0.7;
+            display: flex;
+            gap: 8px;
+        }
+
+        .map-container {
+            position: relative;
+            background: #f5f5f5;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-header {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 400;
+            text-align: center;
+        }
+
+        .map-header h1 {
+            color: #1E3A5F;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .map-header p {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .sidebar-right {
+            background: white;
+            overflow-y: auto;
+            border-left: 1px solid #eee;
+            padding: 20px;
+        }
+
+        .sidebar-right h2 {
+            color: #1E3A5F;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        .info-card {
+            background: #f9fbfd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid #D4A853;
+        }
+
+        .info-card h3 {
+            color: #1E3A5F;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-value {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .distance-info {
+            background: linear-gradient(135deg, #1E3A5F 0%, #2a5298 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #999;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #1E3A5F;
+            border-bottom-color: #D4A853;
+        }
+
+        .metro-list {
+            list-style: none;
+        }
+
+        .metro-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .metro-item strong {
+            color: #1E3A5F;
+        }
+
+        .metro-item .population {
+            color: #D4A853;
+            font-weight: 600;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 250px 1fr 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar-left,
+            .sidebar-right {
+                display: none;
+            }
+
+            .map-header {
+                width: 90%;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 400;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .legend-circle {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR ESQUERDA: Lista de Cidades -->
+        <div class="sidebar-left">
+            <h2>🏙️ Maiores Cidades</h2>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('top10')">Top 10</button>
+                <button class="tab" onclick="showTab('metros')">Metrópoles</button>
+            </div>
+
+            <div id="top10-cities">
+                <ul class="city-list" id="cityList"></ul>
+            </div>
+
+            <div id="metros-cities" style="display: none;">
+                <ul class="metro-list" id="metroList"></ul>
+            </div>
+        </div>
+
+        <!-- MAPA CENTRAL -->
+        <div class="map-container">
+            <div class="map-header">
+                <h1>🗺️ Mapa Interativo do Brasil</h1>
+                <p>Clique em uma cidade para ver detalhes</p>
+            </div>
+            <div id="map"></div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #EF4444;"></div>
+                    <span>Top 10</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #3B82F6;"></div>
+                    <span>Capital</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-circle" style="background: #F59E0B;"></div>
+                    <span>Região Metro</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIDEBAR DIREITA: Informações -->
+        <div class="sidebar-right">
+            <h2>ℹ️ Detalhes</h2>
+            <div id="cityDetails">
+                <p style="color: #999; text-align: center; margin-top: 20px;">Selecione uma cidade no mapa</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados das maiores cidades brasileiras
+        const MAIORES_CIDADES = [
+            {
+                rank: 1,
+                name: "São Paulo",
+                state: "SP",
+                population: 11975881,
+                lat: -23.5505,
+                lng: -46.6333,
+                tipo: "top10",
+                region: "Sudeste"
+            },
+            {
+                rank: 2,
+                name: "Rio de Janeiro",
+                state: "RJ",
+                population: 6747815,
+                lat: -22.9068,
+                lng: -43.1729,
+                tipo: "top10",
+                region: "Sudeste"
+            },
+            {
+                rank: 3,
+                name: "Brasília",
+                state: "DF",
+                population: 3124186,
+                lat: -15.8267,
+                lng: -47.8822,
+                tipo: "top10",
+                region: "Centro-Oeste"
+            },
+            {
+                rank: 4,
+                name: "Salvador",
+                state: "BA",
+                population: 2595140,
+                lat: -12.9714,
+                lng: -38.5014,
+                tipo: "top10",
+                region: "Nordeste"
+            },
+            {
+                rank: 5,
+                name: "Fortaleza",
+                state: "CE",
+                population: 2669342,
+                lat: -3.7319,
+                lng: -38.5267,
+                tipo: "top10",
+                region: "Nordeste"
+            },
+            {
+                rank: 6,
+                name: "Belo Horizonte",
+                state: "MG",
+                population: 2530701,
+                lat: -19.8665,
+                lng: -43.9357,
+                tipo: "top10",
+                region: "Sudeste"
+            },
+            {
+                rank: 7,
+                name: "Manaus",
+                state: "AM",
+                population: 1802014,
+                lat: -3.1190,
+                lng: -60.0217,
+                tipo: "top10",
+                region: "Norte"
+            },
+            {
+                rank: 8,
+                name: "Curitiba",
+                state: "PR",
+                population: 1963726,
+                lat: -25.4284,
+                lng: -49.2733,
+                tipo: "top10",
+                region: "Sul"
+            },
+            {
+                rank: 9,
+                name: "Recife",
+                state: "PE",
+                population: 1645727,
+                lat: -8.0476,
+                lng: -34.8770,
+                tipo: "top10",
+                region: "Nordeste"
+            },
+            {
+                rank: 10,
+                name: "Porto Alegre",
+                state: "RS",
+                population: 1440939,
+                lat: -30.0346,
+                lng: -51.2177,
+                tipo: "top10",
+                region: "Sul"
+            }
+        ];
+
+        const REGIOES_METROPOLITANAS = [
+            {
+                name: "Região Metropolitana de São Paulo",
+                population: 21915506,
+                cities: "São Paulo, Guarulhos, Campinas, Santos",
+                center: [-23.5505, -46.6333]
+            },
+            {
+                name: "Região Metropolitana do Rio de Janeiro",
+                population: 11835708,
+                cities: "Rio de Janeiro, Niterói, Duque de Caxias, São Gonçalo",
+                center: [-22.9068, -43.1729]
+            },
+            {
+                name: "Região Metropolitana de Belo Horizonte",
+                population: 6295397,
+                cities: "Belo Horizonte, Contagem, Betim",
+                center: [-19.8665, -43.9357]
+            },
+            {
+                name: "Região Metropolitana de Brasília",
+                population: 3124186,
+                cities: "Brasília, Taguatinga, Ceilândia",
+                center: [-15.8267, -47.8822]
+            },
+            {
+                name: "Região Metropolitana de Salvador",
+                population: 3574762,
+                cities: "Salvador, Camaçari, Lauro de Freitas",
+                center: [-12.9714, -38.5014]
+            },
+            {
+                name: "Região Metropolitana de Fortaleza",
+                population: 4025667,
+                cities: "Fortaleza, Caucaia, Maracanaú",
+                center: [-3.7319, -38.5267]
+            },
+            {
+                name: "Região Metropolitana de Curitiba",
+                population: 3577005,
+                cities: "Curitiba, São José dos Pinhais, Colombo",
+                center: [-25.4284, -49.2733]
+            },
+            {
+                name: "Região Metropolitana de Porto Alegre",
+                population: 4411536,
+                cities: "Porto Alegre, Alvorada, Viamão",
+                center: [-30.0346, -51.2177]
+            }
+        ];
+
+        let map;
+        let selectedCity = null;
+        let markers = {};
+
+        // Inicializar mapa
+        function initMap() {
+            map = L.map('map').setView([-15, -55], 4);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Adicionar marcadores das top 10
+            MAIORES_CIDADES.forEach(city => {
+                const marker = L.circleMarker([city.lat, city.lng], {
+                    radius: Math.log(city.population / 100000) * 8,
+                    fillColor: '#EF4444',
+                    color: '#991B1B',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.6
+                })
+                .bindPopup(`<strong>${city.rank}. ${city.name}</strong><br/>
+                    População: ${(city.population / 1000000).toFixed(1)}M<br/>
+                    <a href="/api/city/${city.name.toLowerCase().replace(/ /g, '-')}" style="color: #1E3A5F;">Ver detalhes →</a>`)
+                .on('click', () => showCityDetails(city))
+                .addTo(map);
+
+                markers[city.name] = marker;
+            });
+
+            // Renderizar listas
+            renderCityList();
+            renderMetroList();
+        }
+
+        function renderCityList() {
+            const list = document.getElementById('cityList');
+            list.innerHTML = MAIORES_CIDADES.map(city => `
+                <li class="city-item" onclick="selectCity('${city.name}')">
+                    <div class="city-name">🏆 ${city.rank}. ${city.name}</div>
+                    <div class="city-info">
+                        <span>👥 ${(city.population / 1000000).toFixed(1)}M</span>
+                        <span>📍 ${city.state}</span>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        function renderMetroList() {
+            const list = document.getElementById('metroList');
+            list.innerHTML = REGIOES_METROPOLITANAS.map(metro => `
+                <li class="metro-item">
+                    <strong>${metro.name}</strong><br/>
+                    <span class="population">👥 ${(metro.population / 1000000).toFixed(1)}M hab.</span><br/>
+                    <small>${metro.cities}</small>
+                </li>
+            `).join('');
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('top10-cities').style.display = tab === 'top10' ? 'block' : 'none';
+            document.getElementById('metros-cities').style.display = tab === 'metros' ? 'block' : 'none';
+        }
+
+        function selectCity(cityName) {
+            // Remover ativo anterior
+            document.querySelectorAll('.city-item').forEach(item => item.classList.remove('active'));
+
+            // Marcar novo ativo
+            event.target.closest('.city-item').classList.add('active');
+
+            // Encontrar cidade e mostrar detalhes
+            const city = MAIORES_CIDADES.find(c => c.name === cityName);
+            if (city) {
+                showCityDetails(city);
+                map.setView([city.lat, city.lng], 8);
+            }
+        }
+
+        function showCityDetails(city) {
+            selectedCity = city;
+
+            // Destacar marcador
+            Object.values(markers).forEach(m => m.setStyle({fillOpacity: 0.6}));
+            if (markers[city.name]) {
+                markers[city.name].setStyle({fillOpacity: 1});
+            }
+
+            const details = document.getElementById('cityDetails');
+
+            // Calcular distância para Rio
+            const rio = MAIORES_CIDADES.find(c => c.name === 'Rio de Janeiro');
+            const distancia = calcularDistancia(city.lat, city.lng, rio.lat, rio.lng);
+
+            details.innerHTML = `
+                <div class="info-card">
+                    <h3>🏙️ ${city.name}</h3>
+                    <div class="info-value">
+                        <strong>Posição:</strong> #${city.rank} do Brasil<br/>
+                        <strong>Estado:</strong> ${city.state}<br/>
+                        <strong>Região:</strong> ${city.region}
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3>👥 População</h3>
+                    <div class="info-value">
+                        <strong>${(city.population / 1000000).toFixed(2)}M</strong> habitantes<br/>
+                        <small>Estimativa 2023</small>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3>📍 Localização</h3>
+                    <div class="info-value">
+                        Lat: ${city.lat.toFixed(4)}<br/>
+                        Lng: ${city.lng.toFixed(4)}
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3>✈️ Distância</h3>
+                    <div class="info-value">
+                        Para Rio de Janeiro:<br/>
+                        <strong>${distancia.toFixed(0)} km</strong>
+                    </div>
+                </div>
+
+                <a href="/city/${city.name.toLowerCase().replace(/ /g, '-')}"
+                   style="display: block; margin-top: 15px; padding: 12px;
+                           background: #1E3A5F; color: white; border-radius: 6px;
+                           text-align: center; text-decoration: none; font-weight: 600;">
+                    Ver sala da cidade →
+                </a>
+            `;
+        }
+
+        function calcularDistancia(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Raio da Terra em km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Inicializar quando carregar
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>
