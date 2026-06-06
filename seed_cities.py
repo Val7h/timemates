@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Seed script para popular banco de dados com as 27 capitais brasileiras
 Execute: python seed_cities.py
@@ -45,6 +47,9 @@ CAPITAIS_BRASILEIRAS = [
 
     # Interior de PB (adicionado como referência)
     {"slug": "campina-grande", "name": "Campina Grande", "state": "PB", "population": 410332, "landmark": "Açude Epitácio Pessoa", "ibge_code": 2504009},
+
+    # Cidades regionais importantes (adicionadas)
+    {"slug": "abadiania", "name": "Abadiânia", "state": "GO", "population": 8442, "landmark": "Vale da Lua", "ibge_code": 5200050},
 ]
 
 DESAFIOS_GLOBAIS = [
