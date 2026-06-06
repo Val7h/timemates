@@ -1,6 +1,6 @@
 from sqlalchemy import (
     create_engine, Column, Integer, String, Boolean,
-    DateTime, ForeignKey, Text
+    DateTime, ForeignKey, Text, JSON
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -307,6 +307,119 @@ class DMMessage(Base):
 
     conversation = relationship("DMConversation", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
+
+
+class Subscription(Base):
+    """Stripe subscription do usuário (plano premium)."""
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    stripe_customer_id = Column(String(255), nullable=False, unique=True)
+    stripe_subscription_id = Column(String(255), nullable=False, unique=True)
+    plan = Column(String(50), default="premium")  # 'premium'
+    status = Column(String(20), default="active")  # 'active', 'canceled', 'past_due'
+    current_period_start = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class LocalNews(Base):
+    """Notícias locais por cidade."""
+    __tablename__ = "local_news"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city = Column(String(100), nullable=False, index=True)
+    category = Column(String(50), nullable=False)  # breaking_news, local_event, trending_topic
+    title = Column(String(500), nullable=False)
+    content = Column(Text, nullable=False)
+    image_url = Column(String(500), nullable=True)
+    source = Column(String(200), nullable=True)
+    external_url = Column(String(500), nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    ttl_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class LocalEvent(Base):
+    """Eventos locais organizados na comunidade."""
+    __tablename__ = "local_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city = Column(String(100), nullable=False, index=True)
+    title = Column(String(300), nullable=False)
+    date = Column(String(20), nullable=False)  # formato: YYYY-MM-DD
+    time = Column(String(20), nullable=True)   # formato: HH:MM
+    location = Column(String(300), nullable=False)
+    description = Column(Text, nullable=True)
+    image_url = Column(String(500), nullable=True)
+    event_url = Column(String(500), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), default="active")  # active, cancelled, completed
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    rsvps = relationship("EventRSVP", back_populates="event")
+
+
+class EventRSVP(Base):
+    """Confirmação de presença em eventos locais."""
+    __tablename__ = "event_rsvps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("local_events.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String(20), nullable=False)  # going, interested, not_going
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    event = relationship("LocalEvent", back_populates="rsvps")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class TrendingTopic(Base):
+    """Tópicos em tendência na comunidade local."""
+    __tablename__ = "trending_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city = Column(String(100), nullable=False, index=True)
+    hashtag = Column(String(100), nullable=False)
+    mention_count = Column(Integer, default=0)
+    sample_messages = Column(JSON, nullable=True)  # array de mensagens de exemplo
+    trending_since = Column(DateTime, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class WeeklyHighlight(Base):
+    """Destaques semanais da comunidade (top mensagens, fotos, pessoas retornadas, etc)."""
+    __tablename__ = "weekly_highlights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    week_starting = Column(String(20), nullable=False, index=True)  # formato: YYYY-MM-DD
+    category = Column(String(50), nullable=False)  # top_messages, top_photos, people_returned, new_rooms
+    item_type = Column(String(50), nullable=False)  # message, photo, person, room
+    item_id = Column(Integer, nullable=False)  # referência genérica (message_id, photo_id, etc)
+    rank = Column(Integer, nullable=False)  # posição no ranking (1, 2, 3...)
+    featured_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class NewsDigest(Base):
+    """Newsletter semanal enviada ao usuário com resumo de notícias."""
+    __tablename__ = "news_digests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    week_starting = Column(String(20), nullable=False)  # formato: YYYY-MM-DD
+    sent_at = Column(DateTime, nullable=True)
+    news_items_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
 
 
 def get_db():

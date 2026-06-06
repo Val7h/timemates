@@ -232,17 +232,51 @@ app.include_router(billing_router)
 class ConnectionManager:
     def __init__(self):
         self.connections: Dict[int, List[WebSocket]] = {}
+        self.online_users: Dict[int, Dict[int, dict]] = {}  # room_id -> {user_id -> user_data}
 
-    async def connect(self, ws: WebSocket, room_id: int):
+    async def connect(self, ws: WebSocket, room_id: int, user_id: int = None, user: User = None):
         await ws.accept()
         self.connections.setdefault(room_id, []).append(ws)
 
-    def disconnect(self, ws: WebSocket, room_id: int):
+        # Se user_id e user foram fornecidos, rastreia como online
+        if user_id is not None and user is not None:
+            if room_id not in self.online_users:
+                self.online_users[room_id] = {}
+            self.online_users[room_id][user_id] = {
+                "id": user_id,
+                "name": user.full_name,
+                "avatar": "👤",
+                "color": self._get_user_color(user_id),
+            }
+
+    def disconnect(self, ws: WebSocket, room_id: int, user_id: int = None):
         if room_id in self.connections:
             try:
                 self.connections[room_id].remove(ws)
             except ValueError:
                 pass
+
+        # Remove usuário online se não houver mais conexões WebSocket dele nesta sala
+        if user_id is not None and room_id in self.online_users and user_id in self.online_users[room_id]:
+            # Verifica se ainda há conexões ativas nesta sala
+            active_conns = len(self.connections.get(room_id, []))
+            if active_conns == 0:
+                if user_id in self.online_users[room_id]:
+                    del self.online_users[room_id][user_id]
+                if not self.online_users[room_id]:
+                    del self.online_users[room_id]
+
+    def get_online_users(self, room_id: int) -> List[dict]:
+        """Retorna lista de usuários online em uma sala."""
+        return list(self.online_users.get(room_id, {}).values())
+
+    def _get_user_color(self, user_id: int) -> str:
+        """Gera uma cor consistente baseada no user_id."""
+        colors = [
+            "#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8",
+            "#F7DC6F", "#BB8FCE", "#85C1E2", "#F8B88B", "#52BE80"
+        ]
+        return colors[user_id % len(colors)]
 
     async def broadcast(self, data: dict, room_id: int):
         for ws in list(self.connections.get(room_id, [])):
@@ -250,6 +284,15 @@ class ConnectionManager:
                 await ws.send_json(data)
             except Exception:
                 pass
+
+    async def broadcast_online_users(self, room_id: int):
+        """Envia lista atualizada de usuários online para todos na sala."""
+        users_list = self.get_online_users(room_id)
+        await self.broadcast({
+            "type": "online_users",
+            "users": users_list,
+            "timestamp": datetime.utcnow().isoformat(),
+        }, room_id)
 
 
 manager = ConnectionManager()
@@ -1019,6 +1062,26 @@ def get_pending(
     } for p in pending]
 
 
+@app.get("/api/rooms/{room_id}/online-users")
+def get_online_users(
+    room_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """
+    Retorna lista de usuários conectados agora na sala.
+    Usa o tracking do ConnectionManager para listar quem está online via WebSocket.
+
+    Resposta:
+    [
+      { "id": 1, "name": "Maria", "avatar": "😊", "color": "#FF6B6B" },
+      { "id": 2, "name": "Pedro", "avatar": "🎮", "color": "#4ECDC4" }
+    ]
+    """
+    get_membership(room_id, current_user, db)
+    return manager.get_online_users(room_id)
+
+
 @app.post("/api/rooms/{room_id}/members/{user_id}/approve")
 def approve_member(
     room_id: int, user_id: int,
@@ -1179,6 +1242,54 @@ def get_messages(
 
 VALID_REACTIONS = {"saudade", "classico", "eu_tava_la", "inesquecivel"}
 
+
+@app.post("/api/rooms/{room_id}/messages")
+async def post_message(
+    room_id: int,
+    content: str = Form(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Tarefa 2: Envia mensagem e trigger de push notifications para outros usuários."""
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="Mensagem vazia")
+    if len(content) > 2000:
+        raise HTTPException(status_code=400, detail="Mensagem muito longa")
+
+    get_membership(room_id, current_user, db)
+
+    msg = Message(room_id=room_id, user_id=current_user.id, content=content.strip())
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    # Tarefa 2: Após salvar mensagem, envia push para cada user (exceto quem enviou)
+    room_members = db.query(RoomMembership).filter(
+        RoomMembership.room_id == room_id,
+        RoomMembership.status == "approved",
+        RoomMembership.user_id != current_user.id,  # Exclui quem enviou
+    ).all()
+
+    for member in room_members:
+        if member.user_id != current_user.id:  # Extra safety check
+            _push_to_user(
+                db,
+                member.user_id,
+                title=f"{current_user.full_name} respondeu no chat",
+                body=content[:50],
+                url=f"/r/{room_id}",
+            )
+
+    return {
+        "id": msg.id,
+        "user_id": current_user.id,
+        "user_name": current_user.full_name,
+        "user_photo": current_user.profile_photo,
+        "content": content.strip(),
+        "created_at": msg.created_at.isoformat(),
+    }
+
+
 @app.post("/api/rooms/{room_id}/messages/{msg_id}/react")
 async def react_message(
     room_id: int, msg_id: int,
@@ -1249,7 +1360,24 @@ async def ws_chat(
             await websocket.close(code=4003)
             return
 
-        await manager.connect(websocket, room_id)
+        await manager.connect(websocket, room_id, user_id, user)
+
+        # Broadcast do evento USER_JOINED
+        await manager.broadcast({
+            "type": "user_joined",
+            "user_id": user_id,
+            "user": {
+                "id": user_id,
+                "full_name": user.full_name,
+                "profile_photo": user.profile_photo,
+            },
+            "avatar": user.profile_photo or "",
+            "timestamp": datetime.utcnow().isoformat(),
+        }, room_id)
+
+        # Broadcast da lista atualizada de usuários online
+        await manager.broadcast_online_users(room_id)
+
         await manager.broadcast({
             "type": "system",
             "message": f"{user.full_name} entrou na sala",
@@ -1276,7 +1404,11 @@ async def ws_chat(
                     "created_at": msg.created_at.isoformat(),
                 }, room_id)
         except WebSocketDisconnect:
-            manager.disconnect(websocket, room_id)
+            manager.disconnect(websocket, room_id, user_id)
+
+            # Broadcast da lista atualizada de usuários online
+            await manager.broadcast_online_users(room_id)
+
             await manager.broadcast({
                 "type": "system",
                 "message": f"{user.full_name} saiu da sala",
@@ -2524,6 +2656,333 @@ def institution_og_page(institution_id: int, db: Session = Depends(get_db)):
     return _inject_og(title, desc, url)
 
 
+
+
+# ===== LOCAL NEWS & EVENTS API =====
+
+@app.get("/api/news/{city}")
+@limiter.limit("30/minute")
+def get_news(request: Request, city: str = "", page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
+    """📰 Listar notícias locais por cidade (paginado)"""
+    if not city:
+        return {"success": False, "error": "Cidade é obrigatória"}
+
+    offset = (page - 1) * limit
+    total = db.query(LocalNews).filter(LocalNews.city.ilike(f"%{city}%")).count()
+    news = db.query(LocalNews).filter(
+        LocalNews.city.ilike(f"%{city}%")
+    ).order_by(LocalNews.published_at.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": n.id,
+                "title": n.title,
+                "content": n.content[:200],
+                "category": n.category,
+                "city": n.city,
+                "image_url": n.image_url,
+                "source": n.source,
+                "published_at": n.published_at.isoformat() if n.published_at else None,
+                "created_at": n.created_at.isoformat()
+            } for n in news
+        ],
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "pages": (total + limit - 1) // limit
+        }
+    }
+
+
+@app.get("/api/events/{city}")
+@limiter.limit("30/minute")
+def get_events(request: Request, city: str = "", db: Session = Depends(get_db)):
+    """🎪 Listar próximos eventos locais"""
+    if not city:
+        return {"success": False, "error": "Cidade é obrigatória"}
+
+    from datetime import datetime as dt
+    today = dt.utcnow().strftime("%Y-%m-%d")
+
+    events = db.query(LocalEvent).filter(
+        LocalEvent.city.ilike(f"%{city}%"),
+        LocalEvent.date >= today,
+        LocalEvent.status == "active"
+    ).order_by(LocalEvent.date.asc()).limit(10).all()
+
+    result = []
+    for e in events:
+        rsvp_count = db.query(EventRSVP).filter(
+            EventRSVP.event_id == e.id,
+            EventRSVP.status == "going"
+        ).count()
+        result.append({
+            "id": e.id,
+            "title": e.title,
+            "date": e.date,
+            "time": e.time,
+            "location": e.location,
+            "description": e.description,
+            "image_url": e.image_url,
+            "rsvp_count": rsvp_count,
+            "created_by": e.created_by.full_name if e.created_by else "Admin"
+        })
+
+    return {"success": True, "data": result, "total": len(result)}
+
+
+@app.post("/api/events")
+@limiter.limit("20/minute")
+def create_event(
+    request: Request,
+    title: str = "",
+    date: str = "",
+    time: str = "",
+    location: str = "",
+    description: str = "",
+    city: str = "",
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🎓 Criar novo evento (room members only)"""
+    if not all([title, date, location, city]):
+        raise HTTPException(status_code=400, detail="Campos obrigatórios faltando")
+
+    event = LocalEvent(
+        title=title,
+        date=date,
+        time=time,
+        location=location,
+        description=description,
+        city=city,
+        created_by_id=current_user.id,
+        status="active"
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    # Notificar todos os usuários da cidade
+    _push_to_user(
+        db, current_user.id,
+        f"🎉 Evento criado: {title}",
+        f"📅 {date} em {location}",
+        f"/events/{event.id}"
+    )
+
+    return {"success": True, "event_id": event.id, "message": "Evento criado com sucesso"}
+
+
+@app.post("/api/events/{event_id}/rsvp")
+@limiter.limit("50/minute")
+def rsvp_event(
+    request: Request,
+    event_id: int,
+    status: str = "going",
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """✅ RSVP para um evento (going/interested/not_going)"""
+    if status not in ["going", "interested", "not_going"]:
+        raise HTTPException(status_code=400, detail="Status inválido")
+
+    event = db.query(LocalEvent).filter(LocalEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Evento não encontrado")
+
+    existing = db.query(EventRSVP).filter(
+        EventRSVP.event_id == event_id,
+        EventRSVP.user_id == current_user.id
+    ).first()
+
+    if existing:
+        existing.status = status
+    else:
+        db.add(EventRSVP(event_id=event_id, user_id=current_user.id, status=status))
+
+    db.commit()
+
+    going_count = db.query(EventRSVP).filter(
+        EventRSVP.event_id == event_id,
+        EventRSVP.status == "going"
+    ).count()
+
+    return {
+        "success": True,
+        "message": f"RSVP atualizado para '{status}'",
+        "event_id": event_id,
+        "rsvp_count": going_count
+    }
+
+
+@app.get("/api/trending/{city}")
+@limiter.limit("40/minute")
+def get_trending(request: Request, city: str = "", db: Session = Depends(get_db)):
+    """🔥 Listar trending topics da cidade"""
+    if not city:
+        return {"success": False, "error": "Cidade é obrigatória"}
+
+    trending = db.query(TrendingTopic).filter(
+        TrendingTopic.city.ilike(f"%{city}%")
+    ).order_by(TrendingTopic.mention_count.desc()).limit(10).all()
+
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": t.id,
+                "hashtag": t.hashtag,
+                "mention_count": t.mention_count,
+                "trending_since": t.trending_since.isoformat(),
+                "sample_messages": t.sample_messages or []
+            } for t in trending
+        ],
+        "total": len(trending)
+    }
+
+
+@app.get("/api/highlights/week")
+@limiter.limit("60/minute")
+def get_weekly_highlights(request: Request, db: Session = Depends(get_db)):
+    """⭐ Destaques da semana (top messages, photos, people returned, etc)"""
+    from datetime import datetime as dt, timedelta
+
+    today = dt.utcnow().strftime("%Y-%m-%d")
+    week_start = (dt.utcnow() - timedelta(days=dt.utcnow().weekday())).strftime("%Y-%m-%d")
+
+    highlights = db.query(WeeklyHighlight).filter(
+        WeeklyHighlight.week_starting == week_start
+    ).order_by(WeeklyHighlight.category, WeeklyHighlight.rank).all()
+
+    result = {
+        "top_messages": [],
+        "top_photos": [],
+        "people_returned": [],
+        "new_rooms": [],
+        "trending": []
+    }
+
+    for h in highlights:
+        category = h.category
+        if category in result:
+            result[category].append({
+                "id": h.id,
+                "item_type": h.item_type,
+                "item_id": h.item_id,
+                "rank": h.rank
+            })
+
+    return {"success": True, "data": result, "week_starting": week_start}
+
+
+@app.post("/api/admin/news")
+@limiter.limit("20/minute")
+def admin_create_news(
+    request: Request,
+    title: str = "",
+    content: str = "",
+    city: str = "",
+    category: str = "breaking_news",
+    image_url: str = "",
+    source: str = "TimeMates",
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🔐 Admin: Criar notícia manualmente"""
+    if not current_user.is_system_admin:
+        raise HTTPException(status_code=403, detail="Apenas admins podem criar notícias")
+
+    if not all([title, content, city]):
+        raise HTTPException(status_code=400, detail="Campos obrigatórios faltando")
+
+    from datetime import datetime as dt, timedelta
+    news = LocalNews(
+        title=title,
+        content=content,
+        city=city,
+        category=category,
+        image_url=image_url,
+        source=source,
+        published_at=dt.utcnow(),
+        ttl_expires_at=dt.utcnow() + timedelta(days=7)
+    )
+    db.add(news)
+    db.commit()
+    db.refresh(news)
+
+    return {"success": True, "news_id": news.id, "message": "Notícia criada"}
+
+
+@app.delete("/api/admin/news/{news_id}")
+@limiter.limit("20/minute")
+def admin_delete_news(
+    request: Request,
+    news_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🔐 Admin: Deletar notícia"""
+    if not current_user.is_system_admin:
+        raise HTTPException(status_code=403, detail="Apenas admins podem deletar")
+
+    news = db.query(LocalNews).filter(LocalNews.id == news_id).first()
+    if not news:
+        raise HTTPException(status_code=404, detail="Notícia não encontrada")
+
+    db.delete(news)
+    db.commit()
+
+    return {"success": True, "message": "Notícia deletada"}
+
+
+@app.delete("/api/admin/events/{event_id}")
+@limiter.limit("20/minute")
+def admin_cancel_event(
+    request: Request,
+    event_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🔐 Admin: Cancelar evento"""
+    event = db.query(LocalEvent).filter(LocalEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Evento não encontrado")
+
+    if event.created_by_id != current_user.id and not current_user.is_system_admin:
+        raise HTTPException(status_code=403, detail="Apenas criador ou admin pode cancelar")
+
+    event.status = "cancelled"
+    db.commit()
+
+    # Notificar todos que RSVP'd
+    rsvps = db.query(EventRSVP).filter(EventRSVP.event_id == event_id).all()
+    for rsvp in rsvps:
+        _push_to_user(db, rsvp.user_id, "❌ Evento cancelado", f"O evento '{event.title}' foi cancelado")
+
+    return {"success": True, "message": "Evento cancelado"}
+
+
+@app.get("/api/stats/news")
+@limiter.limit("100/minute")
+def get_news_stats(db: Session = Depends(get_db)):
+    """📊 Estatísticas de notícias locais"""
+    news_count = db.query(LocalNews).count()
+    events_count = db.query(LocalEvent).filter(LocalEvent.status == "active").count()
+    rsvp_count = db.query(EventRSVP).count()
+    trending_count = db.query(TrendingTopic).count()
+
+    return {
+        "success": True,
+        "data": {
+            "news": news_count,
+            "events": events_count,
+            "rsvps": rsvp_count,
+            "trending_topics": trending_count
+        }
+    }
 
 
 # ===== LANDING PAGE & LEGAL DOCS =====

@@ -1,0 +1,436 @@
+<!-- 📰 Notícias Locais & Eventos Dashboard -->
+<div id="news-events-dashboard" style="display: none;">
+    <style>
+        .news-dashboard {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .news-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .news-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #666;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .news-tab.active {
+            color: #1E3A5F;
+            border-bottom-color: #D4A853;
+        }
+
+        .news-tab:hover {
+            color: #1E3A5F;
+        }
+
+        .news-card, .event-card, .highlight-card {
+            background: #f9fbfd;
+            border-left: 4px solid #D4A853;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .news-card:hover, .event-card:hover, .highlight-card:hover {
+            box-shadow: 0 4px 12px rgba(212, 168, 83, 0.2);
+            transform: translateX(4px);
+        }
+
+        .card-category {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .category-breaking { background: #FEE2E2; color: #991B1B; }
+        .category-event { background: #DBEAFE; color: #1E40AF; }
+        .category-trending { background: #FEF3C7; color: #92400E; }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1E3A5F;
+            margin-bottom: 8px;
+        }
+
+        .card-meta {
+            font-size: 13px;
+            color: #999;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .card-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .card-content {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .event-date {
+            background: #1E3A5F;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .event-rsvp {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .event-rsvp button {
+            padding: 6px 12px;
+            border: 1px solid #D4A853;
+            border-radius: 4px;
+            background: white;
+            color: #1E3A5F;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .event-rsvp button:hover,
+        .event-rsvp button.active {
+            background: #D4A853;
+            color: white;
+        }
+
+        .online-badge {
+            display: inline-block;
+            background: #10B981;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .trending-hashtag {
+            background: linear-gradient(135deg, #F59E0B, #EC4899);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .trending-mentions {
+            color: #F59E0B;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .load-more {
+            text-align: center;
+            padding: 16px;
+            button {
+                padding: 10px 24px;
+                background: #1E3A5F;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+            }
+        }
+
+        .no-content {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .no-content-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .news-card, .event-card, .highlight-card {
+                padding: 12px;
+            }
+
+            .card-title {
+                font-size: 14px;
+            }
+
+            .news-tabs {
+                overflow-x: auto;
+                gap: 5px;
+            }
+
+            .news-tab {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+        }
+    </style>
+
+    <!-- NOTÍCIAS DE CAMPINA GRANDE -->
+    <div class="news-dashboard">
+        <h2 style="color: #1E3A5F; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            📰 Notícias de Campina Grande
+        </h2>
+
+        <div class="news-tabs">
+            <button class="news-tab active" onclick="switchNewsTab('all')">Todas</button>
+            <button class="news-tab" onclick="switchNewsTab('breaking')">🔴 Notícias</button>
+            <button class="news-tab" onclick="switchNewsTab('event')">🎪 Eventos</button>
+            <button class="news-tab" onclick="switchNewsTab('trending')">🔥 Trending</button>
+        </div>
+
+        <div id="news-container"></div>
+    </div>
+
+    <!-- EVENTOS DA TURMA -->
+    <div class="news-dashboard">
+        <h2 style="color: #1E3A5F; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            🎓 Eventos da Sua Turma
+        </h2>
+
+        <div id="events-container"></div>
+
+        <button style="width: 100%; padding: 12px; background: #1E3A5F; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 10px;">
+            ➕ Criar Novo Evento
+        </button>
+    </div>
+
+    <!-- DESTAQUES DA SEMANA -->
+    <div class="news-dashboard">
+        <h2 style="color: #1E3A5F; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            ⭐ Destaques da Semana
+        </h2>
+
+        <div id="highlights-container"></div>
+    </div>
+</div>
+
+<script>
+// ===== NEWS & EVENTS DASHBOARD =====
+
+const newsEventsConfig = {
+    city: 'Campina Grande',
+    newsTab: 'all',
+    refreshInterval: 300000 // 5 minutos
+};
+
+async function loadNews() {
+    try {
+        const response = await fetch(`/api/news/${newsEventsConfig.city}?page=1&limit=10`);
+        const data = await response.json();
+
+        if (!data.success) {
+            document.getElementById('news-container').innerHTML = '<div class="no-content">📭 Sem notícias no momento</div>';
+            return;
+        }
+
+        let html = '';
+        data.data.forEach(news => {
+            const categoryClass = `category-${news.category}`;
+            const categoryLabel = news.category === 'breaking_news' ? '🔴 Notícia'
+                                 : news.category === 'local_event' ? '🎪 Evento'
+                                 : '🔥 Trending';
+
+            html += `
+                <div class="news-card" onclick="viewNews(${news.id})">
+                    <span class="card-category ${categoryClass}">${categoryLabel}</span>
+                    <div class="card-title">${news.title}</div>
+                    <div class="card-content">${news.content}</div>
+                    <div class="card-meta">
+                        <span class="card-meta-item">📅 ${new Date(news.published_at).toLocaleDateString('pt-BR')}</span>
+                        <span class="card-meta-item">📍 ${news.source}</span>
+                    </div>
+                    ${news.image_url ? `<img src="${news.image_url}" alt="News" class="card-image" onerror="this.style.display='none'">` : ''}
+                </div>
+            `;
+        });
+
+        document.getElementById('news-container').innerHTML = html || '<div class="no-content">📭 Nenhuma notícia</div>';
+    } catch (error) {
+        console.error('Erro ao carregar notícias:', error);
+        document.getElementById('news-container').innerHTML = '<div class="no-content">❌ Erro ao carregar</div>';
+    }
+}
+
+async function loadEvents() {
+    try {
+        const response = await fetch(`/api/events/${newsEventsConfig.city}`);
+        const data = await response.json();
+
+        if (!data.success || !data.data.length) {
+            document.getElementById('events-container').innerHTML = '<div class="no-content"><div class="no-content-icon">📭</div>Nenhum evento próximo</div>';
+            return;
+        }
+
+        let html = '';
+        data.data.forEach(event => {
+            html += `
+                <div class="event-card" onclick="viewEvent(${event.id})">
+                    <div style="display: flex; gap: 12px; align-items: flex-start;">
+                        <div class="event-date">
+                            ${event.date.split('-').reverse().join('/')}
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="card-title">${event.title}</div>
+                            <div class="card-meta">
+                                <span class="card-meta-item">🕐 ${event.time || 'Horário a confirmar'}</span>
+                                <span class="card-meta-item">📍 ${event.location}</span>
+                                <span class="card-meta-item">👥 ${event.rsvp_count} pessoas</span>
+                            </div>
+                            <div class="card-content">${event.description || 'Descrição não disponível'}</div>
+                            <div class="event-rsvp">
+                                <button onclick="rsvpEvent(${event.id}, 'going')">Vou</button>
+                                <button onclick="rsvpEvent(${event.id}, 'interested')">Talvez</button>
+                                <button onclick="rsvpEvent(${event.id}, 'not_going')">Não Vou</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        document.getElementById('events-container').innerHTML = html;
+    } catch (error) {
+        console.error('Erro ao carregar eventos:', error);
+        document.getElementById('events-container').innerHTML = '<div class="no-content">❌ Erro ao carregar</div>';
+    }
+}
+
+async function loadHighlights() {
+    try {
+        const response = await fetch('/api/highlights/week');
+        const data = await response.json();
+
+        if (!data.success) {
+            document.getElementById('highlights-container').innerHTML = '<div class="no-content">📭 Sem destaques</div>';
+            return;
+        }
+
+        let html = '';
+        const highlights = data.data;
+
+        // Top Messages
+        if (highlights.top_messages && highlights.top_messages.length > 0) {
+            html += '<h3 style="color: #1E3A5F; margin-top: 16px; margin-bottom: 10px;">💬 Mensagens em Alta</h3>';
+            highlights.top_messages.slice(0, 3).forEach(msg => {
+                html += `<div class="highlight-card">Mensagem #${msg.item_id} - Muito curtida!</div>`;
+            });
+        }
+
+        // Top Photos
+        if (highlights.top_photos && highlights.top_photos.length > 0) {
+            html += '<h3 style="color: #1E3A5F; margin-top: 16px; margin-bottom: 10px;">📸 Fotos Comentadas</h3>';
+            highlights.top_photos.slice(0, 3).forEach(photo => {
+                html += `<div class="highlight-card">Foto #${photo.item_id} - Com muitos comentários!</div>`;
+            });
+        }
+
+        // People Returned
+        if (highlights.people_returned && highlights.people_returned.length > 0) {
+            html += '<h3 style="color: #1E3A5F; margin-top: 16px; margin-bottom: 10px;">🟢 Pessoas que Voltaram</h3>';
+            highlights.people_returned.slice(0, 3).forEach(person => {
+                html += `<div class="highlight-card">Alguém voltou! Bem-vindo de volta! 🎉</div>`;
+            });
+        }
+
+        document.getElementById('highlights-container').innerHTML = html || '<div class="no-content">Sem destaques esta semana</div>';
+    } catch (error) {
+        console.error('Erro ao carregar destaques:', error);
+        document.getElementById('highlights-container').innerHTML = '<div class="no-content">❌ Erro ao carregar</div>';
+    }
+}
+
+function switchNewsTab(tab) {
+    newsEventsConfig.newsTab = tab;
+    document.querySelectorAll('.news-tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    loadNews();
+}
+
+async function rsvpEvent(eventId, status) {
+    try {
+        const response = await fetch(`/api/events/${eventId}/rsvp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `event_id=${eventId}&status=${status}`
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            loadEvents();
+        }
+    } catch (error) {
+        console.error('Erro ao confirmar presença:', error);
+    }
+}
+
+function viewNews(newsId) {
+    console.log('Ver notícia:', newsId);
+    // TODO: Abrir modal ou página de detalhes
+}
+
+function viewEvent(eventId) {
+    console.log('Ver evento:', eventId);
+    // TODO: Abrir modal ou página de detalhes
+}
+
+// Carregar dados ao inicializar
+function initNewsEventsDashboard() {
+    document.getElementById('news-events-dashboard').style.display = 'block';
+    loadNews();
+    loadEvents();
+    loadHighlights();
+
+    // Refresh automático a cada 5 minutos
+    setInterval(() => {
+        loadNews();
+        loadEvents();
+        loadHighlights();
+    }, newsEventsConfig.refreshInterval);
+}
+
+// Exportar funções
+window.initNewsEventsDashboard = initNewsEventsDashboard;
+window.rsvpEvent = rsvpEvent;
+window.switchNewsTab = switchNewsTab;
+</script>
