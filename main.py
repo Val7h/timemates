@@ -3254,28 +3254,79 @@ def list_cities(request: Request, db: Session = Depends(get_db)):
         cities = db.query(City).all()
     except Exception as exc:
         logger.exception("[/api/cities] Falha ao consultar tabela cities: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return {"success": False, "data": [], "total": 0, "error": "db_unavailable"}
 
-    # Pre-compute total memberships once (avoid N+1)
+    # Pre-compute total memberships once (avoid N+1). Rollback on failure so subsequent queries work.
     try:
         total_users = db.query(RoomMembership).count()
     except Exception:
         logger.exception("[/api/cities] Falha ao contar RoomMembership; usando 0")
+        try:
+            db.rollback()
+        except Exception:
+            pass
         total_users = 0
+
+    # Probe LocalNews/LocalEvent tables ONCE. If they don't exist (e.g. Neon
+    # migrations not run), skip per-city queries entirely — otherwise PostgreSQL
+    # poisons the transaction after the first failed query and every subsequent
+    # query (including any implicit commit) raises, producing a 500.
+    news_table_ok = True
+    events_table_ok = True
+    try:
+        db.query(LocalNews).limit(1).all()
+    except Exception:
+        logger.warning("[/api/cities] tabela local_news indisponível — news_count=0")
+        news_table_ok = False
+        try:
+            db.rollback()
+        except Exception:
+            pass
+    try:
+        db.query(LocalEvent).limit(1).all()
+    except Exception:
+        logger.warning("[/api/cities] tabela local_events indisponível — events_count=0")
+        events_table_ok = False
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     result = []
     for city in cities:
         # Resilient per-city stats: a failure on one count must not kill the response
+        news_count = 0
+        events_count = 0
+        if news_table_ok:
+            try:
+                news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
+            except Exception:
+                logger.exception("[/api/cities] news_count falhou para %s", city.name)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                news_table_ok = False
+        if events_table_ok:
+            try:
+                events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
+            except Exception:
+                logger.exception("[/api/cities] events_count falhou para %s", city.name)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                events_table_ok = False
+
+        # Defensive coordinate access — JSON column may be None on Neon if seed didn't run
         try:
-            news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
+            coords = city.coordinates if city.coordinates is not None else {}
         except Exception:
-            logger.exception("[/api/cities] news_count falhou para %s", city.name)
-            news_count = 0
-        try:
-            events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
-        except Exception:
-            logger.exception("[/api/cities] events_count falhou para %s", city.name)
-            events_count = 0
+            coords = {}
 
         result.append({
             "id": city.id,
@@ -3283,7 +3334,7 @@ def list_cities(request: Request, db: Session = Depends(get_db)):
             "name": city.name,  # UTF-8 safe (FastAPI/JSON encodes accents)
             "state": city.state,
             "population": city.population,
-            "coordinates": city.coordinates,
+            "coordinates": coords,
             "landmark_image": city.landmark_image,
             "stats": {
                 "news": news_count,
