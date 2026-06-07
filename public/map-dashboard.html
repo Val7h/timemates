@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interativo - Top 10 Cidades | TimeMates</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2a5080 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            height: 100vh;
+            padding: 20px;
+            max-width: 2000px;
+            margin: 0 auto;
+        }
+
+        .map-section {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            background: white;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #e5f4ff;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #1e3a5f;
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .city-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid #d4a853;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .city-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+            border-left-color: #e6d08f;
+        }
+
+        .city-card.active {
+            background: linear-gradient(135deg, #d4a853 0%, #e6d08f 100%);
+            color: white;
+            border-left-color: #1e3a5f;
+        }
+
+        .city-rank {
+            display: inline-block;
+            background: #1e3a5f;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+
+        .city-card.active .city-rank {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .city-name {
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+
+        .city-info {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-bottom: 3px;
+        }
+
+        .city-info strong {
+            color: #d4a853;
+        }
+
+        .city-card.active .city-info strong {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        .city-stats {
+            display: flex;
+            gap: 10px;
+            font-size: 10px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .city-card.active .city-stats {
+            border-top-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .stat {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .stat-label {
+            opacity: 0.7;
+        }
+
+        .metro-info {
+            background: rgba(212, 168, 83, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .city-card.active .metro-info {
+            display: block;
+            background: rgba(0, 0, 0, 0.1);
+            color: white;
+        }
+
+        .metro-label {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .controls {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls h3 {
+            color: #1e3a5f;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .control-btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2a5080 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
+        }
+
+        .control-btn:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 11px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend h3 {
+            color: #1e3a5f;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .leaflet-popup-content {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px !important;
+        }
+
+        .popup-title {
+            font-weight: bold;
+            color: #1e3a5f;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .popup-info {
+            margin: 5px 0;
+            font-size: 11px;
+        }
+
+        .popup-metro {
+            background: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 10px;
+        }
+
+        .popup-label {
+            color: #666;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .sidebar {
+                grid-row: 2;
+                max-height: 300px;
+            }
+
+            #map {
+                height: 500px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .city-card {
+                padding: 12px;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="map-section">
+            <div id="map"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="header">
+                <h1>🗺️ Top 10 Cidades</h1>
+                <p>Maiores cidades do Brasil</p>
+            </div>
+
+            <div id="cities-list"></div>
+
+            <div class="controls">
+                <h3>Controles</h3>
+                <button class="control-btn" onclick="toggleMetroRegions()">Mostrar Regiões Metropolitanas</button>
+                <button class="control-btn" onclick="zoomToTop5()">Focar Top 5</button>
+                <button class="control-btn" onclick="resetMap()">Resetar Mapa</button>
+            </div>
+
+            <div class="legend">
+                <h3>Legenda</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #d4a853;"></div>
+                    <span>Cidades Principais</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6b6b;"></div>
+                    <span>Regiões Metropolitanas</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #51cf66;"></div>
+                    <span>Selecionado</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <script>
+        let map;
+        let markers = [];
+        let circles = [];
+        let selectedCity = null;
+        let showMetroRegions = false;
+        let citiesData = [];
+
+        // Inicializar mapa
+        function initMap() {
+            map = L.map('map').setView([-14.2350, -51.9253], 4);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            loadCities();
+        }
+
+        // Carregar dados de cidades
+        async function loadCities() {
+            try {
+                const response = await fetch('/api/cities/top10/with-regions');
+                const data = await response.json();
+
+                if (data.success) {
+                    citiesData = data.data;
+                    renderCities();
+                    addMarkersToMap();
+                } else {
+                    showError('Erro ao carregar cidades');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                showError('Erro ao conectar com servidor');
+            }
+        }
+
+        // Renderizar lista de cidades
+        function renderCities() {
+            const list = document.getElementById('cities-list');
+            list.innerHTML = '';
+
+            citiesData.forEach((city, index) => {
+                const card = document.createElement('div');
+                card.className = 'city-card';
+                card.innerHTML = `
+                    <div class="city-name">
+                        <span class="city-rank">${city.rank}</span>
+                        ${city.name}
+                    </div>
+                    <div class="city-info">
+                        <strong>${city.population.toLocaleString('pt-BR')}</strong> habitantes
+                    </div>
+                    <div class="city-info">
+                        Estado: <strong>${city.state}</strong>
+                    </div>
+                    <div class="city-stats">
+                        <div class="stat">
+                            <span class="stat-value">${city.stats.news}</span>
+                            <span class="stat-label">Notícias</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">${city.stats.events}</span>
+                            <span class="stat-label">Eventos</span>
+                        </div>
+                    </div>
+                    <div class="metro-info">
+                        <div class="metro-label">Região Metropolitana</div>
+                        ${city.metropolitan_region.name}<br>
+                        <strong>${city.metropolitan_region.population.toLocaleString('pt-BR')}</strong> hab.
+                    </div>
+                `;
+
+                card.addEventListener('click', () => selectCity(city, card));
+                list.appendChild(card);
+            });
+        }
+
+        // Selecionar cidade
+        function selectCity(city, card) {
+            // Remover seleção anterior
+            document.querySelectorAll('.city-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+
+            selectedCity = city;
+
+            // Centralizar mapa na cidade
+            const coords = city.coordinates || {lat: -15.7942, lng: -47.8822};
+            map.setView([coords.lat, coords.lng], 8);
+
+            // Atualizar marker
+            markers.forEach(m => {
+                if (m.city && m.city.id === city.id) {
+                    m.openPopup();
+                }
+            });
+        }
+
+        // Adicionar markers ao mapa
+        function addMarkersToMap() {
+            // Remover markers anteriores
+            markers.forEach(m => map.removeLayer(m));
+            circles.forEach(c => map.removeLayer(c));
+            markers = [];
+            circles = [];
+
+            citiesData.forEach((city, index) => {
+                const coords = city.coordinates || {lat: -15.7942, lng: -47.8822};
+
+                // Cor baseada na população
+                const color = ['#d4a853', '#e6d08f', '#f0dfa8', '#fae6c4', '#fdf0d9'][Math.min(index, 4)] || '#d4a853';
+
+                // Criar marker
+                const marker = L.circleMarker([coords.lat, coords.lng], {
+                    radius: 12 + (index * 2),
+                    fillColor: color,
+                    color: '#1e3a5f',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                marker.city = city;
+
+                // Popup
+                const popupContent = `
+                    <div class="popup-title">${city.rank}º - ${city.name}</div>
+                    <div class="popup-info"><strong>${city.population.toLocaleString('pt-BR')}</strong> habitantes</div>
+                    <div class="popup-info">Estado: <strong>${city.state}</strong></div>
+                    <div class="popup-info">Apelido: <strong>${city.nickname || 'Não definido'}</strong></div>
+                    <div class="popup-metro">
+                        <div class="popup-label">Região Metropolitana</div>
+                        <strong>${city.metropolitan_region.name}</strong><br>
+                        ${city.metropolitan_region.population.toLocaleString('pt-BR')} hab.<br>
+                        Raio: ${city.metropolitan_region.radius_km}km
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent);
+
+                // Evento de clique
+                marker.on('click', () => {
+                    const card = document.querySelector('.city-card');
+                    document.querySelectorAll('.city-card').forEach((c, i) => {
+                        if (i === index) selectCity(city, c);
+                    });
+                });
+
+                markers.push(marker);
+            });
+        }
+
+        // Alternar regiões metropolitanas
+        function toggleMetroRegions() {
+            showMetroRegions = !showMetroRegions;
+
+            if (showMetroRegions) {
+                citiesData.forEach((city, index) => {
+                    const coords = city.coordinates || {lat: -15.7942, lng: -47.8822};
+
+                    const circle = L.circle([coords.lat, coords.lng], {
+                        radius: city.metropolitan_region.radius_km * 1000,
+                        color: '#ff6b6b',
+                        weight: 1,
+                        opacity: 0.4,
+                        fillColor: '#ff6b6b',
+                        fillOpacity: 0.05
+                    }).addTo(map);
+
+                    circles.push(circle);
+                });
+            } else {
+                circles.forEach(c => map.removeLayer(c));
+                circles = [];
+            }
+        }
+
+        // Focar no top 5
+        function zoomToTop5() {
+            const top5 = citiesData.slice(0, 5);
+            const coords = top5.map(c => [c.coordinates.lat, c.coordinates.lng]);
+
+            const group = new L.featureGroup(
+                top5.map(c => L.circleMarker([c.coordinates.lat, c.coordinates.lng], {radius: 1}))
+            );
+
+            map.fitBounds(group.getBounds(), {padding: [50, 50]});
+        }
+
+        // Resetar mapa
+        function resetMap() {
+            map.setView([-14.2350, -51.9253], 4);
+            document.querySelectorAll('.city-card').forEach(c => c.classList.remove('active'));
+            selectedCity = null;
+        }
+
+        // Mostrar erro
+        function showError(msg) {
+            const list = document.getElementById('cities-list');
+            list.innerHTML = `<div class="error">${msg}</div>`;
+        }
+
+        // Inicializar quando página carregar
+        window.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

@@ -3094,6 +3094,110 @@ def list_cities(request: Request, db: Session = Depends(get_db)):
     return {"success": True, "data": result, "total": len(result)}
 
 
+@app.get("/api/cities/top10/with-regions")
+@limiter.limit("60/minute")
+def get_top10_cities_with_regions(request: Request, db: Session = Depends(get_db)):
+    """🗺️ Top 10 maiores cidades com regiões metropolitanas e coordenadas"""
+    cities = db.query(City).order_by(City.population.desc()).limit(10).all()
+
+    # Dados de regiões metropolitanas brasileiras
+    metropolitan_regions = {
+        "São Paulo": {
+            "name": "Região Metropolitana de São Paulo",
+            "population": 22183000,
+            "cities": ["São Paulo", "Guarulhos", "São Bernardo do Campo", "Santo André"],
+            "radius_km": 45
+        },
+        "Rio de Janeiro": {
+            "name": "Região Metropolitana do Rio de Janeiro",
+            "population": 13000000,
+            "cities": ["Rio de Janeiro", "Niterói", "Duque de Caxias", "São Gonçalo"],
+            "radius_km": 40
+        },
+        "Brasília": {
+            "name": "Região Integrada de Desenvolvimento do Distrito Federal e Entorno (RIDE)",
+            "population": 4000000,
+            "cities": ["Brasília", "Gama", "Taguatinga", "Sobradinho"],
+            "radius_km": 30
+        },
+        "Salvador": {
+            "name": "Região Metropolitana de Salvador",
+            "population": 4000000,
+            "cities": ["Salvador", "Lauro de Freitas", "Simões Filho"],
+            "radius_km": 25
+        },
+        "Belo Horizonte": {
+            "name": "Região Metropolitana de Belo Horizonte",
+            "population": 6000000,
+            "cities": ["Belo Horizonte", "Contagem", "Betim", "Sabará"],
+            "radius_km": 35
+        },
+        "Fortaleza": {
+            "name": "Região Metropolitana de Fortaleza",
+            "population": 4000000,
+            "cities": ["Fortaleza", "Maracanaú", "Caucaia", "Aquiraz"],
+            "radius_km": 35
+        },
+        "Curitiba": {
+            "name": "Região Metropolitana de Curitiba",
+            "population": 3600000,
+            "cities": ["Curitiba", "Pinhais", "Almirante Tamandaré", "Araucária"],
+            "radius_km": 30
+        },
+        "Porto Alegre": {
+            "name": "Região Metropolitana de Porto Alegre",
+            "population": 4300000,
+            "cities": ["Porto Alegre", "Viamão", "Novo Hamburgo", "Gravataí"],
+            "radius_km": 35
+        },
+        "Recife": {
+            "name": "Região Metropolitana de Recife",
+            "population": 4000000,
+            "cities": ["Recife", "Jaboatão dos Guararapes", "Olinda", "Paulista"],
+            "radius_km": 30
+        },
+        "Manaus": {
+            "name": "Região Metropolitana de Manaus",
+            "population": 2200000,
+            "cities": ["Manaus", "Iranduba", "Careiro"],
+            "radius_km": 25
+        }
+    }
+
+    result = []
+    for city in cities:
+        metro = metropolitan_regions.get(city.name, {})
+
+        result.append({
+            "id": city.id,
+            "slug": city.slug,
+            "name": city.name,
+            "state": city.state,
+            "population": city.population,
+            "rank": len(result) + 1,
+            "coordinates": city.coordinates or {"lat": -15.7942, "lng": -47.8822},  # Brasília default
+            "metropolitan_region": {
+                "name": metro.get("name", f"Região de {city.name}"),
+                "population": metro.get("population", city.population * 2),
+                "cities": metro.get("cities", [city.name]),
+                "radius_km": metro.get("radius_km", 30)
+            },
+            "nickname": city.nickname or "",
+            "stats": {
+                "news": db.query(LocalNews).filter(LocalNews.city == city.name).count(),
+                "events": db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
+            }
+        })
+
+    return {
+        "success": True,
+        "data": result,
+        "total": len(result),
+        "center": {"lat": -14.2350, "lng": -51.9253},  # Brasil center
+        "zoom": 4
+    }
+
+
 @app.get("/api/city/{slug}/info-ibge")
 @limiter.limit("30/minute")
 def get_city_ibge_info(request: Request, slug: str, db: Session = Depends(get_db)):
@@ -3383,6 +3487,23 @@ def get_user_streak(
         "longest_streak": streak.longest_streak,
         "last_activity": streak.last_activity_date.isoformat() if streak.last_activity_date else None
     }
+
+
+# ===== DASHBOARDS =====
+@app.get("/map", response_class=FileResponse)
+async def map_dashboard():
+    """🗺️ Mapa interativo com top 10 cidades e regiões metropolitanas"""
+    return FileResponse("public/map-dashboard.html")
+
+@app.get("/news", response_class=FileResponse)
+async def news_dashboard():
+    """📰 Dashboard de notícias locais por cidade"""
+    return FileResponse("public/news-dashboard.html")
+
+@app.get("/events", response_class=FileResponse)
+async def events_dashboard():
+    """🎪 Dashboard de eventos locais"""
+    return FileResponse("public/events-dashboard.html")
 
 
 # ===== LANDING PAGE & LEGAL DOCS =====
