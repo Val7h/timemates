@@ -169,6 +169,27 @@ try:
 except Exception as _e:
     print(f"[DB] create_all erro: {_e}")
 
+# Indexes para escalar /api/cities até 300+ cidades (idempotente, ambos SQLite e Postgres)
+try:
+    from sqlalchemy import text as _idx_text
+    with engine.connect() as _conn:
+        for _idx_sql in (
+            "CREATE INDEX IF NOT EXISTS ix_cities_state ON cities (state)",
+            "CREATE INDEX IF NOT EXISTS ix_cities_population ON cities (population)",
+            "CREATE INDEX IF NOT EXISTS ix_cities_state_population ON cities (state, population)",
+        ):
+            try:
+                _conn.execute(_idx_text(_idx_sql))
+            except Exception as _idx_e:
+                print(f"[DB] index erro ({_idx_sql}): {_idx_e}")
+        try:
+            _conn.commit()
+        except Exception:
+            pass
+    print("[DB] indexes cities (state, population) garantidos")
+except Exception as _e:
+    print(f"[DB] index creation skipped: {_e}")
+
 from contextlib import asynccontextmanager
 
 def _generate_icons():
@@ -309,41 +330,84 @@ async def lifespan(app):
         print(f"[DEMO] Erro no startup (nao critico): {e}")
 
     # Sequência de e-mails de onboarding (roda no startup)
-    try:
-        _run_email_sequence()
-    except Exception as e:
-        print(f"[EMAIL_SEQ] Erro (nao critico): {e}")
+    # EMERGENCY DISABLED 2026-06-07: estava bombardeando o inbox do founder com
+    # bounces para usuários seed (@campinagrandeseed.local etc.).
+    # Reativar apenas após: (1) sanitizar usuários seed do DB, (2) revisar template
+    # "Seus ex-colegas estão esperando por você" (contradiz POSITIONING.md — somos
+    # EVENTOS, não reconexão), (3) setar EMAIL_ENABLED=true conscientemente.
+    if os.getenv("EMAIL_SEQUENCE_ENABLED", "false").lower() == "true":
+        try:
+            _run_email_sequence()
+        except Exception as e:
+            print(f"[EMAIL_SEQ] Erro (nao critico): {e}")
+    else:
+        print("[EMAIL_SEQ] DISABLED (EMAIL_SEQUENCE_ENABLED!=true) — emergency stop active")
 
     yield
 
 
 def _run_email_sequence():
-    """Envia follow-up emails para usuários que ainda não os receberam."""
+    """Envia follow-up emails para usuários que ainda não os receberam.
+
+    Defense-in-depth (post-incident 2026-06-07):
+    1. EMAIL_SEQUENCE_ENABLED env gate (checked by lifespan caller).
+    2. EMAIL_ENABLED kill-switch (enforced inside email_service._send).
+    3. email_service._is_sendable domain/TLD/name allowlist.
+    4. SQL-level email_opt_out filter (this function).
+    5. Hard-coded seed/demo domain skip below.
+    """
     db = SessionLocal()
     try:
         now = datetime.utcnow()
-        users = db.query(User).filter(User.is_active == True).all()
+        # Skip opt-outs at the query level when the column exists. Tolerate
+        # legacy DBs without the column by falling back to a name-based query.
+        from sqlalchemy import text as _seq_text
+        try:
+            users = db.execute(
+                _seq_text(
+                    "SELECT id, email, full_name, created_at FROM users "
+                    "WHERE is_active = TRUE "
+                    "AND COALESCE(email_opt_out, FALSE) = FALSE"
+                )
+            ).fetchall()
+        except Exception:
+            db.rollback()
+            users = [
+                (u.id, u.email, u.full_name, u.created_at)
+                for u in db.query(User).filter(User.is_active == True).all()
+            ]
         sent = 0
-        for u in users:
-            # Ignora contas demo
-            if "@demo.timemates" in u.email:
+        for uid, uemail, ufullname, ucreated_at in users:
+            # Ignora contas demo / seed obviamente falsas (defesa em profundidade)
+            elower = (uemail or "").lower()
+            if (
+                "@demo.timemates" in elower
+                or "@seed" in elower
+                or elower.endswith(".local")
+                or elower.endswith(".test")
+                or elower.endswith(".invalid")
+                or elower.endswith(".example")
+                or "campinagrandeseed" in elower
+            ):
                 continue
-            days_since = (now - u.created_at).days
+            days_since = (now - ucreated_at).days
             already_sent = {
                 log.email_type
-                for log in db.query(EmailLog).filter(EmailLog.user_id == u.id).all()
+                for log in db.query(EmailLog).filter(EmailLog.user_id == uid).all()
             }
             if days_since >= 3 and "followup_day3" not in already_sent:
-                mail.send_followup_day3(u.email, u.full_name)
-                db.add(EmailLog(user_id=u.id, email_type="followup_day3"))
+                mail.send_followup_day3(uemail, ufullname)
+                db.add(EmailLog(user_id=uid, email_type="followup_day3"))
                 sent += 1
             if days_since >= 7 and "followup_day7" not in already_sent:
-                mail.send_followup_day7(u.email, u.full_name)
-                db.add(EmailLog(user_id=u.id, email_type="followup_day7"))
+                mail.send_followup_day7(uemail, ufullname)
+                db.add(EmailLog(user_id=uid, email_type="followup_day7"))
                 sent += 1
         if sent:
             db.commit()
             print(f"[EMAIL_SEQ] {sent} email(s) de follow-up enviados")
+        else:
+            print("[EMAIL_SEQ] Nenhum email enviado (todos filtrados/já recebidos)")
     finally:
         db.close()
 
@@ -3313,44 +3377,72 @@ def search_cities(request: Request, q: str = "", db: Session = Depends(get_db)):
     }
 
 
-@app.get("/api/cities")
-@limiter.limit("60/minute")
-def list_cities(request: Request, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
-    track_event(current_user.id if current_user else None, "city_list_view")
-    """🌍 Listar todas as 27 capitais brasileiras com estatísticas.
+# ═══════════════════════════════════════════════════════════════════════════════
+# CITY SCALING INFRASTRUCTURE (300 cities support)
+# State → Region mapping (City model has no `region` column, derive from state)
+# ═══════════════════════════════════════════════════════════════════════════════
+STATE_TO_REGION = {
+    # Norte
+    "AC": "Norte", "AP": "Norte", "AM": "Norte", "PA": "Norte",
+    "RO": "Norte", "RR": "Norte", "TO": "Norte",
+    # Nordeste
+    "AL": "Nordeste", "BA": "Nordeste", "CE": "Nordeste", "MA": "Nordeste",
+    "PB": "Nordeste", "PE": "Nordeste", "PI": "Nordeste", "RN": "Nordeste",
+    "SE": "Nordeste",
+    # Centro-Oeste
+    "DF": "Centro-Oeste", "GO": "Centro-Oeste", "MT": "Centro-Oeste", "MS": "Centro-Oeste",
+    # Sudeste
+    "ES": "Sudeste", "MG": "Sudeste", "RJ": "Sudeste", "SP": "Sudeste",
+    # Sul
+    "PR": "Sul", "RS": "Sul", "SC": "Sul",
+}
 
-    REGRESSION TEST (inline): GET /api/cities must return HTTP 200 with
-    {"success": True, "data": [...27 capitais...], "total": 27}.
-    UTF-8 names like "São Paulo", "Brasília", "Vitória" must serialize
-    correctly. If LocalNews/LocalEvent counts fail (e.g. table missing
-    after migration), endpoint must still return city core data with
-    stats defaulted to 0 — never 500.
-    """
-    try:
-        cities = db.query(City).all()
-    except Exception as exc:
-        logger.exception("[/api/cities] Falha ao consultar tabela cities: %s", exc)
-        try:
-            db.rollback()
-        except Exception:
-            pass
-        return {"success": False, "data": [], "total": 0, "error": "db_unavailable"}
+REGIONS_VALID = {"Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul"}
 
-    # Pre-compute total memberships once (avoid N+1). Rollback on failure so subsequent queries work.
+def _states_in_region(region: str) -> List[str]:
+    region_norm = region.strip()
+    # Tolerate "centro-oeste"/"centrooeste"/"Centro Oeste"
+    region_norm_l = region_norm.lower().replace(" ", "-").replace("--", "-")
+    target = None
+    for r in REGIONS_VALID:
+        if r.lower() == region_norm_l or r.lower().replace("-", "") == region_norm_l.replace("-", ""):
+            target = r
+            break
+    if target is None:
+        return []
+    return [st for st, reg in STATE_TO_REGION.items() if reg == target]
+
+
+# Simple in-process TTL cache for /api/cities/featured (static-ish data)
+_FEATURED_CACHE: Dict[str, object] = {"payload": None, "expires_at": 0.0}
+_FEATURED_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+def _city_to_payload(city, news_count: int = 0, events_count: int = 0, total_users: int = 0, total_cities: int = 27):
     try:
-        total_users = db.query(RoomMembership).count()
+        coords = city.coordinates if city.coordinates is not None else {}
     except Exception:
-        logger.exception("[/api/cities] Falha ao contar RoomMembership; usando 0")
-        try:
-            db.rollback()
-        except Exception:
-            pass
-        total_users = 0
+        coords = {}
+    return {
+        "id": city.id,
+        "slug": city.slug,
+        "name": city.name,
+        "state": city.state,
+        "region": STATE_TO_REGION.get(city.state, "Desconhecida"),
+        "population": city.population,
+        "coordinates": coords,
+        "landmark_image": city.landmark_image,
+        "stats": {
+            "news": news_count,
+            "events": events_count,
+            "users": max(10, total_users // max(total_cities, 1)) if total_users else 10,
+            "engagement_score": round((news_count + events_count) * 1.5, 1)
+        }
+    }
 
-    # Probe LocalNews/LocalEvent tables ONCE. If they don't exist (e.g. Neon
-    # migrations not run), skip per-city queries entirely — otherwise PostgreSQL
-    # poisons the transaction after the first failed query and every subsequent
-    # query (including any implicit commit) raises, producing a 500.
+
+def _probe_news_events_tables(db: Session):
+    """Probe LocalNews/LocalEvent tables once — return (news_ok, events_ok)."""
     news_table_ok = True
     events_table_ok = True
     try:
@@ -3371,10 +3463,120 @@ def list_cities(request: Request, db: Session = Depends(get_db), current_user: O
             db.rollback()
         except Exception:
             pass
+    return news_table_ok, events_table_ok
+
+
+@app.get("/api/cities")
+@limiter.limit("60/minute")
+def list_cities(
+    request: Request,
+    page: int = Query(1, ge=1, description="Página (1-based)"),
+    limit: int = Query(50, ge=1, le=200, description="Itens por página (max 200)"),
+    state: Optional[str] = Query(None, description="Filtrar por UF, ex. SP"),
+    region: Optional[str] = Query(None, description="Filtrar por região: Norte, Nordeste, Centro-Oeste, Sudeste, Sul"),
+    min_pop: Optional[int] = Query(None, ge=0, description="População mínima"),
+    q: Optional[str] = Query(None, description="Busca textual no nome"),
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user),
+):
+    """🌍 Listar cidades brasileiras (paginado, filtrável).
+
+    BACKWARDS-COMPAT: continua retornando {"success", "data", "total"} no formato antigo,
+    PLUS metadados de paginação ("page", "limit", "total_pages", "filters_applied").
+    Default limit=50 cobre as 27 capitais originais em 1 página.
+
+    REGRESSION TEST (inline): GET /api/cities (sem params) deve retornar HTTP 200 com
+    todas as cidades atuais (≤50) na primeira página. UTF-8 names like "São Paulo",
+    "Brasília", "Vitória" devem serializar corretamente. Se LocalNews/LocalEvent
+    falhar (tabela ausente), stats default = 0 — nunca 500.
+    """
+    track_event(current_user.id if current_user else None, "city_list_view")
+
+    filters_applied: Dict[str, object] = {}
+
+    # Build base query with DB-side filters (uses indexes on state/population)
+    try:
+        query = db.query(City)
+
+        if state:
+            state_norm = state.strip().upper()
+            query = query.filter(City.state == state_norm)
+            filters_applied["state"] = state_norm
+
+        if region:
+            states_in = _states_in_region(region)
+            if not states_in:
+                return {
+                    "success": False,
+                    "data": [],
+                    "total": 0,
+                    "page": page,
+                    "limit": limit,
+                    "total_pages": 0,
+                    "filters_applied": {"region": region},
+                    "error": f"unknown_region: {region}",
+                }
+            query = query.filter(City.state.in_(states_in))
+            filters_applied["region"] = region
+
+        if min_pop is not None:
+            query = query.filter(City.population >= min_pop)
+            filters_applied["min_pop"] = min_pop
+
+        if q and q.strip():
+            q_clean = q.strip()
+            # ILIKE for accent-insensitive-ish prefix/substring; Postgres ILIKE is case-insensitive
+            query = query.filter(City.name.ilike(f"%{q_clean}%"))
+            filters_applied["q"] = q_clean
+
+        total = query.count()
+        total_pages = (total + limit - 1) // limit if total else 0
+
+        offset = (page - 1) * limit
+        cities = query.order_by(City.population.desc().nullslast(), City.name.asc()).offset(offset).limit(limit).all()
+    except Exception as exc:
+        logger.exception("[/api/cities] Falha ao consultar tabela cities: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {
+            "success": False,
+            "data": [],
+            "total": 0,
+            "page": page,
+            "limit": limit,
+            "total_pages": 0,
+            "filters_applied": filters_applied,
+            "error": "db_unavailable",
+        }
+
+    # Pre-compute total memberships once (avoid N+1)
+    try:
+        total_users = db.query(RoomMembership).count()
+    except Exception:
+        logger.exception("[/api/cities] Falha ao contar RoomMembership; usando 0")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        total_users = 0
+
+    # Probe optional tables once
+    news_table_ok, events_table_ok = _probe_news_events_tables(db)
+
+    # Use total cities globally (not paged subset) for users/city distribution
+    try:
+        total_cities_global = db.query(City).count() or 27
+    except Exception:
+        total_cities_global = 27
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     result = []
     for city in cities:
-        # Resilient per-city stats: a failure on one count must not kill the response
         news_count = 0
         events_count = 0
         if news_table_ok:
@@ -3398,29 +3600,156 @@ def list_cities(request: Request, db: Session = Depends(get_db), current_user: O
                     pass
                 events_table_ok = False
 
-        # Defensive coordinate access — JSON column may be None on Neon if seed didn't run
+        result.append(_city_to_payload(city, news_count, events_count, total_users, total_cities_global))
+
+    return {
+        "success": True,
+        "data": result,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": total_pages,
+        "filters_applied": filters_applied,
+    }
+
+
+@app.get("/api/cities/featured")
+@limiter.limit("120/minute")
+def list_featured_cities(request: Request, db: Session = Depends(get_db)):
+    """⭐ Top 27 capitais (backwards-compat para o mapa do frontend).
+
+    Resposta cacheada em memória por 5 minutos — dados quase estáticos.
+    Sem paginação. Use /api/cities para a lista paginada completa.
+    """
+    import time
+    now = time.time()
+    cached_payload = _FEATURED_CACHE.get("payload")
+    cached_expires = _FEATURED_CACHE.get("expires_at", 0.0)
+    if cached_payload is not None and isinstance(cached_expires, (int, float)) and now < cached_expires:
+        return cached_payload
+
+    try:
+        cities = db.query(City).order_by(City.population.desc().nullslast(), City.name.asc()).limit(27).all()
+    except Exception as exc:
+        logger.exception("[/api/cities/featured] db erro: %s", exc)
         try:
-            coords = city.coordinates if city.coordinates is not None else {}
+            db.rollback()
         except Exception:
-            coords = {}
+            pass
+        return {"success": False, "data": [], "total": 0, "error": "db_unavailable"}
 
-        result.append({
-            "id": city.id,
-            "slug": city.slug,
-            "name": city.name,  # UTF-8 safe (FastAPI/JSON encodes accents)
-            "state": city.state,
-            "population": city.population,
-            "coordinates": coords,
-            "landmark_image": city.landmark_image,
-            "stats": {
-                "news": news_count,
-                "events": events_count,
-                "users": max(10, total_users // 27) if total_users else 10,
-                "engagement_score": round((news_count + events_count) * 1.5, 1)
-            }
-        })
+    try:
+        total_users = db.query(RoomMembership).count()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        total_users = 0
 
-    return {"success": True, "data": result, "total": len(result)}
+    news_table_ok, events_table_ok = _probe_news_events_tables(db)
+
+    data = []
+    for city in cities:
+        news_count = 0
+        events_count = 0
+        if news_table_ok:
+            try:
+                news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
+            except Exception:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                news_table_ok = False
+        if events_table_ok:
+            try:
+                events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
+            except Exception:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                events_table_ok = False
+        data.append(_city_to_payload(city, news_count, events_count, total_users, max(len(cities), 27)))
+
+    payload = {
+        "success": True,
+        "data": data,
+        "total": len(data),
+        "cached_ttl_seconds": _FEATURED_CACHE_TTL_SECONDS,
+    }
+    _FEATURED_CACHE["payload"] = payload
+    _FEATURED_CACHE["expires_at"] = now + _FEATURED_CACHE_TTL_SECONDS
+    return payload
+
+
+@app.get("/api/cities/by-state/{state}")
+@limiter.limit("60/minute")
+def list_cities_by_state(request: Request, state: str, db: Session = Depends(get_db)):
+    """🏙️ Todas as cidades de uma UF (sem paginação — esperado ≤30 cada).
+    Ex: /api/cities/by-state/SP
+    """
+    state_norm = (state or "").strip().upper()
+    if len(state_norm) != 2 or not state_norm.isalpha():
+        return {"success": False, "data": [], "total": 0, "error": "invalid_state_code"}
+    try:
+        cities = (
+            db.query(City)
+            .filter(City.state == state_norm)
+            .order_by(City.population.desc().nullslast(), City.name.asc())
+            .all()
+        )
+    except Exception as exc:
+        logger.exception("[/api/cities/by-state] db erro: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {"success": False, "data": [], "total": 0, "error": "db_unavailable"}
+
+    data = [_city_to_payload(c, 0, 0, 0, max(len(cities), 1)) for c in cities]
+    return {
+        "success": True,
+        "state": state_norm,
+        "region": STATE_TO_REGION.get(state_norm, "Desconhecida"),
+        "data": data,
+        "total": len(data),
+    }
+
+
+@app.get("/api/cities/by-region/{region}")
+@limiter.limit("60/minute")
+def list_cities_by_region(request: Request, region: str, db: Session = Depends(get_db)):
+    """🗺️ Todas as cidades de uma região (Norte, Nordeste, Centro-Oeste, Sudeste, Sul).
+    Ex: /api/cities/by-region/Sudeste
+    """
+    states_in = _states_in_region(region)
+    if not states_in:
+        return {"success": False, "data": [], "total": 0, "error": f"unknown_region: {region}"}
+    try:
+        cities = (
+            db.query(City)
+            .filter(City.state.in_(states_in))
+            .order_by(City.population.desc().nullslast(), City.name.asc())
+            .all()
+        )
+    except Exception as exc:
+        logger.exception("[/api/cities/by-region] db erro: %s", exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return {"success": False, "data": [], "total": 0, "error": "db_unavailable"}
+
+    data = [_city_to_payload(c, 0, 0, 0, max(len(cities), 1)) for c in cities]
+    return {
+        "success": True,
+        "region": region,
+        "states": states_in,
+        "data": data,
+        "total": len(data),
+    }
 
 
 @app.get("/api/cities/top10/with-regions")

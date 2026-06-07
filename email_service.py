@@ -19,7 +19,61 @@ FROM_NAME = "TimeMates"
 FROM_ADDR = SMTP_USER or "noreply@timemates.app"
 BASE_URL  = os.getenv("BASE_URL", "http://localhost:8765")
 
-EMAIL_ENABLED = bool(SMTP_USER and SMTP_PASS)
+# EMERGENCY KILL-SWITCH: must be explicitly enabled via env var.
+# Defaults to FALSE to prevent runaway bounce floods from seed/fake users.
+EMAIL_ENABLED = (
+    os.getenv("EMAIL_ENABLED", "false").lower() == "true"
+    and bool(SMTP_USER and SMTP_PASS)
+)
+
+# TLDs that never resolve in DNS — sending to these guarantees a bounce.
+_INVALID_TLDS = {"local", "test", "invalid", "example", "localhost"}
+# Domains used by seed/demo data — never deliver to real SMTP.
+_BLOCKED_DOMAIN_SUFFIXES = (
+    "campinagrandeseed.local",
+    "demo.timemates",
+    "seed.timemates",
+    "example.com",
+    "example.org",
+    "test.com",
+)
+# Substrings inside the address local-part / domain that indicate a fake/seed user.
+_BLOCKED_EMAIL_SUBSTRINGS = ("@seed", ".seed.", "+seed@", "seeduser")
+# Substrings in the user's full_name that indicate a seed/fake/test account.
+_BLOCKED_NAME_SUBSTRINGS = ("seed", "fake", "[test]", "(test)", "test user")
+
+
+def _is_sendable(to_email: str, full_name: str | None = None) -> bool:
+    """Return False for fake/seed/invalid addresses we must never SMTP-send to.
+
+    Defense-in-depth: validates address shape, TLD, domain suffix, address
+    substrings, and (optionally) the user's display name for seed/fake markers.
+    Every rejection is logged with the reason for post-mortem visibility.
+    """
+    if not to_email or "@" not in to_email:
+        print(f"[EMAIL BLOCKED] Missing/invalid address: {to_email!r}")
+        return False
+    lower_email = to_email.lower().strip()
+    domain = lower_email.split("@", 1)[-1]
+    tld = domain.rsplit(".", 1)[-1] if "." in domain else domain
+    if tld in _INVALID_TLDS:
+        print(f"[EMAIL BLOCKED] Invalid TLD .{tld} for {to_email}")
+        return False
+    for bad in _BLOCKED_DOMAIN_SUFFIXES:
+        if domain.endswith(bad):
+            print(f"[EMAIL BLOCKED] Seed/demo domain {domain} for {to_email}")
+            return False
+    for marker in _BLOCKED_EMAIL_SUBSTRINGS:
+        if marker in lower_email:
+            print(f"[EMAIL BLOCKED] Seed marker {marker!r} in {to_email}")
+            return False
+    if full_name:
+        lname = full_name.lower()
+        for marker in _BLOCKED_NAME_SUBSTRINGS:
+            if marker in lname:
+                print(f"[EMAIL BLOCKED] Seed name marker {marker!r} in full_name={full_name!r} ({to_email})")
+                return False
+    return True
 
 
 # ── Estilos base ──────────────────────────────────────────────────────────────
@@ -77,11 +131,20 @@ def _btn(url: str, label: str, color: str = "#1E3A5F") -> str:
     </div>"""
 
 
-def _send(to_email: str, subject: str, html: str):
-    """Envia e-mail em thread separada para não bloquear a requisição."""
+def _send(to_email: str, subject: str, html: str, full_name: str | None = None):
+    """Envia e-mail em thread separada para não bloquear a requisição.
+
+    full_name is optional but if provided is passed to _is_sendable for an extra
+    layer of seed/fake-user filtering (catches users with valid-looking domains
+    but names like "Carlos Seed" or "[TEST] User").
+    """
+    # Hard guard #1: domain/TLD allowlist (blocks .local, seed domains, etc.)
+    if not _is_sendable(to_email, full_name=full_name):
+        return False
+    # Hard guard #2: global kill-switch (EMAIL_ENABLED env var)
     if not EMAIL_ENABLED:
-        print(f"[EMAIL MOCK] Para: {to_email} | Assunto: {subject}")
-        return
+        print(f"[EMAIL DISABLED] EMAIL_ENABLED=false — skipping {to_email} | {subject}")
+        return False
 
     def _do_send():
         try:
@@ -122,7 +185,7 @@ def send_welcome(to_email: str, name: str):
     <p style="color:#9CA3AF;font-size:12px;text-align:center;">
       💡 Dica: Busque sua escola, faculdade ou empresa e veja se alguém da sua turma já está lá!
     </p>"""
-    _send(to_email, f"Bem-vindo(a) ao TimeMates, {first}!", _base_template("Bem-vindo ao TimeMates", body))
+    _send(to_email, f"Bem-vindo(a) ao TimeMates, {first}!", _base_template("Bem-vindo ao TimeMates", body), full_name=name)
 
 
 def send_join_request_to_admin(admin_email: str, admin_name: str,
@@ -233,24 +296,30 @@ def send_you_were_remembered(to_email: str, name: str, room_name: str, inst_name
 
 
 def send_followup_day3(to_email: str, name: str):
-    """Dia 3: usuário ainda não entrou em nenhuma sala."""
-    first = name.split()[0]
+    """Dia 3: convida o usuário a ver os rolês/eventos da cidade dele.
+
+    Reescrito 2026-06-07: o template antigo ("Seus ex-colegas estão esperando")
+    contradizia POSITIONING.md (somos EVENTOS, não reconexão) e foi o vetor do
+    incidente de bombardeio de bounces. Novo copy é alinhado ao posicionamento
+    de eventos locais. Só dispara se _is_sendable + EMAIL_ENABLED permitirem.
+    """
+    first = name.split()[0] if name else "amigo(a)"
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">Você já encontrou sua turma, {first}?</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">Não perca os rolês de hoje, {first}! 🎉</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Criou sua conta há 3 dias — e seus ex-colegas podem estar esperando por você!
+      Já faz 3 dias desde que você chegou no TimeMates — bora ver o que está rolando na sua cidade?
     </p>
     <p style="color:#374151;font-size:15px;line-height:1.6;">
-      Busque sua <strong>escola</strong>, <strong>faculdade</strong> ou <strong>empresa</strong>
-      e veja se alguém da sua turma já está lá. Se a sala não existir, você pode criar em segundos.
+      Festas, shows, encontros, esportes, gastronomia, cultura — tudo em um lugar só.
+      Descubra eventos perto de você e bora marcar presença!
     </p>
-    {_btn(BASE_URL + '/index.html', 'Buscar minha turma agora', '#D4A853')}
+    {_btn(BASE_URL + '/index.html', 'Ver eventos da minha cidade', '#D4A853')}
     <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
     <p style="color:#9CA3AF;font-size:12px;text-align:center;">
-      💡 Já são <strong>centenas de salas</strong> de escolas, faculdades e empresas de todo o Brasil!
+      💡 Novos eventos toda semana em centenas de cidades do Brasil.
     </p>"""
-    _send(to_email, f"Seus ex-colegas estão esperando por você, {first}!",
-          _base_template("Encontre sua turma", body))
+    _send(to_email, f"Não perca os rolês de hoje na sua cidade, {first}!",
+          _base_template("Eventos perto de você", body), full_name=name)
 
 
 def send_followup_day7(to_email: str, name: str):
@@ -274,7 +343,7 @@ def send_followup_day7(to_email: str, name: str):
     </div>
     {_btn(BASE_URL + '/index.html', 'Abrir o TimeMates e convidar amigos', '#1E3A5F')}"""
     _send(to_email, f"Chame seus amigos para o TimeMates, {first}!",
-          _base_template("Traga seus amigos", body))
+          _base_template("Traga seus amigos", body), full_name=name)
 
 
 def send_remembered_found(to_email: str, name: str, found_name: str, room_name: str):
