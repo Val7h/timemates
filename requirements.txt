@@ -19,3 +19,9 @@ apscheduler==3.10.4
 # Calendar Integration
 google-auth==2.25.2
 google-auth-oauthlib==1.1.0
+
+# Sentry error tracking
+sentry-sdk[fastapi]==2.18.0
+
+# PostHog product analytics
+posthog==3.7.0

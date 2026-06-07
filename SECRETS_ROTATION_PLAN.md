@@ -2,8 +2,35 @@
 
 **Audit Date:** 2026-06-07
 **Auditor:** DevSecOps Specialist
-**Severity:** P0 / URGENT
+**Severity:** P0 / URGENT — DEFERRED to next session per founder decision
 **Repository:** C:/Users/Admin/timeMates
+
+---
+
+## ⏸️ ROTATION DEFERRED - PENDING TASKS
+
+**Founder decision (2026-06-07):** Postponed rotation to focus on Day 2 observability stack.
+
+**Pending items:**
+
+1. **TimeMates Neon rotation:**
+   - Current endpoint: `ep-soft-morning-apoyasgn` (confirmed via Render API)
+   - Status: Production stable with leaked credential still active
+   - Risk: Medium (credential in git history but no public repo evidence yet)
+   - Next session: Use Neon API or manual UI on correct project
+
+2. **Wealth Lab accidental rotation:**
+   - User accidentally reset password on `ep-hidden-poetry-apaoqurp` project
+   - New password obtained: `npg_J1wBPfuUi7YA` (was tested but reverted)
+   - **Action needed:** Update `.env` of Wealth Lab project locally with new connection string:
+     ```
+     postgresql://neondb_owner:npg_J1wBPfuUi7YA@ep-hidden-poetry-apaoqurp-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+     ```
+   - Location: C:/Users/Admin/Whelth-Lab/ (or wherever Wealth Lab project lives)
+
+**Resume rotation:** Run `/loop force-task-secrets-rotation` next session.
+
+---
 
 ---
 

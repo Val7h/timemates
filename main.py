@@ -21,6 +21,59 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+# ===== SENTRY INTEGRATION (graceful degradation) =====
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[
+                FastApiIntegration(transaction_style="endpoint"),
+                SqlalchemyIntegration(),
+            ],
+            traces_sample_rate=0.1,
+            profiles_sample_rate=0.1,
+            environment=os.getenv("ENVIRONMENT", "production"),
+            release=os.getenv("GIT_SHA", "unknown"),
+            send_default_pii=False,
+            attach_stacktrace=True,
+        )
+        print("[SENTRY] Initialized successfully")
+    except Exception as e:
+        print(f"[SENTRY] Failed to initialize: {e}")
+else:
+    print("[SENTRY] No DSN configured, error tracking disabled")
+
+# ===== POSTHOG ANALYTICS (graceful degradation) =====
+POSTHOG_API_KEY = os.getenv("POSTHOG_API_KEY")
+posthog_client = None
+if POSTHOG_API_KEY:
+    try:
+        from posthog import Posthog
+        posthog_client = Posthog(
+            project_api_key=POSTHOG_API_KEY,
+            host=os.getenv("POSTHOG_HOST", "https://us.i.posthog.com"),
+        )
+        print("[POSTHOG] Analytics initialized")
+    except Exception as e:
+        print(f"[POSTHOG] Failed to initialize: {e}")
+else:
+    print("[POSTHOG] No API key configured, analytics disabled")
+
+def track_event(user_id, event_name, properties=None):
+    if posthog_client and user_id:
+        try:
+            posthog_client.capture(
+                distinct_id=str(user_id),
+                event=event_name,
+                properties=properties or {}
+            )
+        except Exception:
+            pass  # Silent fail to never block requests
+
 # Stripe
 import stripe
 from fastapi import Request
@@ -311,6 +364,13 @@ RATE_LIMITS = {
 async def rate_limit_handler(request, exc):
     return {"error": "rate_limit_exceeded", "message": "Muitos requests. Tente novamente em 1 minuto.", "retry_after": 60}
 
+# ===== SENTRY TEST ENDPOINT (only active if SENTRY_DSN is set) =====
+if SENTRY_DSN:
+    @app.get("/api/debug/sentry-test")
+    async def sentry_test():
+        """Trigger an exception to verify Sentry integration. Only active when SENTRY_DSN is configured."""
+        raise RuntimeError("Sentry test exception - this is intentional to verify error tracking is working")
+
 # Stripe Setup
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 
@@ -518,18 +578,31 @@ GOOGLE_ANALYTICS_ID = os.getenv("GOOGLE_ANALYTICS_ID", "")
 # ─── Debug / Health ──────────────────────────────────────────────────────────
 
 @app.get("/api/health")
+@app.get("/health")
 def health_check():
-    """Verifica saúde da aplicação e conexão com o banco."""
+    """Verifica saúde da aplicação e conexão com o banco.
+
+    Used by UptimeRobot for production monitoring. Returns:
+      - status: "ok" if DB is reachable, "degraded" otherwise
+      - timestamp: current UTC time (ISO 8601)
+      - version: git SHA if exposed via GIT_SHA env var
+      - database_connected: bool
+    """
     from sqlalchemy import text as sa_text
     dialect = engine.dialect.name
     try:
         with engine.connect() as conn:
-            q = "SELECT 1"
-            conn.execute(sa_text(q))
+            conn.execute(sa_text("SELECT 1"))
         db_ok = True
-    except Exception as e:
+    except Exception:
         db_ok = False
-    return {"status": "ok", "db": dialect, "db_connected": db_ok}
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": os.getenv("GIT_SHA", "unknown"),
+        "database_connected": db_ok,
+        "db": dialect,
+    }
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -790,6 +863,7 @@ async def register(
     mail.send_welcome(user.email, user.full_name)
     db.add(EmailLog(user_id=user.id, email_type="welcome"))
     db.commit()
+    track_event(user.id, "signup", {"source": "register"})
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user_to_dict(user)}
 
@@ -2888,8 +2962,9 @@ def get_news(request: Request, city: str = "", page: int = 1, limit: int = 10, d
 
 @app.get("/api/events/{city}")
 @limiter.limit("30/minute")
-def get_events(request: Request, city: str = "", db: Session = Depends(get_db)):
+def get_events(request: Request, city: str = "", db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
     """🎪 Listar próximos eventos locais"""
+    track_event(current_user.id if current_user else None, "city_view", {"city": city})
     if not city:
         return {"success": False, "error": "Cidade é obrigatória", "data": [], "total": 0}
 
@@ -3240,7 +3315,8 @@ def search_cities(request: Request, q: str = "", db: Session = Depends(get_db)):
 
 @app.get("/api/cities")
 @limiter.limit("60/minute")
-def list_cities(request: Request, db: Session = Depends(get_db)):
+def list_cities(request: Request, db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
+    track_event(current_user.id if current_user else None, "city_list_view")
     """🌍 Listar todas as 27 capitais brasileiras com estatísticas.
 
     REGRESSION TEST (inline): GET /api/cities must return HTTP 200 with
