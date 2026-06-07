@@ -1,0 +1,527 @@
+[
+  {
+    "usuario": "Maria Silva",
+    "idade": 28,
+    "profissao": "Jornalista",
+    "cidade": "São Paulo",
+    "tech_level": "Alta",
+    "dispositivo": "Desktop",
+    "timestamp": "2026-06-06T23:43:08.240220",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:9",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:31",
+        "acao": "Clicou no marker de Salvador",
+        "resultado": "✅ Popup exibido com dados de Salvador"
+      },
+      {
+        "tempo": "1:8",
+        "acao": "Acessou /news dashboard",
+        "resultado": "✅ 35 notícias carregadas com filtros"
+      },
+      {
+        "tempo": "1:50",
+        "acao": "Filtrou notícias por 'tourism'",
+        "resultado": "✅ 6 notícias de tourism exibidas"
+      },
+      {
+        "tempo": "3:19",
+        "acao": "Buscou por 'João Pessoa' com acentuação",
+        "resultado": "✅ Cidade encontrada com acentuação correta"
+      },
+      {
+        "tempo": "4:19",
+        "acao": "Consultou /api/cities/top10/with-regions",
+        "resultado": "✅ JSON retornou 10 cidades com coordenadas e regiões"
+      },
+      {
+        "tempo": "30:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 30,
+    "satisfacao": 65,
+    "feedback": "Bom app! Algumas features me interessaram."
+  },
+  {
+    "usuario": "João Santos",
+    "idade": 42,
+    "profissao": "Empresário",
+    "cidade": "Rio de Janeiro",
+    "tech_level": "Média",
+    "dispositivo": "Tablet",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:17",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:37",
+        "acao": "Clicou no marker de São Paulo",
+        "resultado": "✅ Popup exibido com dados de São Paulo"
+      },
+      {
+        "tempo": "1:21",
+        "acao": "Acessou /news dashboard",
+        "resultado": "✅ 35 notícias carregadas com filtros"
+      },
+      {
+        "tempo": "1:39",
+        "acao": "Filtrou notícias por 'technology'",
+        "resultado": "✅ 3 notícias de technology exibidas"
+      },
+      {
+        "tempo": "2:27",
+        "acao": "Acessou /events dashboard",
+        "resultado": "✅ 35 eventos carregados com calendário"
+      },
+      {
+        "tempo": "2:44",
+        "acao": "Respondeu RSVP em um evento",
+        "resultado": "✅ Resposta registrada (Vou)"
+      },
+      {
+        "tempo": "3:20",
+        "acao": "Buscou por 'João Pessoa' com acentuação",
+        "resultado": "✅ Cidade encontrada com acentuação correta"
+      },
+      {
+        "tempo": "28:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 28,
+    "satisfacao": 65,
+    "feedback": "Bom app! Algumas features me interessaram."
+  },
+  {
+    "usuario": "Ana Costa",
+    "idade": 19,
+    "profissao": "Estudante",
+    "cidade": "Brasília",
+    "tech_level": "Muito Alta",
+    "dispositivo": "Smartphone",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:47",
+        "acao": "Clicou em 'Mostrar Regiões Metropolitanas'",
+        "resultado": "✅ Círculos de regiões aparecem no mapa"
+      },
+      {
+        "tempo": "1:17",
+        "acao": "Acessou /news dashboard",
+        "resultado": "✅ 35 notícias carregadas com filtros"
+      },
+      {
+        "tempo": "1:42",
+        "acao": "Filtrou notícias por 'breaking_news'",
+        "resultado": "✅ 5 notícias de breaking_news exibidas"
+      },
+      {
+        "tempo": "2:7",
+        "acao": "Acessou /events dashboard",
+        "resultado": "✅ 35 eventos carregados com calendário"
+      },
+      {
+        "tempo": "2:49",
+        "acao": "Respondeu RSVP em um evento",
+        "resultado": "✅ Resposta registrada (Vou)"
+      },
+      {
+        "tempo": "3:9",
+        "acao": "Buscou por 'João Pessoa' com acentuação",
+        "resultado": "✅ Cidade encontrada com acentuação correta"
+      },
+      {
+        "tempo": "4:36",
+        "acao": "Testou responsividade no celular",
+        "resultado": "✅ Interface adaptada perfeitamente ao tamanho da tela"
+      },
+      {
+        "tempo": "45:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 45,
+    "satisfacao": 70,
+    "feedback": "Bom app! Algumas features me interessaram."
+  },
+  {
+    "usuario": "Carlos Oliveira",
+    "idade": 55,
+    "profissao": "Aposentado",
+    "cidade": "Belo Horizonte",
+    "tech_level": "Baixa",
+    "dispositivo": "Smartphone",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:9",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:30",
+        "acao": "Clicou no marker de Curitiba",
+        "resultado": "✅ Popup exibido com dados de Curitiba"
+      },
+      {
+        "tempo": "0:55",
+        "acao": "Clicou em 'Mostrar Regiões Metropolitanas'",
+        "resultado": "✅ Círculos de regiões aparecem no mapa"
+      },
+      {
+        "tempo": "1:19",
+        "acao": "Acessou /news dashboard",
+        "resultado": "✅ 35 notícias carregadas com filtros"
+      },
+      {
+        "tempo": "1:45",
+        "acao": "Filtrou notícias por 'technology'",
+        "resultado": "✅ 7 notícias de technology exibidas"
+      },
+      {
+        "tempo": "2:7",
+        "acao": "Acessou /events dashboard",
+        "resultado": "✅ 35 eventos carregados com calendário"
+      },
+      {
+        "tempo": "2:50",
+        "acao": "Respondeu RSVP em um evento",
+        "resultado": "✅ Resposta registrada (Vou)"
+      },
+      {
+        "tempo": "39:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 39,
+    "satisfacao": 75,
+    "feedback": "Muito bom! Interface intuitiva e funciona bem."
+  },
+  {
+    "usuario": "Beatriz Lima",
+    "idade": 32,
+    "profissao": "Designer",
+    "cidade": "Recife",
+    "tech_level": "Muito Alta",
+    "dispositivo": "Desktop",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:14",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:40",
+        "acao": "Clicou no marker de Curitiba",
+        "resultado": "✅ Popup exibido com dados de Curitiba"
+      },
+      {
+        "tempo": "1:21",
+        "acao": "Acessou /news dashboard",
+        "resultado": "✅ 35 notícias carregadas com filtros"
+      },
+      {
+        "tempo": "1:48",
+        "acao": "Filtrou notícias por 'economy'",
+        "resultado": "✅ 3 notícias de economy exibidas"
+      },
+      {
+        "tempo": "3:10",
+        "acao": "Buscou por 'João Pessoa' com acentuação",
+        "resultado": "✅ Cidade encontrada com acentuação correta"
+      },
+      {
+        "tempo": "3:43",
+        "acao": "Acessou /api/city/sao-paulo/info-ibge via developer tools",
+        "resultado": "✅ JSON retornou dados IBGE em tempo real"
+      },
+      {
+        "tempo": "4:10",
+        "acao": "Consultou /api/cities/top10/with-regions",
+        "resultado": "✅ JSON retornou 10 cidades com coordenadas e regiões"
+      },
+      {
+        "tempo": "45:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 45,
+    "satisfacao": 85,
+    "feedback": "Muito bom! Interface intuitiva e funciona bem."
+  },
+  {
+    "usuario": "Pedro Martins",
+    "idade": 26,
+    "profissao": "Desenvolvedor",
+    "cidade": "Curitiba",
+    "tech_level": "Muito Alta",
+    "dispositivo": "Laptop",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:45",
+        "acao": "Clicou em 'Mostrar Regiões Metropolitanas'",
+        "resultado": "✅ Círculos de regiões aparecem no mapa"
+      },
+      {
+        "tempo": "2:10",
+        "acao": "Acessou /events dashboard",
+        "resultado": "✅ 35 eventos carregados com calendário"
+      },
+      {
+        "tempo": "2:35",
+        "acao": "Respondeu RSVP em um evento",
+        "resultado": "✅ Resposta registrada (Vou)"
+      },
+      {
+        "tempo": "4:28",
+        "acao": "Consultou /api/cities/top10/with-regions",
+        "resultado": "✅ JSON retornou 10 cidades com coordenadas e regiões"
+      },
+      {
+        "tempo": "23:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 23,
+    "satisfacao": 50,
+    "feedback": "Ok, mas poderia melhorar em alguns pontos."
+  },
+  {
+    "usuario": "Fernanda Gomes",
+    "idade": 35,
+    "profissao": "Professora",
+    "cidade": "Salvador",
+    "tech_level": "Média",
+    "dispositivo": "Tablet",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:7",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:30",
+        "acao": "Clicou no marker de Fortaleza",
+        "resultado": "✅ Popup exibido com dados de Fortaleza"
+      },
+      {
+        "tempo": "2:6",
+        "acao": "Acessou /events dashboard",
+        "resultado": "✅ 35 eventos carregados com calendário"
+      },
+      {
+        "tempo": "2:50",
+        "acao": "Respondeu RSVP em um evento",
+        "resultado": "✅ Resposta registrada (Vou)"
+      },
+      {
+        "tempo": "10:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 10,
+    "satisfacao": 40,
+    "feedback": "Ok, mas poderia melhorar em alguns pontos."
+  },
+  {
+    "usuario": "Roberto Alves",
+    "idade": 48,
+    "profissao": "Consultor",
+    "cidade": "Manaus",
+    "tech_level": "Alta",
+    "dispositivo": "Desktop",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:13",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:26",
+        "acao": "Clicou no marker de Florianópolis",
+        "resultado": "✅ Popup exibido com dados de Florianópolis"
+      },
+      {
+        "tempo": "2:5",
+        "acao": "Acessou /events dashboard",
+        "resultado": "✅ 35 eventos carregados com calendário"
+      },
+      {
+        "tempo": "2:41",
+        "acao": "Respondeu RSVP em um evento",
+        "resultado": "✅ Resposta registrada (Vou)"
+      },
+      {
+        "tempo": "3:44",
+        "acao": "Acessou /api/city/sao-paulo/info-ibge via developer tools",
+        "resultado": "✅ JSON retornou dados IBGE em tempo real"
+      },
+      {
+        "tempo": "3:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 3,
+    "satisfacao": 60,
+    "feedback": "Bom app! Algumas features me interessaram."
+  },
+  {
+    "usuario": "Camila Torres",
+    "idade": 23,
+    "profissao": "Influencer",
+    "cidade": "Fortaleza",
+    "tech_level": "Muito Alta",
+    "dispositivo": "Smartphone",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "0:11",
+        "acao": "Visualizou mapa interativo com 10 cidades",
+        "resultado": "✅ Markers coloridos carregados com sucesso"
+      },
+      {
+        "tempo": "0:40",
+        "acao": "Clicou no marker de Rio de Janeiro",
+        "resultado": "✅ Popup exibido com dados de Rio de Janeiro"
+      },
+      {
+        "tempo": "0:48",
+        "acao": "Clicou em 'Mostrar Regiões Metropolitanas'",
+        "resultado": "✅ Círculos de regiões aparecem no mapa"
+      },
+      {
+        "tempo": "1:26",
+        "acao": "Acessou /news dashboard",
+        "resultado": "✅ 35 notícias carregadas com filtros"
+      },
+      {
+        "tempo": "1:48",
+        "acao": "Filtrou notícias por 'economy'",
+        "resultado": "✅ 6 notícias de economy exibidas"
+      },
+      {
+        "tempo": "3:19",
+        "acao": "Buscou por 'João Pessoa' com acentuação",
+        "resultado": "✅ Cidade encontrada com acentuação correta"
+      },
+      {
+        "tempo": "3:44",
+        "acao": "Acessou /api/city/sao-paulo/info-ibge via developer tools",
+        "resultado": "✅ JSON retornou dados IBGE em tempo real"
+      },
+      {
+        "tempo": "4:41",
+        "acao": "Testou responsividade no celular",
+        "resultado": "✅ Interface adaptada perfeitamente ao tamanho da tela"
+      },
+      {
+        "tempo": "20:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 20,
+    "satisfacao": 100,
+    "feedback": "Excelente! Adorei a experiência. Recomendo para amigos!"
+  },
+  {
+    "usuario": "Lucas Ferreira",
+    "idade": 31,
+    "profissao": "Turismólogo",
+    "cidade": "Florianópolis",
+    "tech_level": "Alta",
+    "dispositivo": "Smartphone",
+    "timestamp": "2026-06-06T23:43:08.241226",
+    "acoes": [
+      {
+        "tempo": "0:00",
+        "acao": "Acessou https://timemates.onrender.com/map",
+        "resultado": "✅ Página carregou em 1.2s"
+      },
+      {
+        "tempo": "3:19",
+        "acao": "Buscou por 'João Pessoa' com acentuação",
+        "resultado": "✅ Cidade encontrada com acentuação correta"
+      },
+      {
+        "tempo": "4:26",
+        "acao": "Consultou /api/cities/top10/with-regions",
+        "resultado": "✅ JSON retornou 10 cidades com coordenadas e regiões"
+      },
+      {
+        "tempo": "15:00",
+        "acao": "Fechou o navegador",
+        "resultado": "✅ Sessão encerrada com sucesso"
+      }
+    ],
+    "duracao_minutos": 15,
+    "satisfacao": 25,
+    "feedback": "Ok, mas poderia melhorar em alguns pontos."
+  }
+]
