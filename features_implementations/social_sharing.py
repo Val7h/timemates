@@ -1,8 +1,13 @@
 # 📱 SOCIAL SHARING
 # Share buttons para WhatsApp, Facebook, Twitter, LinkedIn
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
 import urllib.parse
+
+# Placeholder dependency (must be wired by host app)
+def get_db():
+    raise NotImplementedError("get_db must be provided by host app")
 
 def setup_social_sharing(app: FastAPI):
     """Setup social sharing endpoints"""

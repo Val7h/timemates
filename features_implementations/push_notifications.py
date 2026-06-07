@@ -2,10 +2,20 @@
 # Web Push para breaking news e event reminders
 
 from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+
+# Placeholder dependencies (must be wired by host app)
+def get_db():
+    raise NotImplementedError("get_db must be provided by host app")
+
+def get_current_user_optional():
+    return None
+
+def get_current_user_required():
+    raise NotImplementedError("get_current_user_required must be provided by host app")
 
 # DATABASE MODEL
 class PushSubscription(Column):

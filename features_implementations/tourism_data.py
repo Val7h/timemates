@@ -1,9 +1,15 @@
 # 🏖️ TOURISM DATA & DISTANCE CALCULATION
 # Atrações turísticas, hotéis, restaurantes, cálculo de distância
 
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import Session
 from fastapi import FastAPI, Depends
 from math import radians, cos, sin, asin, sqrt
+from datetime import datetime
+
+# Placeholder for runtime dependency (must be wired by host app)
+def get_db():
+    raise NotImplementedError("get_db must be provided by host app")
 
 # DATABASE MODELS
 class TouristAttraction:

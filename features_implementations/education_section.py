@@ -1,8 +1,17 @@
 # 🎓 EDUCATIONAL SECTION
 # Workshops, cursos, webinars por cidade
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Float, Text
+from sqlalchemy.orm import Session
 from fastapi import FastAPI, Depends
+
+# Placeholder dependencies (must be wired by host app)
+def get_db():
+    raise NotImplementedError("get_db must be provided by host app")
+
+def get_current_user_required():
+    raise NotImplementedError("get_current_user_required must be provided by host app")
 
 # DATABASE MODELS
 class EducationalEvent:

@@ -1,9 +1,17 @@
 # 📅 CALENDAR INTEGRATION
 # Google Calendar + Microsoft Outlook Integration
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
 from datetime import datetime
 import requests
+
+# Placeholder dependencies (must be wired by host app)
+def get_db():
+    raise NotImplementedError("get_db must be provided by host app")
+
+def get_current_user_required():
+    raise NotImplementedError("get_current_user_required must be provided by host app")
 
 def setup_calendar_integration(app: FastAPI):
     """Setup calendar export endpoints"""

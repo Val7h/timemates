@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Distância - TimeMates</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1E3A5F 0%, #2A5080 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .calculator-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        .card:nth-child(2) { animation-delay: 0.1s; }
+        .card:nth-child(3) { animation-delay: 0.2s; }
+
+        .card h2 {
+            color: #1E3A5F;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #D4A853;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #1E3A5F;
+            box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1E3A5F 0%, #2A5080 100%);
+            color: white;
+            margin-top: 20px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(30, 58, 95, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #D4A853;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .result h3 {
+            color: #1E3A5F;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .result-value {
+            color: #1E3A5F;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        .error {
+            padding: 15px;
+            background: #fee;
+            color: #c33;
+            border-radius: 6px;
+            border-left: 4px solid #c33;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success {
+            padding: 15px;
+            background: #efe;
+            color: #3c3;
+            border-radius: 6px;
+            border-left: 4px solid #3c3;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #1E3A5F;
+            margin-top: 15px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #1E3A5F;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        .nearby-results {
+            margin-top: 25px;
+        }
+
+        .city-item {
+            padding: 15px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .city-item:hover {
+            border-color: #D4A853;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .city-info {
+            flex: 1;
+        }
+
+        .city-name {
+            font-weight: 600;
+            color: #1E3A5F;
+            font-size: 1.05em;
+        }
+
+        .city-details {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .city-distance {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #D4A853;
+            text-align: right;
+        }
+
+        .info-box {
+            background: #f0f7ff;
+            border: 1px solid #d0e8ff;
+            padding: 15px;
+            border-radius: 6px;
+            color: #003d82;
+            font-size: 0.95em;
+            margin-bottom: 20px;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .unit-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .unit-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            flex: 1;
+        }
+
+        .unit-btn.active {
+            border-color: #1E3A5F;
+            background: #1E3A5F;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .calculator-section {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📍 Calculadora de Distância</h1>
+            <p>Calcule distâncias entre cidades usando a fórmula de Haversine</p>
+        </div>
+
+        <div class="calculator-section">
+            <!-- Card 1: Coordenadas -->
+            <div class="card">
+                <h2>Distância por Coordenadas</h2>
+
+                <div class="unit-toggle">
+                    <button class="unit-btn active" onclick="setUnit1('km')">Quilômetros</button>
+                    <button class="unit-btn" onclick="setUnit1('miles')">Milhas</button>
+                </div>
+
+                <div class="info-box">
+                    Insira as coordenadas geográficas (latitude e longitude) de dois pontos para calcular a distância.
+                </div>
+
+                <div class="form-group">
+                    <label>Ponto 1 - Latitude</label>
+                    <input type="number" id="lat1" min="-90" max="90" placeholder="-23.5505" step="0.0001">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Longitude</label>
+                        <input type="number" id="lon1" min="-180" max="180" placeholder="-46.6333" step="0.0001">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ponto 2 - Latitude</label>
+                    <input type="number" id="lat2" min="-90" max="90" placeholder="-22.9068" step="0.0001">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Longitude</label>
+                        <input type="number" id="lon2" min="-180" max="180" placeholder="-43.1729" step="0.0001">
+                    </div>
+                </div>
+
+                <button class="button btn-primary" onclick="calculateByCoordinates()">Calcular</button>
+
+                <div class="loading" id="loading1">
+                    <div class="spinner"></div>
+                    <p>Calculando distância...</p>
+                </div>
+
+                <div class="result" id="result1">
+                    <h3>Resultado</h3>
+                    <div class="result-item">
+                        <span class="result-label">Distância</span>
+                        <span class="result-value" id="distance1">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Unidade</span>
+                        <span class="result-value" id="unit1">-</span>
+                    </div>
+                </div>
+
+                <div class="error" id="error1"></div>
+            </div>
+
+            <!-- Card 2: Cidades -->
+            <div class="card">
+                <h2>Distância entre Cidades</h2>
+
+                <div class="unit-toggle">
+                    <button class="unit-btn active" onclick="setUnit2('km')">Quilômetros</button>
+                    <button class="unit-btn" onclick="setUnit2('miles')">Milhas</button>
+                </div>
+
+                <div class="info-box">
+                    Selecione duas cidades do banco de dados para calcular a distância entre elas.
+                </div>
+
+                <div class="form-group">
+                    <label>Cidade 1</label>
+                    <select id="city1" onchange="loadCities1()">
+                        <option value="">Carregando cidades...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Cidade 2</label>
+                    <select id="city2" onchange="loadCities2()">
+                        <option value="">Carregando cidades...</option>
+                    </select>
+                </div>
+
+                <button class="button btn-primary" onclick="calculateBetweenCities()">Calcular</button>
+
+                <div class="loading" id="loading2">
+                    <div class="spinner"></div>
+                    <p>Calculando distância...</p>
+                </div>
+
+                <div class="result" id="result2">
+                    <h3>Resultado</h3>
+                    <div class="result-item">
+                        <span class="result-label">Cidade 1</span>
+                        <span class="result-value" id="city1Name">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Cidade 2</span>
+                        <span class="result-value" id="city2Name">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Distância</span>
+                        <span class="result-value" id="distance2">-</span>
+                    </div>
+                </div>
+
+                <div class="error" id="error2"></div>
+            </div>
+
+            <!-- Card 3: Cidades Próximas -->
+            <div class="card">
+                <h2>Cidades Próximas</h2>
+
+                <div class="unit-toggle">
+                    <button class="unit-btn active" onclick="setUnit3('km')">Quilômetros</button>
+                    <button class="unit-btn" onclick="setUnit3('miles')">Milhas</button>
+                </div>
+
+                <div class="info-box">
+                    Encontre todas as cidades dentro de um raio de distância específico a partir de uma cidade referência.
+                </div>
+
+                <div class="form-group">
+                    <label>Cidade Referência</label>
+                    <select id="refCity">
+                        <option value="">Carregando cidades...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Raio Máximo de Distância</label>
+                    <input type="number" id="maxDistance" min="0" max="5000" value="100" step="10">
+                </div>
+
+                <div class="form-group">
+                    <label>Limite de Resultados</label>
+                    <input type="number" id="resultLimit" min="1" max="500" value="50">
+                </div>
+
+                <button class="button btn-primary" onclick="findNearbyCities()">Buscar</button>
+
+                <div class="loading" id="loading3">
+                    <div class="spinner"></div>
+                    <p>Buscando cidades próximas...</p>
+                </div>
+
+                <div class="result" id="result3">
+                    <h3>Cidades Encontradas</h3>
+                    <div class="result-item">
+                        <span class="result-label">Total Encontrado</span>
+                        <span class="result-value" id="nearbyCount">0</span>
+                    </div>
+                    <div class="nearby-results" id="nearbyList"></div>
+                </div>
+
+                <div class="error" id="error3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state for unit selection
+        let selectedUnits = { 1: 'km', 2: 'km', 3: 'km' };
+        let citiesCache = null;
+
+        // Unit toggle functions
+        function setUnit(card, unit) {
+            selectedUnits[card] = unit;
+            document.querySelectorAll(`#unit-toggle-${card} .unit-btn`).forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function setUnit1(unit) {
+            selectedUnits[1] = unit;
+            updateUnitButtons(1, unit);
+        }
+
+        function setUnit2(unit) {
+            selectedUnits[2] = unit;
+            updateUnitButtons(2, unit);
+        }
+
+        function setUnit3(unit) {
+            selectedUnits[3] = unit;
+            updateUnitButtons(3, unit);
+        }
+
+        function updateUnitButtons(card, unit) {
+            document.querySelectorAll(`.card:nth-child(${card}) .unit-btn`).forEach(btn => {
+                if (btn.textContent.includes(unit === 'km' ? 'Quilô' : 'Milha')) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // API calls
+        const API_BASE = '/api/distance';
+
+        function showLoading(cardId) {
+            document.getElementById(`loading${cardId}`).classList.add('show');
+            document.getElementById(`result${cardId}`).classList.remove('show');
+            document.getElementById(`error${cardId}`).classList.remove('show');
+        }
+
+        function showError(cardId, message) {
+            document.getElementById(`loading${cardId}`).classList.remove('show');
+            document.getElementById(`error${cardId}`).classList.add('show');
+            document.getElementById(`error${cardId}`).textContent = message;
+        }
+
+        function showResult(cardId) {
+            document.getElementById(`loading${cardId}`).classList.remove('show');
+            document.getElementById(`result${cardId}`).classList.add('show');
+        }
+
+        // Calculate by coordinates
+        function calculateByCoordinates() {
+            const lat1 = parseFloat(document.getElementById('lat1').value);
+            const lon1 = parseFloat(document.getElementById('lon1').value);
+            const lat2 = parseFloat(document.getElementById('lat2').value);
+            const lon2 = parseFloat(document.getElementById('lon2').value);
+            const unit = selectedUnits[1];
+
+            if (!lat1 || !lon1 || !lat2 || !lon2) {
+                showError(1, 'Por favor, preencha todas as coordenadas');
+                return;
+            }
+
+            if (lat1 < -90 || lat1 > 90 || lat2 < -90 || lat2 > 90) {
+                showError(1, 'Latitude deve estar entre -90 e 90');
+                return;
+            }
+
+            if (lon1 < -180 || lon1 > 180 || lon2 < -180 || lon2 > 180) {
+                showError(1, 'Longitude deve estar entre -180 e 180');
+                return;
+            }
+
+            showLoading(1);
+
+            fetch(`${API_BASE}/calculate?lat1=${lat1}&lon1=${lon1}&lat2=${lat2}&lon2=${lon2}&unit=${unit}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(1, data.error);
+                    } else {
+                        document.getElementById('distance1').textContent = `${data.distance} ${data.unit}`;
+                        document.getElementById('unit1').textContent = data.unit;
+                        showResult(1);
+                    }
+                })
+                .catch(err => showError(1, 'Erro ao calcular: ' + err.message));
+        }
+
+        // Load cities dropdown
+        async function loadCitiesDropdown() {
+            if (citiesCache) return citiesCache;
+
+            try {
+                const response = await fetch('/api/institutions?type=city&limit=1000');
+                const data = await response.json();
+                citiesCache = data.institutions || [];
+                return citiesCache;
+            } catch (err) {
+                console.error('Erro ao carregar cidades:', err);
+                return [];
+            }
+        }
+
+        async function loadCities1() {
+            const cities = await loadCitiesDropdown();
+            const select = document.getElementById('city1');
+            populateCitySelect(select, cities);
+        }
+
+        async function loadCities2() {
+            const cities = await loadCitiesDropdown();
+            const select = document.getElementById('city2');
+            populateCitySelect(select, cities);
+        }
+
+        function populateCitySelect(select, cities) {
+            select.innerHTML = '<option value="">Selecione uma cidade...</option>';
+            cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city.id;
+                option.textContent = `${city.name} - ${city.state}`;
+                select.appendChild(option);
+            });
+        }
+
+        // Calculate between cities
+        function calculateBetweenCities() {
+            const city1 = document.getElementById('city1').value;
+            const city2 = document.getElementById('city2').value;
+            const unit = selectedUnits[2];
+
+            if (!city1 || !city2) {
+                showError(2, 'Por favor, selecione duas cidades');
+                return;
+            }
+
+            if (city1 === city2) {
+                showError(2, 'As cidades devem ser diferentes');
+                return;
+            }
+
+            showLoading(2);
+
+            fetch(`${API_BASE}/between-cities?city1_id=${city1}&city2_id=${city2}&unit=${unit}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(2, data.error);
+                    } else {
+                        document.getElementById('city1Name').textContent = data.city1;
+                        document.getElementById('city2Name').textContent = data.city2;
+                        document.getElementById('distance2').textContent = `${data.distance} ${data.unit}`;
+                        showResult(2);
+                    }
+                })
+                .catch(err => showError(2, 'Erro ao calcular: ' + err.message));
+        }
+
+        // Find nearby cities
+        function findNearbyCities() {
+            const cityId = document.getElementById('refCity').value;
+            const maxDistance = parseFloat(document.getElementById('maxDistance').value);
+            const limit = parseInt(document.getElementById('resultLimit').value);
+            const unit = selectedUnits[3];
+
+            if (!cityId) {
+                showError(3, 'Por favor, selecione uma cidade referência');
+                return;
+            }
+
+            if (!maxDistance || maxDistance <= 0) {
+                showError(3, 'Por favor, insira um raio válido');
+                return;
+            }
+
+            showLoading(3);
+
+            fetch(`${API_BASE}/nearby-cities?city_id=${cityId}&max_distance=${maxDistance}&unit=${unit}&limit=${limit}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.nearby_cities.length === 0) {
+                        showError(3, 'Nenhuma cidade encontrada neste raio');
+                    } else {
+                        document.getElementById('nearbyCount').textContent = data.total_found;
+                        const list = document.getElementById('nearbyList');
+                        list.innerHTML = '';
+
+                        data.nearby_cities.forEach(city => {
+                            const div = document.createElement('div');
+                            div.className = 'city-item';
+                            div.innerHTML = `
+                                <div class="city-info">
+                                    <div class="city-name">${city.name}</div>
+                                    <div class="city-details">${city.state} • ${city.population.toLocaleString()} hab</div>
+                                </div>
+                                <div class="city-distance">${city.distance} ${city.unit}</div>
+                            `;
+                            list.appendChild(div);
+                        });
+
+                        showResult(3);
+                    }
+                })
+                .catch(err => showError(3, 'Erro ao buscar: ' + err.message));
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', async () => {
+            const cities = await loadCitiesDropdown();
+            populateCitySelect(document.getElementById('city1'), cities);
+            populateCitySelect(document.getElementById('city2'), cities);
+            populateCitySelect(document.getElementById('refCity'), cities);
+        });
+    </script>
+</body>
+</html>

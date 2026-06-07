@@ -1,8 +1,12 @@
 import os
 import uuid
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Rate Limiting
 from slowapi import Limiter
@@ -40,7 +44,7 @@ from database import (
     Photo, RememberedPerson, RememberedPersonConfirmation,
     InviteLink, Notification, CurrentStudent, MessageReaction,
     Testimony, EmailLog, PushSubscription, DMConversation, DMMessage, Subscription,
-    City
+    City, LocalEvent, EventRSVP
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -52,37 +56,49 @@ from billing_routes import router as billing_router
 # Swagger Documentation
 try:
     from features_implementations.swagger_setup import setup_swagger
-except ImportError:
+except Exception:
+    logger.exception('Feature loader failed: %s', 'swagger_setup')
+    print(f'[FEATURE] Failed to load: swagger_setup')
     def setup_swagger(app): pass
 
 # Push Notifications
 try:
     from features_implementations.push_notifications import setup_push_notifications
-except ImportError:
+except Exception:
+    logger.exception('Feature loader failed: %s', 'push_notifications')
+    print(f'[FEATURE] Failed to load: push_notifications')
     def setup_push_notifications(app): pass
 
 # Calendar Integration (Google & Outlook)
 try:
     from features_implementations.calendar_integration import setup_calendar_integration
-except ImportError:
+except Exception:
+    logger.exception('Feature loader failed: %s', 'calendar_integration')
+    print(f'[FEATURE] Failed to load: calendar_integration')
     def setup_calendar_integration(app): pass
 
 # Educational Section
 try:
     from features_implementations.education_section import setup_education_section
-except ImportError:
+except Exception:
+    logger.exception('Feature loader failed: %s', 'education_section')
+    print(f'[FEATURE] Failed to load: education_section')
     def setup_education_section(app): pass
 
 # Tourism Data & Distance Calculation
 try:
     from features_implementations.tourism_data import setup_tourism_section
-except ImportError:
+except Exception:
+    logger.exception('Feature loader failed: %s', 'tourism_data')
+    print(f'[FEATURE] Failed to load: tourism_data')
     def setup_tourism_section(app): pass
 
 # Social Sharing
 try:
     from features_implementations.social_sharing import setup_social_sharing
-except ImportError:
+except Exception:
+    logger.exception('Feature loader failed: %s', 'social_sharing')
+    print(f'[FEATURE] Failed to load: social_sharing')
     def setup_social_sharing(app): pass
 
 # ===== END NEW FEATURE IMPORTS =====
@@ -704,14 +720,32 @@ def ping():
 
 
 @app.post("/api/auth/register")
-def register(
-    full_name: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    cpf: Optional[str] = Form(None),
-    phone: Optional[str] = Form(None),
+async def register(
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    # Accept both JSON and form-data payloads
+    content_type = (request.headers.get("content-type") or "").lower()
+    data: dict = {}
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            raise HTTPException(status_code=422, detail="JSON inválido")
+    else:
+        try:
+            form = await request.form()
+            data = {k: v for k, v in form.items()}
+        except Exception:
+            data = {}
+    full_name = (data.get("full_name") or data.get("name") or "").strip() if isinstance(data.get("full_name") or data.get("name") or "", str) else ""
+    email = (data.get("email") or "").strip() if isinstance(data.get("email") or "", str) else ""
+    password = data.get("password") or ""
+    cpf = data.get("cpf")
+    phone = data.get("phone")
+    missing = [f for f, v in (("full_name", full_name), ("email", email), ("password", password)) if not v]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Campos obrigatórios ausentes: {', '.join(missing)}")
     if len(password) < 6:
         raise HTTPException(status_code=400, detail="Senha deve ter no mínimo 6 caracteres")
     if db.query(User).filter(User.email == email.lower()).first():
@@ -753,11 +787,30 @@ def register(
 
 
 @app.post("/api/auth/login")
-def login(
-    email: str = Form(...),
-    password: str = Form(...),
+async def login(
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    # Accept both JSON and form-data payloads (mirrors /api/auth/register)
+    content_type = (request.headers.get("content-type") or "").lower()
+    data: dict = {}
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            raise HTTPException(status_code=422, detail="JSON inválido")
+    else:
+        try:
+            form = await request.form()
+            data = {k: v for k, v in form.items()}
+        except Exception:
+            data = {}
+    email = (data.get("email") or data.get("username") or "")
+    email = email.strip() if isinstance(email, str) else ""
+    password = data.get("password") or ""
+    if not email or not password:
+        missing = [f for f, v in (("email", email), ("password", password)) if not v]
+        raise HTTPException(status_code=422, detail=f"Campos obrigatórios ausentes: {', '.join(missing)}")
     user = db.query(User).filter(User.email == email.lower().strip()).first()
     if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
@@ -771,10 +824,28 @@ def me(current_user: User = Depends(get_current_user_required)):
 
 
 @app.post("/api/auth/forgot-password")
-def forgot_password(
-    email: str = Form(...),
+async def forgot_password(
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    # Accept both JSON and form-data payloads (mirrors /api/auth/login)
+    content_type = (request.headers.get("content-type") or "").lower()
+    data: dict = {}
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            raise HTTPException(status_code=422, detail="JSON inválido")
+    else:
+        try:
+            form = await request.form()
+            data = {k: v for k, v in form.items()}
+        except Exception:
+            data = {}
+    email = data.get("email") or ""
+    email = email.strip() if isinstance(email, str) else ""
+    if not email:
+        raise HTTPException(status_code=422, detail="Campos obrigatórios ausentes: email")
     user = db.query(User).filter(User.email == email.lower().strip()).first()
     # Retorna sempre 200 para não revelar se o e-mail existe
     if user:
@@ -2812,36 +2883,49 @@ def get_news(request: Request, city: str = "", page: int = 1, limit: int = 10, d
 def get_events(request: Request, city: str = "", db: Session = Depends(get_db)):
     """🎪 Listar próximos eventos locais"""
     if not city:
-        return {"success": False, "error": "Cidade é obrigatória"}
+        return {"success": False, "error": "Cidade é obrigatória", "data": [], "total": 0}
 
-    from datetime import datetime as dt
-    today = dt.utcnow().strftime("%Y-%m-%d")
+    try:
+        from datetime import datetime as dt
+        today = dt.utcnow().strftime("%Y-%m-%d")
 
-    events = db.query(LocalEvent).filter(
-        LocalEvent.city.ilike(f"%{city}%"),
-        LocalEvent.date >= today,
-        LocalEvent.status == "active"
-    ).order_by(LocalEvent.date.asc()).limit(10).all()
+        events = db.query(LocalEvent).filter(
+            LocalEvent.city.ilike(f"%{city}%"),
+            LocalEvent.date >= today,
+            LocalEvent.status == "active"
+        ).order_by(LocalEvent.date.asc()).limit(10).all()
 
-    result = []
-    for e in events:
-        rsvp_count = db.query(EventRSVP).filter(
-            EventRSVP.event_id == e.id,
-            EventRSVP.status == "going"
-        ).count()
-        result.append({
-            "id": e.id,
-            "title": e.title,
-            "date": e.date,
-            "time": e.time,
-            "location": e.location,
-            "description": e.description,
-            "image_url": e.image_url,
-            "rsvp_count": rsvp_count,
-            "created_by": e.created_by.full_name if e.created_by else "Admin"
-        })
+        result = []
+        for e in events:
+            try:
+                rsvp_count = db.query(EventRSVP).filter(
+                    EventRSVP.event_id == e.id,
+                    EventRSVP.status == "going"
+                ).count()
+            except Exception:
+                rsvp_count = 0
+            creator_name = "Admin"
+            try:
+                if e.created_by and getattr(e.created_by, "full_name", None):
+                    creator_name = e.created_by.full_name
+            except Exception:
+                creator_name = "Admin"
+            result.append({
+                "id": e.id,
+                "title": e.title,
+                "date": e.date,
+                "time": e.time,
+                "location": e.location,
+                "description": e.description,
+                "image_url": e.image_url,
+                "rsvp_count": rsvp_count,
+                "created_by": creator_name
+            })
 
-    return {"success": True, "data": result, "total": len(result)}
+        return {"success": True, "data": result, "total": len(result)}
+    except Exception as ex:
+        print(f"[EVENTS] Error fetching events for city={city}: {ex}")
+        return {"success": True, "data": [], "total": 0, "error": str(ex)}
 
 
 @app.post("/api/events")
@@ -3108,7 +3192,7 @@ def normalize_text(text):
 # Importar serviço IBGE
 try:
     from ibge_service import IBGEService, get_city_data_with_ibge
-except ImportError:
+except Exception:
     print("[WARN] ibge_service não encontrado, IBGE integration desabilitada")
     IBGEService = None
 
