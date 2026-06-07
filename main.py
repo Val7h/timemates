@@ -1,9 +1,17 @@
 import os
+import sys
 import uuid
 import json
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
+
+# Centralized UTF-8 stdout/stderr reconfiguration (fixes São Paulo/Brasília accent bugs on Windows)
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -44,7 +52,7 @@ from database import (
     Photo, RememberedPerson, RememberedPersonConfirmation,
     InviteLink, Notification, CurrentStudent, MessageReaction,
     Testimony, EmailLog, PushSubscription, DMConversation, DMMessage, Subscription,
-    City, LocalEvent, EventRSVP
+    City, LocalEvent, EventRSVP, LocalNews
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -3233,19 +3241,46 @@ def search_cities(request: Request, q: str = "", db: Session = Depends(get_db)):
 @app.get("/api/cities")
 @limiter.limit("60/minute")
 def list_cities(request: Request, db: Session = Depends(get_db)):
-    """🌍 Listar todas as 27 capitais brasileiras com estatísticas"""
-    cities = db.query(City).all()
+    """🌍 Listar todas as 27 capitais brasileiras com estatísticas.
+
+    REGRESSION TEST (inline): GET /api/cities must return HTTP 200 with
+    {"success": True, "data": [...27 capitais...], "total": 27}.
+    UTF-8 names like "São Paulo", "Brasília", "Vitória" must serialize
+    correctly. If LocalNews/LocalEvent counts fail (e.g. table missing
+    after migration), endpoint must still return city core data with
+    stats defaulted to 0 — never 500.
+    """
+    try:
+        cities = db.query(City).all()
+    except Exception as exc:
+        logger.exception("[/api/cities] Falha ao consultar tabela cities: %s", exc)
+        return {"success": False, "data": [], "total": 0, "error": "db_unavailable"}
+
+    # Pre-compute total memberships once (avoid N+1)
+    try:
+        total_users = db.query(RoomMembership).count()
+    except Exception:
+        logger.exception("[/api/cities] Falha ao contar RoomMembership; usando 0")
+        total_users = 0
 
     result = []
     for city in cities:
-        news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
-        events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
-        users = db.query(RoomMembership).count()  # Simplified
+        # Resilient per-city stats: a failure on one count must not kill the response
+        try:
+            news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
+        except Exception:
+            logger.exception("[/api/cities] news_count falhou para %s", city.name)
+            news_count = 0
+        try:
+            events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
+        except Exception:
+            logger.exception("[/api/cities] events_count falhou para %s", city.name)
+            events_count = 0
 
         result.append({
             "id": city.id,
             "slug": city.slug,
-            "name": city.name,
+            "name": city.name,  # UTF-8 safe (FastAPI/JSON encodes accents)
             "state": city.state,
             "population": city.population,
             "coordinates": city.coordinates,
@@ -3253,7 +3288,7 @@ def list_cities(request: Request, db: Session = Depends(get_db)):
             "stats": {
                 "news": news_count,
                 "events": events_count,
-                "users": max(10, users // 27),  # Distributed
+                "users": max(10, total_users // 27) if total_users else 10,
                 "engagement_score": round((news_count + events_count) * 1.5, 1)
             }
         })

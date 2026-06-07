@@ -26,3 +26,4 @@ admin_token.txt
 .vscode/
 .idea/
 *.swp
+vapid_keys.json

@@ -2136,4 +2136,7 @@ FRONTEND_HTML = '''
 </html>
 '''
 
-print("✅ Educational Section implementation complete!")
+try:
+    print("[OK] Educational Section implementation complete!")
+except UnicodeError:
+    pass
