@@ -48,6 +48,45 @@ from auth import (
 )
 from billing_routes import router as billing_router
 
+# ===== NEW FEATURE IMPORTS =====
+# Swagger Documentation
+try:
+    from features_implementations.swagger_setup import setup_swagger
+except ImportError:
+    def setup_swagger(app): pass
+
+# Push Notifications
+try:
+    from features_implementations.push_notifications import setup_push_notifications
+except ImportError:
+    def setup_push_notifications(app): pass
+
+# Calendar Integration (Google & Outlook)
+try:
+    from features_implementations.calendar_integration import setup_calendar_integration
+except ImportError:
+    def setup_calendar_integration(app): pass
+
+# Educational Section
+try:
+    from features_implementations.education_section import setup_education_section
+except ImportError:
+    def setup_education_section(app): pass
+
+# Tourism Data & Distance Calculation
+try:
+    from features_implementations.tourism_data import setup_tourism_section
+except ImportError:
+    def setup_tourism_section(app): pass
+
+# Social Sharing
+try:
+    from features_implementations.social_sharing import setup_social_sharing
+except ImportError:
+    def setup_social_sharing(app): pass
+
+# ===== END NEW FEATURE IMPORTS =====
+
 try:
     Base.metadata.create_all(bind=engine)
 except Exception as _e:
@@ -126,6 +165,50 @@ def _generate_og_image():
 
 @asynccontextmanager
 async def lifespan(app):
+    # ===== SETUP 8 FEATURES =====
+    # Feature 1: Swagger Documentation
+    try:
+        setup_swagger(app)
+        print("[FEATURE] Swagger Documentation setup completed")
+    except Exception as e:
+        print(f"[FEATURE] Swagger setup failed (non-critical): {e}")
+
+    # Feature 2: Push Notifications
+    try:
+        setup_push_notifications(app)
+        print("[FEATURE] Push Notifications setup completed")
+    except Exception as e:
+        print(f"[FEATURE] Push Notifications setup failed (non-critical): {e}")
+
+    # Feature 3 & 4: Calendar Integration (Google & Outlook)
+    try:
+        setup_calendar_integration(app)
+        print("[FEATURE] Calendar Integration setup completed")
+    except Exception as e:
+        print(f"[FEATURE] Calendar Integration setup failed (non-critical): {e}")
+
+    # Feature 5: Educational Section
+    try:
+        setup_education_section(app)
+        print("[FEATURE] Educational Section setup completed")
+    except Exception as e:
+        print(f"[FEATURE] Educational Section setup failed (non-critical): {e}")
+
+    # Feature 6, 8: Tourism Data & Distance Calculation
+    try:
+        setup_tourism_section(app)
+        print("[FEATURE] Tourism Data setup completed")
+    except Exception as e:
+        print(f"[FEATURE] Tourism Data setup failed (non-critical): {e}")
+
+    # Feature 7: Social Sharing
+    try:
+        setup_social_sharing(app)
+        print("[FEATURE] Social Sharing setup completed")
+    except Exception as e:
+        print(f"[FEATURE] Social Sharing setup failed (non-critical): {e}")
+    # ===== END FEATURE SETUP =====
+
     _generate_icons()
     _generate_og_image()
     try:

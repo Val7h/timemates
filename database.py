@@ -589,6 +589,98 @@ class CityEvent(Base):
     city = relationship("City", foreign_keys=[city_id])
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8 NEW FEATURES - DATABASE MODELS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class UserOAuthToken(Base):
+    """OAuth Tokens for Google Calendar and Microsoft Outlook integration."""
+    __tablename__ = "user_oauth_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    provider = Column(String(50), nullable=False)  # "google", "microsoft"
+    access_token = Column(String(1000), nullable=False)
+    refresh_token = Column(String(1000), nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class EducationalEvent(Base):
+    """Educational events: workshops, webinars, courses."""
+    __tablename__ = "educational_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    teacher_name = Column(String(200), nullable=True)
+    type = Column(String(50), nullable=True)  # "webinar", "workshop", "course"
+    date = Column(String(10), nullable=True)  # formato: YYYY-MM-DD
+    time = Column(String(5), nullable=True)   # formato: HH:MM
+    location = Column(String(500), nullable=True)
+    max_participants = Column(Integer, nullable=True)
+    enrolled = Column(Integer, default=0)
+    is_free = Column(Boolean, default=True)
+    price = Column(Float, nullable=True)
+    image_url = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(String(200), nullable=True)
+
+    city = relationship("City", foreign_keys=[city_id])
+
+
+class EducationalEnrollment(Base):
+    """User enrollment in educational events."""
+    __tablename__ = "educational_enrollments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("educational_events.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    enrolled_at = Column(DateTime, default=datetime.utcnow)
+
+    event = relationship("EducationalEvent", foreign_keys=[event_id])
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class TouristAttraction(Base):
+    """Tourist attractions, hotels, restaurants in cities."""
+    __tablename__ = "tourist_attractions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    city_id = Column(Integer, ForeignKey("cities.id"), nullable=True)
+    name = Column(String(200), nullable=False)
+    type = Column(String(50), nullable=True)  # "attraction", "hotel", "restaurant", "museum"
+    description = Column(Text, nullable=True)
+    rating = Column(Float, default=0.0)
+    address = Column(String(500), nullable=True)
+    phone = Column(String(20), nullable=True)
+    website = Column(String(500), nullable=True)
+    image_url = Column(String(500), nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    city = relationship("City", foreign_keys=[city_id])
+
+
+class ShareAnalytic(Base):
+    """Tracking for social sharing analytics."""
+    __tablename__ = "share_analytics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_type = Column(String(50), nullable=True)  # "news", "event", "attraction"
+    content_id = Column(Integer, nullable=True)
+    platform = Column(String(50), nullable=True)  # "whatsapp", "facebook", "twitter", "linkedin"
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
 def get_db():
     db = SessionLocal()
     try:
