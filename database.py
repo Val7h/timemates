@@ -65,6 +65,13 @@ class User(Base):
     show_city = Column(Boolean, default=True)
     show_profession = Column(Boolean, default=True)
     show_bio = Column(Boolean, default=True)
+    # ─── Default-Ghost Privacy Model (migration 003) ──────────────────────────
+    # is_discoverable: FALSE by default — user must opt-in to be findable in search
+    is_discoverable = Column(Boolean, default=False, nullable=False)
+    # allow_reconnect_requests: TRUE — even ghosts can still receive reconnect requests
+    allow_reconnect_requests = Column(Boolean, default=True, nullable=False)
+    # ghost_mode_global: panic toggle — when TRUE, user is invisible everywhere
+    ghost_mode_global = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True)
     is_system_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -677,6 +684,80 @@ class ShareAnalytic(Base):
     platform = Column(String(50), nullable=True)  # "whatsapp", "facebook", "twitter", "linkedin"
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TURMA MODELS - Reconnection pivot (cohort is the central unit)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class Turma(Base):
+    __tablename__ = "turmas"
+    id = Column(Integer, primary_key=True, index=True)
+    institution_id = Column(Integer, ForeignKey("institutions.id"), nullable=True)
+    institution_name = Column(String(300), nullable=False)  # fallback if not in DB
+    city = Column(String(100), nullable=True)
+    state = Column(String(2), nullable=True)
+    kind = Column(String(50), nullable=False)  # 'escola_fundamental', 'escola_medio', 'faculdade', 'empresa', 'bairro', 'igreja'
+    cohort_year = Column(Integer, nullable=False)  # ano de formatura/turma
+    cohort_label = Column(String(100), nullable=True)  # "3ºB" or "Turma de Medicina 2008"
+    founder_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    total_members = Column(Integer, default=0)
+    total_verified = Column(Integer, default=0)
+    is_unlocked = Column(Boolean, default=False)  # unlocks Mural at 60%+ presence
+    slug = Column(String(200), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TurmaMembership(Base):
+    __tablename__ = "turma_memberships"
+    id = Column(Integer, primary_key=True)
+    turma_id = Column(Integer, ForeignKey("turmas.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    status = Column(String(20), default='pending')  # 'pending', 'verified', 'ghost'
+    visibility = Column(String(20), default='ghost')  # 'visible', 'ghost' - default-ghost!
+    is_founder = Column(Boolean, default=False)
+    verified_by_vouches = Column(Integer, default=0)  # how many vouched this user
+    joined_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TurmaVouch(Base):
+    __tablename__ = "turma_vouches"
+    id = Column(Integer, primary_key=True)
+    turma_id = Column(Integer, ForeignKey("turmas.id"), index=True)
+    voucher_user_id = Column(Integer, ForeignKey("users.id"))  # who's vouching
+    vouched_user_id = Column(Integer, ForeignKey("users.id"))  # for whom
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MuralMemory(Base):
+    """Mural da Saudade - cada user sobe UMA memória sensorial por turma"""
+    __tablename__ = "mural_memories"
+    id = Column(Integer, primary_key=True)
+    turma_id = Column(Integer, ForeignKey("turmas.id"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    memory_type = Column(String(50))  # 'smell', 'sound', 'place', 'person', 'event'
+    content = Column(String(500), nullable=False)
+    tags = Column(JSON, default=list)  # ['professora_marlene', 'formatura_1999']
+    audio_url = Column(String(500), nullable=True)  # voice memory!
+    in_memoriam = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UserTurmaVisibility(Base):
+    """Per-turma opt-in visibility (migration 003).
+
+    Lets a ghost user be discoverable only inside specific turmas they choose.
+    Absence of a row == not visible in that turma (default-ghost wins).
+    """
+    __tablename__ = "user_turma_visibility"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    turma_id = Column(Integer, nullable=False, index=True)
+    is_visible = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])
 

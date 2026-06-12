@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TimeMates — Quem ainda lembra de você?</title>
+<meta name="description" content="A ponte de volta pra quem te conhecia antes da vida ficar complicada. IA encontra, WhatsApp reconecta."/>
+<meta name="theme-color" content="#000000"/>
+
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="TimeMates"/>
+<meta property="og:title" content="Quem ainda lembra de você?"/>
+<meta property="og:description" content="A gente ajuda você a encontrar."/>
+<meta property="og:image" content="https://timemates.onrender.com/static/og-cover.png"/>
+<meta property="og:url" content="https://timemates.onrender.com"/>
+<meta name="twitter:card" content="summary_large_image"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+<style>
+:root {
+  --black: #000000;
+  --warm-black: #0a0604;
+  --amber: #d4a853;
+  --amber-soft: #e8c06a;
+  --sunset-1: #ff7e5f;
+  --sunset-2: #feb47b;
+  --text: #fff8e7;
+  --text-muted: rgba(255, 248, 231, 0.55);
+  --text-faint: rgba(255, 248, 231, 0.3);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--black);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.serif {
+  font-family: 'Crimson Text', 'Lora', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* ──────────────── HERO: PRIMEIROS 30 SEGUNDOS ──────────────── */
+
+.hero {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8vh 24px 12vh;
+  text-align: center;
+  overflow: hidden;
+  background: var(--black);
+}
+
+/* Amber glow rises from bottom — like a sunset you forgot existed */
+.hero::before {
+  content: "";
+  position: absolute;
+  bottom: -40%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140vw;
+  height: 100vh;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(255, 126, 95, 0.35) 0%,
+    rgba(212, 168, 83, 0.18) 25%,
+    rgba(254, 180, 123, 0.08) 45%,
+    transparent 70%
+  );
+  filter: blur(40px);
+  opacity: 0;
+  animation: glow-rise 4s ease-out 3.2s forwards;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle film grain over everything */
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255,248,231,0.015) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(255,126,95,0.02) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(28px, 6vh, 56px);
+}
+
+/* Question fades in slowly — soft white serif */
+.hero-question {
+  font-size: clamp(1.75rem, 5.5vw, 3.2rem);
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--text);
+  opacity: 0;
+  animation: fade-in-soft 3s ease-out 0.8s forwards;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+/* Second line whispers in after glow rises */
+.hero-whisper {
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0;
+  animation: fade-in-soft 3s ease-out 5.5s forwards;
+  letter-spacing: 0.005em;
+}
+
+/* Input field — no placeholder, no buttons, just a cursor like a small heart */
+.hero-input-wrap {
+  position: relative;
+  width: min(420px, 85vw);
+  opacity: 0;
+  animation: fade-in-soft 3.5s ease-out 8s forwards;
+}
+
+.hero-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 248, 231, 0.18);
+  color: var(--text);
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(1.15rem, 3vw, 1.5rem);
+  font-weight: 400;
+  text-align: center;
+  padding: 14px 8px 18px;
+  outline: none;
+  transition: border-color 1.2s ease;
+  caret-color: var(--amber);
+}
+
+.hero-input:focus {
+  border-bottom-color: var(--amber);
+}
+
+.hero-input::selection {
+  background: rgba(212, 168, 83, 0.3);
+}
+
+/* Quiet scroll hint, far below */
+.scroll-hint {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: fade-in-soft 2s ease-out 12s forwards, breathe 4s ease-in-out 14s infinite;
+  z-index: 2;
+}
+
+/* ──────────────── ANIMATIONS ──────────────── */
+
+@keyframes fade-in-soft {
+  0% { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes glow-rise {
+  0% { opacity: 0; transform: translateX(-50%) translateY(20%); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes bloom {
+  0% { opacity: 0; transform: scale(0.96); filter: blur(6px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes polaroid-develop {
+  0% { filter: blur(8px) brightness(0.6) sepia(0.6); opacity: 0.4; }
+  100% { filter: blur(0) brightness(1) sepia(0.05); opacity: 1; }
+}
+
+/* ──────────────── HOW IT WORKS ──────────────── */
+
+.section {
+  padding: 14vh 24px;
+  position: relative;
+  background: linear-gradient(180deg, var(--black) 0%, var(--warm-black) 40%, #120906 100%);
+}
+
+.section-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.section-eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  font-weight: 500;
+  margin-bottom: 20px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.section-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(1.8rem, 4.5vw, 2.6rem);
+  font-weight: 400;
+  text-align: center;
+  margin-bottom: 64px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(24px, 5vw, 56px);
+}
+
+.step {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+/* Polaroid-edge effect on step icons */
+.step-frame {
+  width: clamp(110px, 18vw, 160px);
+  height: clamp(110px, 18vw, 160px);
+  margin: 0 auto 28px;
+  background: linear-gradient(135deg, rgba(212,168,83,0.12), rgba(255,126,95,0.08));
+  border: 1px solid rgba(212,168,83,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* Polaroid edges fading to HD via clip-path */
+  clip-path: polygon(
+    3% 1%, 97% 2%, 99% 96%, 96% 99%, 4% 98%, 1% 4%
+  );
+  box-shadow: 0 0 60px rgba(212,168,83,0.08), inset 0 0 40px rgba(0,0,0,0.4);
+}
+
+.step-icon {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(2.4rem, 5vw, 3.2rem);
+  font-style: italic;
+  color: var(--amber);
+  font-weight: 400;
+}
+
+.step-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(1.3rem, 2.6vw, 1.6rem);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  letter-spacing: -0.005em;
+}
+
+.step-text {
+  font-size: clamp(0.92rem, 1.6vw, 1.02rem);
+  color: var(--text-muted);
+  line-height: 1.7;
+  font-weight: 300;
+  max-width: 28ch;
+  margin: 0 auto;
+}
+
+/* ──────────────── TAGLINE ──────────────── */
+
+.tagline-section {
+  padding: 18vh 24px;
+  background: linear-gradient(180deg, #120906 0%, #1a0d08 50%, #0a0604 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.tagline-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 126, 95, 0.12) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+.tagline {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3.6rem);
+  font-weight: 400;
+  font-style: italic;
+  text-align: center;
+  color: var(--text);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  max-width: 880px;
+  margin: 0 auto;
+  position: relative;
+  opacity: 0;
+  transform: translateY(20px);
+  text-wrap: balance;
+}
+
+.tagline-sub {
+  text-align: center;
+  margin-top: 40px;
+  font-size: clamp(0.95rem, 1.8vw, 1.1rem);
+  color: var(--text-muted);
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transform: translateY(20px);
+  position: relative;
+}
+
+.tagline-cta {
+  display: inline-block;
+  margin-top: 48px;
+  padding: 16px 38px;
+  background: transparent;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 1.05rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: all 0.6s ease;
+  opacity: 0;
+  transform: translateY(20px);
+  position: relative;
+  cursor: pointer;
+}
+
+.tagline-cta:hover {
+  background: rgba(212, 168, 83, 0.08);
+  color: var(--text);
+  border-color: var(--amber-soft);
+  box-shadow: 0 0 30px rgba(212, 168, 83, 0.2);
+}
+
+.cta-wrap {
+  text-align: center;
+}
+
+/* ──────────────── FOOTER ──────────────── */
+
+footer {
+  padding: 64px 24px 48px;
+  background: var(--black);
+  text-align: center;
+  border-top: 1px solid rgba(212, 168, 83, 0.08);
+}
+
+.footer-text {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--text-faint);
+  letter-spacing: 0.01em;
+}
+
+.footer-heart {
+  display: inline-block;
+  color: var(--amber);
+  margin: 0 4px;
+  opacity: 0.7;
+}
+
+.footer-links {
+  margin-top: 18px;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+
+.footer-links a {
+  color: var(--text-faint);
+  text-decoration: none;
+  margin: 0 12px;
+  transition: color 0.4s ease;
+}
+
+.footer-links a:hover {
+  color: var(--amber);
+}
+
+/* ──────────────── REVEAL ON SCROLL ──────────────── */
+
+.revealed {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 1.6s ease, transform 1.6s ease;
+}
+
+.step.revealed:nth-child(1) { transition-delay: 0s; }
+.step.revealed:nth-child(2) { transition-delay: 0.25s; }
+.step.revealed:nth-child(3) { transition-delay: 0.5s; }
+
+/* ──────────────── MOBILE ──────────────── */
+
+@media (max-width: 720px) {
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 56px;
+  }
+  .section { padding: 10vh 24px; }
+  .tagline-section { padding: 14vh 24px; }
+  .hero { padding: 6vh 20px 14vh; }
+  .section-title { margin-bottom: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
+  .hero-question, .hero-whisper, .hero-input-wrap,
+  .scroll-hint, .hero::before {
+    opacity: 1 !important;
+  }
+}
+
+/* Quiet sound toggle */
+.sound-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: transparent;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  color: var(--text-faint);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  cursor: pointer;
+  opacity: 0;
+  animation: fade-in-soft 2s ease-out 14s forwards;
+  z-index: 100;
+  transition: all 0.4s ease;
+}
+
+.sound-toggle:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HERO (30 seconds) ═══════════════════════ -->
+<section class="hero" aria-label="Início">
+  <div class="hero-content">
+    <h1 class="hero-question serif">
+      Quem você não vê há mais de dez anos?
+    </h1>
+
+    <p class="hero-whisper serif">
+      A gente ajuda você a encontrar.
+    </p>
+
+    <div class="hero-input-wrap">
+      <input
+        type="text"
+        class="hero-input"
+        aria-label="Digite um nome"
+        autocomplete="off"
+        autocapitalize="words"
+        spellcheck="false"
+      />
+    </div>
+  </div>
+
+  <div class="scroll-hint">role devagar</div>
+</section>
+
+<!-- ═══════════════════════ COMO FUNCIONA ═══════════════════════ -->
+<section class="section" id="como-funciona" aria-label="Como funciona">
+  <div class="section-inner">
+    <div class="section-eyebrow reveal">Como funciona</div>
+    <h2 class="section-title serif reveal">
+      Três passos. Sem performance. Sem feed.
+    </h2>
+
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-frame">
+          <span class="step-icon">i</span>
+        </div>
+        <h3 class="step-title">Procure</h3>
+        <p class="step-text">
+          Digite um nome, uma turma, um colégio.
+          A IA lembra por você o que o tempo embaçou.
+        </p>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-frame">
+          <span class="step-icon">ii</span>
+        </div>
+        <h3 class="step-title">Reconecte</h3>
+        <p class="step-text">
+          A gente escreve a primeira mensagem
+          — aquela que você nunca conseguiu mandar sozinho.
+        </p>
+      </div>
+
+      <div class="step reveal">
+        <div class="step-frame">
+          <span class="step-icon">iii</span>
+        </div>
+        <h3 class="step-title">Reencontre</h3>
+        <p class="step-text">
+          Abre o WhatsApp. A conversa continua lá.
+          A gente sai de cena. O reencontro é seu.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ TAGLINE ═══════════════════════ -->
+<section class="tagline-section" aria-label="Manifesto">
+  <div class="section-inner">
+    <h2 class="tagline reveal">
+      Quem ainda lembra de você?
+    </h2>
+    <p class="tagline-sub serif reveal">
+      Saudade tem endereço agora.
+    </p>
+    <div class="cta-wrap">
+      <a href="#como-funciona" class="tagline-cta reveal">Volte pra quem te conhecia</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<footer>
+  <p class="footer-text">
+    TimeMates — feito no Brasil com<span class="footer-heart">·</span>saudade
+  </p>
+  <div class="footer-links">
+    <a href="/privacidade">Privacidade</a>
+    <a href="/termos">Termos</a>
+    <a href="/contato">Contato</a>
+  </div>
+</footer>
+
+<!-- Quiet vinyl crackle toggle (muted by default) -->
+<button class="sound-toggle" id="soundToggle" aria-label="Ativar som ambiente" title="Som ambiente">
+  <span id="soundIcon">·</span>
+</button>
+
+<script>
+// Reveal-on-scroll: elements BLOOM, they don't slide.
+(function() {
+  const reveals = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('revealed');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+
+  reveals.forEach(el => io.observe(el));
+})();
+
+// Input: when user types a name and hits enter, gently take them forward.
+(function() {
+  const input = document.querySelector('.hero-input');
+  if (!input) return;
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && input.value.trim().length > 1) {
+      const name = encodeURIComponent(input.value.trim());
+      // Soft transition — page "remembers", doesn't "load"
+      document.body.style.transition = 'opacity 1.2s ease';
+      document.body.style.opacity = '0';
+      setTimeout(() => {
+        window.location.href = '/buscar?nome=' + name;
+      }, 1100);
+    }
+  });
+
+  // Cursor like a small heart — gentle pulse on focus
+  input.addEventListener('focus', () => {
+    input.style.caretColor = '#ff7e5f';
+  });
+})();
+
+// Optional vinyl crackle — muted by default. One tap to wake it.
+(function() {
+  const btn = document.getElementById('soundToggle');
+  const icon = document.getElementById('soundIcon');
+  if (!btn) return;
+
+  let ctx = null;
+  let crackleNode = null;
+  let gainNode = null;
+  let active = false;
+
+  function startCrackle() {
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const bufferSize = 2 * ctx.sampleRate;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        // Sparse crackles — most samples silent, occasional pops
+        data[i] = Math.random() < 0.002 ? (Math.random() * 2 - 1) * 0.6 : 0;
+      }
+      crackleNode = ctx.createBufferSource();
+      crackleNode.buffer = noiseBuffer;
+      crackleNode.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 3000;
+
+      gainNode = ctx.createGain();
+      gainNode.gain.value = 0.12;
+
+      crackleNode.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      crackleNode.start();
+    } catch(err) { /* silent */ }
+  }
+
+  function stopCrackle() {
+    if (crackleNode) {
+      try { crackleNode.stop(); } catch(e) {}
+      crackleNode = null;
+    }
+    if (ctx) {
+      try { ctx.close(); } catch(e) {}
+      ctx = null;
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    active = !active;
+    if (active) {
+      startCrackle();
+      icon.textContent = '~';
+      btn.style.color = 'var(--amber)';
+      btn.style.borderColor = 'var(--amber)';
+    } else {
+      stopCrackle();
+      icon.textContent = '·';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

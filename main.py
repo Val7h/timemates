@@ -105,7 +105,9 @@ from database import (
     Photo, RememberedPerson, RememberedPersonConfirmation,
     InviteLink, Notification, CurrentStudent, MessageReaction,
     Testimony, EmailLog, PushSubscription, DMConversation, DMMessage, Subscription,
-    City, LocalEvent, EventRSVP, LocalNews
+    City, LocalEvent, EventRSVP, LocalNews,
+    Turma, TurmaMembership, TurmaVouch, MuralMemory,
+    UserTurmaVisibility,
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -130,39 +132,59 @@ except Exception:
     print(f'[FEATURE] Failed to load: push_notifications')
     def setup_push_notifications(app): pass
 
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
 # Calendar Integration (Google & Outlook)
-try:
-    from features_implementations.calendar_integration import setup_calendar_integration
-except Exception:
-    logger.exception('Feature loader failed: %s', 'calendar_integration')
-    print(f'[FEATURE] Failed to load: calendar_integration')
-    def setup_calendar_integration(app): pass
+# try:
+#     from features_implementations.calendar_integration import setup_calendar_integration
+# except Exception:
+#     logger.exception('Feature loader failed: %s', 'calendar_integration')
+#     print(f'[FEATURE] Failed to load: calendar_integration')
+#     def setup_calendar_integration(app): pass
+def setup_calendar_integration(app): pass  # DEPRECATED V2 PIVOT stub
 
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
 # Educational Section
-try:
-    from features_implementations.education_section import setup_education_section
-except Exception:
-    logger.exception('Feature loader failed: %s', 'education_section')
-    print(f'[FEATURE] Failed to load: education_section')
-    def setup_education_section(app): pass
+# try:
+#     from features_implementations.education_section import setup_education_section
+# except Exception:
+#     logger.exception('Feature loader failed: %s', 'education_section')
+#     print(f'[FEATURE] Failed to load: education_section')
+#     def setup_education_section(app): pass
+def setup_education_section(app): pass  # DEPRECATED V2 PIVOT stub
 
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
 # Tourism Data & Distance Calculation
-try:
-    from features_implementations.tourism_data import setup_tourism_section
-except Exception:
-    logger.exception('Feature loader failed: %s', 'tourism_data')
-    print(f'[FEATURE] Failed to load: tourism_data')
-    def setup_tourism_section(app): pass
+# try:
+#     from features_implementations.tourism_data import setup_tourism_section
+# except Exception:
+#     logger.exception('Feature loader failed: %s', 'tourism_data')
+#     print(f'[FEATURE] Failed to load: tourism_data')
+#     def setup_tourism_section(app): pass
+def setup_tourism_section(app): pass  # DEPRECATED V2 PIVOT stub
 
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
 # Social Sharing
-try:
-    from features_implementations.social_sharing import setup_social_sharing
-except Exception:
-    logger.exception('Feature loader failed: %s', 'social_sharing')
-    print(f'[FEATURE] Failed to load: social_sharing')
-    def setup_social_sharing(app): pass
+# try:
+#     from features_implementations.social_sharing import setup_social_sharing
+# except Exception:
+#     logger.exception('Feature loader failed: %s', 'social_sharing')
+#     print(f'[FEATURE] Failed to load: social_sharing')
+#     def setup_social_sharing(app): pass
+def setup_social_sharing(app): pass  # DEPRECATED V2 PIVOT stub
 
 # ===== END NEW FEATURE IMPORTS =====
+
+# Register reconnect_requests table with Base metadata so create_all picks it
+# up. Importing for side-effect — the routes module is loaded separately
+# further down (see "Reconnect Routes" block).
+try:
+    import reconnect_models  # noqa: F401  (side-effect: registers ORM table)
+except Exception as _e:
+    print(f"[FEATURE] reconnect_models import failed: {_e}")
 
 try:
     Base.metadata.create_all(bind=engine)
@@ -278,33 +300,41 @@ async def lifespan(app):
     except Exception as e:
         print(f"[FEATURE] Push Notifications setup failed (non-critical): {e}")
 
+    # DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+    # Will be removed after Phase 1 if no use case emerges
     # Feature 3 & 4: Calendar Integration (Google & Outlook)
-    try:
-        setup_calendar_integration(app)
-        print("[FEATURE] Calendar Integration setup completed")
-    except Exception as e:
-        print(f"[FEATURE] Calendar Integration setup failed (non-critical): {e}")
+    # try:
+    #     setup_calendar_integration(app)
+    #     print("[FEATURE] Calendar Integration setup completed")
+    # except Exception as e:
+    #     print(f"[FEATURE] Calendar Integration setup failed (non-critical): {e}")
 
+    # DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+    # Will be removed after Phase 1 if no use case emerges
     # Feature 5: Educational Section
-    try:
-        setup_education_section(app)
-        print("[FEATURE] Educational Section setup completed")
-    except Exception as e:
-        print(f"[FEATURE] Educational Section setup failed (non-critical): {e}")
+    # try:
+    #     setup_education_section(app)
+    #     print("[FEATURE] Educational Section setup completed")
+    # except Exception as e:
+    #     print(f"[FEATURE] Educational Section setup failed (non-critical): {e}")
 
+    # DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+    # Will be removed after Phase 1 if no use case emerges
     # Feature 6, 8: Tourism Data & Distance Calculation
-    try:
-        setup_tourism_section(app)
-        print("[FEATURE] Tourism Data setup completed")
-    except Exception as e:
-        print(f"[FEATURE] Tourism Data setup failed (non-critical): {e}")
+    # try:
+    #     setup_tourism_section(app)
+    #     print("[FEATURE] Tourism Data setup completed")
+    # except Exception as e:
+    #     print(f"[FEATURE] Tourism Data setup failed (non-critical): {e}")
 
+    # DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+    # Will be removed after Phase 1 if no use case emerges
     # Feature 7: Social Sharing
-    try:
-        setup_social_sharing(app)
-        print("[FEATURE] Social Sharing setup completed")
-    except Exception as e:
-        print(f"[FEATURE] Social Sharing setup failed (non-critical): {e}")
+    # try:
+    #     setup_social_sharing(app)
+    #     print("[FEATURE] Social Sharing setup completed")
+    # except Exception as e:
+    #     print(f"[FEATURE] Social Sharing setup failed (non-critical): {e}")
     # ===== END FEATURE SETUP =====
 
     _generate_icons()
@@ -469,6 +499,17 @@ app.mount("/static", StaticFiles(directory="static"), name="static_files")
 
 # ─── Billing Routes (Stripe) ──────────────────────────────────────────────────
 app.include_router(billing_router)
+
+# ─── Reconnect Routes (asymmetric reveal) ─────────────────────────────────────
+# Phase 1 spec: 5/day per-user rate limit, opaque responses, silent decline,
+# 365-day cooling-off, WhatsApp deeplink on accept. See reconnect_routes.py.
+try:
+    import reconnect_routes
+    reconnect_routes.register_routes(app, limiter)
+    print("[FEATURE] reconnect routes registered")
+except Exception:
+    logger.exception("Feature loader failed: %s", "reconnect_routes")
+    print("[FEATURE] Failed to load: reconnect_routes")
 
 # ─── WebSocket Manager ────────────────────────────────────────────────────────
 
@@ -713,12 +754,22 @@ def search_users(
     limit: int = 20,
     db: Session = Depends(get_db),
 ):
+    """Busca pública por usuários — enforces default-ghost.
+
+    Só retorna usuários que explicitamente fizeram opt-in via
+    is_discoverable=TRUE e que não estão em ghost_mode_global.
+    """
     if len(q.strip()) < 2:
         return []
     limit = min(limit, 50)
     users = (
         db.query(User)
-        .filter(User.full_name.ilike(f"%{q.strip()}%"), User.is_active == True)
+        .filter(
+            User.full_name.ilike(f"%{q.strip()}%"),
+            User.is_active == True,
+            User.is_discoverable == True,        # default-ghost enforcement
+            User.ghost_mode_global == False,     # panic toggle respected
+        )
         .limit(limit).all()
     )
     return [{
@@ -2084,6 +2135,148 @@ def delete_account(
     return {"message": "Conta encerrada. Sentiremos sua falta! 💙"}
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEFAULT-GHOST PRIVACY ENDPOINTS (migration 003)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/me/visibility")
+def get_my_visibility(
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Retorna as configurações atuais de visibilidade do usuário.
+
+    Inclui flags globais + lista de turmas onde o usuário fez opt-in.
+    """
+    turma_optins = (
+        db.query(UserTurmaVisibility)
+        .filter(UserTurmaVisibility.user_id == current_user.id,
+                UserTurmaVisibility.is_visible == True)
+        .all()
+    )
+    return {
+        "is_discoverable": bool(current_user.is_discoverable),
+        "allow_reconnect_requests": bool(current_user.allow_reconnect_requests),
+        "ghost_mode_global": bool(current_user.ghost_mode_global),
+        "visible_in_turmas": [t.turma_id for t in turma_optins],
+        "effective_state": (
+            "ghost_panic" if current_user.ghost_mode_global
+            else ("discoverable" if current_user.is_discoverable else "ghost_default")
+        ),
+    }
+
+
+@app.put("/api/me/visibility")
+def update_my_visibility(
+    is_discoverable: Optional[bool] = None,
+    allow_reconnect_requests: Optional[bool] = None,
+    ghost_mode_global: Optional[bool] = None,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Atualiza configurações de visibilidade — todos os campos são opcionais.
+
+    Default-ghost permanece em vigor: a única forma de aparecer em buscas é
+    setar is_discoverable=TRUE explicitamente.
+    """
+    changed = []
+    if is_discoverable is not None:
+        current_user.is_discoverable = bool(is_discoverable)
+        changed.append("is_discoverable")
+    if allow_reconnect_requests is not None:
+        current_user.allow_reconnect_requests = bool(allow_reconnect_requests)
+        changed.append("allow_reconnect_requests")
+    if ghost_mode_global is not None:
+        current_user.ghost_mode_global = bool(ghost_mode_global)
+        changed.append("ghost_mode_global")
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "success": True,
+        "changed": changed,
+        "is_discoverable": bool(current_user.is_discoverable),
+        "allow_reconnect_requests": bool(current_user.allow_reconnect_requests),
+        "ghost_mode_global": bool(current_user.ghost_mode_global),
+    }
+
+
+@app.post("/api/me/panic-ghost")
+def panic_ghost(
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🚨 One-tap ghost everywhere.
+
+    Liga ghost_mode_global + desliga is_discoverable + desliga TODOS os opt-ins
+    de turmas. Operação atômica. Para sair do pânico, use PUT /api/me/visibility.
+    """
+    current_user.ghost_mode_global = True
+    current_user.is_discoverable = False
+    # Desliga todos os opt-ins de turmas (não deleta — só marca invisible para histórico)
+    db.query(UserTurmaVisibility).filter(
+        UserTurmaVisibility.user_id == current_user.id
+    ).update({"is_visible": False})
+    db.commit()
+    return {
+        "success": True,
+        "message": "Modo fantasma ativado. Você está invisível em todo o sistema.",
+        "ghost_mode_global": True,
+        "is_discoverable": False,
+        "turma_optins_cleared": True,
+    }
+
+
+@app.post("/api/me/visibility/turma/{turma_id}")
+def opt_in_to_turma(
+    turma_id: int,
+    is_visible: bool = True,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Opt-in (ou opt-out) para visibilidade dentro de uma turma específica.
+
+    Permite que um usuário ghost seja descoberto APENAS nessa turma.
+    Passar is_visible=False remove o opt-in.
+    Se ghost_mode_global=True, a operação é rejeitada (pânico tem precedência).
+    """
+    # Verificar que a turma existe
+    turma = db.query(Turma).filter(Turma.id == turma_id).first()
+    if not turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+
+    if current_user.ghost_mode_global and is_visible:
+        raise HTTPException(
+            status_code=409,
+            detail="Modo pânico ativo — desative ghost_mode_global antes de fazer opt-in.",
+        )
+
+    existing = (
+        db.query(UserTurmaVisibility)
+        .filter(UserTurmaVisibility.user_id == current_user.id,
+                UserTurmaVisibility.turma_id == turma_id)
+        .first()
+    )
+    if existing:
+        existing.is_visible = bool(is_visible)
+    else:
+        db.add(UserTurmaVisibility(
+            user_id=current_user.id,
+            turma_id=turma_id,
+            is_visible=bool(is_visible),
+        ))
+    db.commit()
+    return {
+        "success": True,
+        "turma_id": turma_id,
+        "is_visible": bool(is_visible),
+        "message": (
+            f"Você agora é visível na turma {turma_id}."
+            if is_visible else
+            f"Opt-in removido da turma {turma_id}."
+        ),
+    }
+
+
 @app.get("/api/users/{user_id}")
 def get_user_profile(
     user_id: int,
@@ -3024,139 +3217,145 @@ def get_news(request: Request, city: str = "", page: int = 1, limit: int = 10, d
     }
 
 
-@app.get("/api/events/{city}")
-@limiter.limit("30/minute")
-def get_events(request: Request, city: str = "", db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
-    """🎪 Listar próximos eventos locais"""
-    track_event(current_user.id if current_user else None, "city_view", {"city": city})
-    if not city:
-        return {"success": False, "error": "Cidade é obrigatória", "data": [], "total": 0}
-
-    try:
-        from datetime import datetime as dt
-        today = dt.utcnow().strftime("%Y-%m-%d")
-
-        events = db.query(LocalEvent).filter(
-            LocalEvent.city.ilike(f"%{city}%"),
-            LocalEvent.date >= today,
-            LocalEvent.status == "active"
-        ).order_by(LocalEvent.date.asc()).limit(10).all()
-
-        result = []
-        for e in events:
-            try:
-                rsvp_count = db.query(EventRSVP).filter(
-                    EventRSVP.event_id == e.id,
-                    EventRSVP.status == "going"
-                ).count()
-            except Exception:
-                rsvp_count = 0
-            creator_name = "Admin"
-            try:
-                if e.created_by and getattr(e.created_by, "full_name", None):
-                    creator_name = e.created_by.full_name
-            except Exception:
-                creator_name = "Admin"
-            result.append({
-                "id": e.id,
-                "title": e.title,
-                "date": e.date,
-                "time": e.time,
-                "location": e.location,
-                "description": e.description,
-                "image_url": e.image_url,
-                "rsvp_count": rsvp_count,
-                "created_by": creator_name
-            })
-
-        return {"success": True, "data": result, "total": len(result)}
-    except Exception as ex:
-        print(f"[EVENTS] Error fetching events for city={city}: {ex}")
-        return {"success": True, "data": [], "total": 0, "error": str(ex)}
-
-
-@app.post("/api/events")
-@limiter.limit("20/minute")
-def create_event(
-    request: Request,
-    title: str = "",
-    date: str = "",
-    time: str = "",
-    location: str = "",
-    description: str = "",
-    city: str = "",
-    current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db),
-):
-    """🎓 Criar novo evento (room members only)"""
-    if not all([title, date, location, city]):
-        raise HTTPException(status_code=400, detail="Campos obrigatórios faltando")
-
-    event = LocalEvent(
-        title=title,
-        date=date,
-        time=time,
-        location=location,
-        description=description,
-        city=city,
-        created_by_id=current_user.id,
-        status="active"
-    )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-
-    # Notificar todos os usuários da cidade
-    _push_to_user(
-        db, current_user.id,
-        f"🎉 Evento criado: {title}",
-        f"📅 {date} em {location}",
-        f"/events/{event.id}"
-    )
-
-    return {"success": True, "event_id": event.id, "message": "Evento criado com sucesso"}
-
-
-@app.post("/api/events/{event_id}/rsvp")
-@limiter.limit("50/minute")
-def rsvp_event(
-    request: Request,
-    event_id: int,
-    status: str = "going",
-    current_user: User = Depends(get_current_user_required),
-    db: Session = Depends(get_db),
-):
-    """✅ RSVP para um evento (going/interested/not_going)"""
-    if status not in ["going", "interested", "not_going"]:
-        raise HTTPException(status_code=400, detail="Status inválido")
-
-    event = db.query(LocalEvent).filter(LocalEvent.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Evento não encontrado")
-
-    existing = db.query(EventRSVP).filter(
-        EventRSVP.event_id == event_id,
-        EventRSVP.user_id == current_user.id
-    ).first()
-
-    if existing:
-        existing.status = status
-    else:
-        db.add(EventRSVP(event_id=event_id, user_id=current_user.id, status=status))
-
-    db.commit()
-
-    going_count = db.query(EventRSVP).filter(
-        EventRSVP.event_id == event_id,
-        EventRSVP.status == "going"
-    ).count()
-
-    return {
-        "success": True,
-        "message": f"RSVP atualizado para '{status}'",
-        "event_id": event_id,
-        "rsvp_count": going_count
-    }
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
+# @app.get("/api/events/{city}")
+# @limiter.limit("30/minute")
+# def get_events(request: Request, city: str = "", db: Session = Depends(get_db), current_user: Optional[User] = Depends(get_current_user)):
+#     """Listar proximos eventos locais"""
+#     track_event(current_user.id if current_user else None, "city_view", {"city": city})
+#     if not city:
+#         return {"success": False, "error": "Cidade e obrigatoria", "data": [], "total": 0}
+#
+#     try:
+#         from datetime import datetime as dt
+#         today = dt.utcnow().strftime("%Y-%m-%d")
+#
+#         events = db.query(LocalEvent).filter(
+#             LocalEvent.city.ilike(f"%{city}%"),
+#             LocalEvent.date >= today,
+#             LocalEvent.status == "active"
+#         ).order_by(LocalEvent.date.asc()).limit(10).all()
+#
+#         result = []
+#         for e in events:
+#             try:
+#                 rsvp_count = db.query(EventRSVP).filter(
+#                     EventRSVP.event_id == e.id,
+#                     EventRSVP.status == "going"
+#                 ).count()
+#             except Exception:
+#                 rsvp_count = 0
+#             creator_name = "Admin"
+#             try:
+#                 if e.created_by and getattr(e.created_by, "full_name", None):
+#                     creator_name = e.created_by.full_name
+#             except Exception:
+#                 creator_name = "Admin"
+#             result.append({
+#                 "id": e.id,
+#                 "title": e.title,
+#                 "date": e.date,
+#                 "time": e.time,
+#                 "location": e.location,
+#                 "description": e.description,
+#                 "image_url": e.image_url,
+#                 "rsvp_count": rsvp_count,
+#                 "created_by": creator_name
+#             })
+#
+#         return {"success": True, "data": result, "total": len(result)}
+#     except Exception as ex:
+#         print(f"[EVENTS] Error fetching events for city={city}: {ex}")
+#         return {"success": True, "data": [], "total": 0, "error": str(ex)}
+#
+#
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
+# @app.post("/api/events")
+# @limiter.limit("20/minute")
+# def create_event(
+#     request: Request,
+#     title: str = "",
+#     date: str = "",
+#     time: str = "",
+#     location: str = "",
+#     description: str = "",
+#     city: str = "",
+#     current_user: User = Depends(get_current_user_required),
+#     db: Session = Depends(get_db),
+# ):
+#     """Criar novo evento (room members only)"""
+#     if not all([title, date, location, city]):
+#         raise HTTPException(status_code=400, detail="Campos obrigatorios faltando")
+#
+#     event = LocalEvent(
+#         title=title,
+#         date=date,
+#         time=time,
+#         location=location,
+#         description=description,
+#         city=city,
+#         created_by_id=current_user.id,
+#         status="active"
+#     )
+#     db.add(event)
+#     db.commit()
+#     db.refresh(event)
+#
+#     # Notificar todos os usuarios da cidade
+#     _push_to_user(
+#         db, current_user.id,
+#         f"Evento criado: {title}",
+#         f"{date} em {location}",
+#         f"/events/{event.id}"
+#     )
+#
+#     return {"success": True, "event_id": event.id, "message": "Evento criado com sucesso"}
+#
+#
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
+# @app.post("/api/events/{event_id}/rsvp")
+# @limiter.limit("50/minute")
+# def rsvp_event(
+#     request: Request,
+#     event_id: int,
+#     status: str = "going",
+#     current_user: User = Depends(get_current_user_required),
+#     db: Session = Depends(get_db),
+# ):
+#     """RSVP para um evento (going/interested/not_going)"""
+#     if status not in ["going", "interested", "not_going"]:
+#         raise HTTPException(status_code=400, detail="Status invalido")
+#
+#     event = db.query(LocalEvent).filter(LocalEvent.id == event_id).first()
+#     if not event:
+#         raise HTTPException(status_code=404, detail="Evento nao encontrado")
+#
+#     existing = db.query(EventRSVP).filter(
+#         EventRSVP.event_id == event_id,
+#         EventRSVP.user_id == current_user.id
+#     ).first()
+#
+#     if existing:
+#         existing.status = status
+#     else:
+#         db.add(EventRSVP(event_id=event_id, user_id=current_user.id, status=status))
+#
+#     db.commit()
+#
+#     going_count = db.query(EventRSVP).filter(
+#         EventRSVP.event_id == event_id,
+#         EventRSVP.status == "going"
+#     ).count()
+#
+#     return {
+#         "success": True,
+#         "message": f"RSVP atualizado para '{status}'",
+#         "event_id": event_id,
+#         "rsvp_count": going_count
+#     }
 
 
 @app.get("/api/trending/{city}")
@@ -4147,6 +4346,357 @@ def get_user_streak(
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TURMA ENDPOINTS - Reconnection pivot (cohort is the central unit)
+# LGPD: default-ghost — public responses only return verified + visibility=visible
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import re as _re_turma
+import unicodedata as _ud_turma
+
+def _turma_slugify(*parts) -> str:
+    raw = "-".join(str(p) for p in parts if p)
+    norm = _ud_turma.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+    norm = norm.lower()
+    norm = _re_turma.sub(r"[^a-z0-9]+", "-", norm).strip("-")
+    return norm[:200] or "turma"
+
+def _turma_visible_members(db: Session, turma_id: int):
+    """Default-ghost: only verified + visibility='visible' surface publicly."""
+    return (
+        db.query(TurmaMembership)
+        .filter(
+            TurmaMembership.turma_id == turma_id,
+            TurmaMembership.status == "verified",
+            TurmaMembership.visibility == "visible",
+        )
+        .all()
+    )
+
+def _turma_to_dict(t: Turma, db: Session, current_user: Optional[User] = None):
+    visible = _turma_visible_members(db, t.id)
+    visible_users = []
+    if visible:
+        user_ids = [m.user_id for m in visible]
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        umap = {u.id: u for u in users}
+        for m in visible:
+            u = umap.get(m.user_id)
+            if not u:
+                continue
+            visible_users.append({
+                "id": u.id,
+                "full_name": u.full_name,
+                "profile_photo": u.profile_photo,
+                "is_founder": m.is_founder,
+                "joined_at": m.joined_at.isoformat() if m.joined_at else None,
+            })
+
+    membership = None
+    if current_user:
+        membership = (
+            db.query(TurmaMembership)
+            .filter(
+                TurmaMembership.turma_id == t.id,
+                TurmaMembership.user_id == current_user.id,
+            )
+            .first()
+        )
+
+    return {
+        "id": t.id,
+        "slug": t.slug,
+        "institution_id": t.institution_id,
+        "institution_name": t.institution_name,
+        "city": t.city,
+        "state": t.state,
+        "kind": t.kind,
+        "cohort_year": t.cohort_year,
+        "cohort_label": t.cohort_label,
+        "founder_id": t.founder_id,
+        "total_members": t.total_members,
+        "total_verified": t.total_verified,
+        "is_unlocked": t.is_unlocked,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "visible_members": visible_users,
+        "visible_member_count": len(visible_users),
+        "my_membership": (
+            {
+                "status": membership.status,
+                "visibility": membership.visibility,
+                "is_founder": membership.is_founder,
+                "verified_by_vouches": membership.verified_by_vouches,
+            }
+            if membership else None
+        ),
+    }
+
+
+@app.get("/api/turmas/search")
+@limiter.limit("60/minute")
+def turmas_search(
+    request: Request,
+    q: Optional[str] = Query(None, description="institution name fragment"),
+    year: Optional[int] = Query(None, description="cohort year"),
+    kind: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """🔍 Buscar turmas. Resposta pública NÃO expõe membros ghost — apenas contagens."""
+    query = db.query(Turma)
+    if q:
+        query = query.filter(Turma.institution_name.ilike(f"%{q}%"))
+    if year:
+        query = query.filter(Turma.cohort_year == year)
+    if kind:
+        query = query.filter(Turma.kind == kind)
+    if city:
+        query = query.filter(Turma.city.ilike(f"%{city}%"))
+    if state:
+        query = query.filter(Turma.state == state.upper())
+
+    results = query.order_by(Turma.created_at.desc()).limit(50).all()
+    return {
+        "success": True,
+        "count": len(results),
+        "turmas": [
+            {
+                "id": t.id,
+                "slug": t.slug,
+                "institution_name": t.institution_name,
+                "city": t.city,
+                "state": t.state,
+                "kind": t.kind,
+                "cohort_year": t.cohort_year,
+                "cohort_label": t.cohort_label,
+                "total_members": t.total_members,
+                "total_verified": t.total_verified,
+                "is_unlocked": t.is_unlocked,
+                "visible_member_count": len(_turma_visible_members(db, t.id)),
+            }
+            for t in results
+        ],
+    }
+
+
+@app.get("/api/turmas/{slug}")
+@limiter.limit("120/minute")
+def turma_get(
+    request: Request,
+    slug: str,
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """📚 Detalhes da turma. Membros ghost ficam escondidos."""
+    t = db.query(Turma).filter(Turma.slug == slug).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+    return {"success": True, "turma": _turma_to_dict(t, db, current_user)}
+
+
+@app.post("/api/turmas")
+@limiter.limit("10/minute")
+def turma_create(
+    request: Request,
+    payload: dict,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """➕ Criar nova turma. Qualquer user autenticado pode (vira founder).
+    Founder entra como verified+visible (criar é opt-in explícito)."""
+    institution_name = (payload.get("institution_name") or "").strip()
+    cohort_year = payload.get("cohort_year")
+    kind = (payload.get("kind") or "").strip()
+    if not institution_name or not cohort_year or not kind:
+        raise HTTPException(
+            status_code=400,
+            detail="institution_name, cohort_year e kind são obrigatórios",
+        )
+    allowed_kinds = {"escola_fundamental", "escola_medio", "faculdade", "empresa", "bairro", "igreja"}
+    if kind not in allowed_kinds:
+        raise HTTPException(status_code=400, detail=f"kind deve ser um de {sorted(allowed_kinds)}")
+
+    cohort_label = (payload.get("cohort_label") or "").strip() or None
+    institution_id = payload.get("institution_id")
+    city = (payload.get("city") or "").strip() or None
+    state = (payload.get("state") or "").strip().upper() or None
+    if state and len(state) != 2:
+        raise HTTPException(status_code=400, detail="state deve ter 2 letras (UF)")
+
+    base_slug = _turma_slugify(institution_name, cohort_year, cohort_label or "")
+    slug = base_slug
+    suffix = 2
+    while db.query(Turma).filter(Turma.slug == slug).first():
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
+
+    t = Turma(
+        institution_id=institution_id,
+        institution_name=institution_name,
+        city=city,
+        state=state,
+        kind=kind,
+        cohort_year=int(cohort_year),
+        cohort_label=cohort_label,
+        founder_id=current_user.id,
+        total_members=1,
+        total_verified=1,
+        is_unlocked=False,
+        slug=slug,
+    )
+    db.add(t)
+    db.flush()
+
+    m = TurmaMembership(
+        turma_id=t.id,
+        user_id=current_user.id,
+        status="verified",
+        visibility="visible",   # founder opted-in by creating
+        is_founder=True,
+        verified_by_vouches=0,
+    )
+    db.add(m)
+    db.commit()
+    db.refresh(t)
+    track_event(current_user.id, "turma_created", {"slug": t.slug, "kind": t.kind})
+    return {"success": True, "turma": _turma_to_dict(t, db, current_user)}
+
+
+@app.post("/api/turmas/{slug}/join")
+@limiter.limit("20/minute")
+def turma_join(
+    request: Request,
+    slug: str,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🙋 Pedir entrada na turma. Cria membership 'pending' + 'ghost' (LGPD)."""
+    t = db.query(Turma).filter(Turma.slug == slug).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+
+    existing = (
+        db.query(TurmaMembership)
+        .filter(
+            TurmaMembership.turma_id == t.id,
+            TurmaMembership.user_id == current_user.id,
+        )
+        .first()
+    )
+    if existing:
+        return {
+            "success": True,
+            "already_member": True,
+            "status": existing.status,
+            "visibility": existing.visibility,
+        }
+
+    m = TurmaMembership(
+        turma_id=t.id,
+        user_id=current_user.id,
+        status="pending",
+        visibility="ghost",  # default-ghost
+        is_founder=False,
+        verified_by_vouches=0,
+    )
+    db.add(m)
+    t.total_members = (t.total_members or 0) + 1
+    db.commit()
+    track_event(current_user.id, "turma_joined_pending", {"slug": t.slug})
+    return {
+        "success": True,
+        "status": "pending",
+        "visibility": "ghost",
+        "message": "Pedido enviado. Você está em modo fantasma — só verifica após vouches.",
+    }
+
+
+@app.post("/api/turmas/{slug}/vouch/{user_id}")
+@limiter.limit("30/minute")
+def turma_vouch(
+    request: Request,
+    slug: str,
+    user_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🤝 Garantir que outro user fez parte desta turma.
+    Voucher precisa estar verified. 2 vouches → membro vira verified.
+    visibility permanece 'ghost' — verified ≠ visible (LGPD)."""
+    t = db.query(Turma).filter(Turma.slug == slug).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Você não pode garantir a si mesmo")
+
+    voucher_m = (
+        db.query(TurmaMembership)
+        .filter(
+            TurmaMembership.turma_id == t.id,
+            TurmaMembership.user_id == current_user.id,
+            TurmaMembership.status == "verified",
+        )
+        .first()
+    )
+    if not voucher_m:
+        raise HTTPException(status_code=403, detail="Apenas membros verificados podem garantir")
+
+    vouched_m = (
+        db.query(TurmaMembership)
+        .filter(
+            TurmaMembership.turma_id == t.id,
+            TurmaMembership.user_id == user_id,
+        )
+        .first()
+    )
+    if not vouched_m:
+        raise HTTPException(status_code=404, detail="Usuário não pediu para entrar nesta turma")
+
+    dup = (
+        db.query(TurmaVouch)
+        .filter(
+            TurmaVouch.turma_id == t.id,
+            TurmaVouch.voucher_user_id == current_user.id,
+            TurmaVouch.vouched_user_id == user_id,
+        )
+        .first()
+    )
+    if dup:
+        return {
+            "success": True,
+            "already_vouched": True,
+            "verified_by_vouches": vouched_m.verified_by_vouches,
+        }
+
+    db.add(TurmaVouch(
+        turma_id=t.id,
+        voucher_user_id=current_user.id,
+        vouched_user_id=user_id,
+    ))
+    vouched_m.verified_by_vouches = (vouched_m.verified_by_vouches or 0) + 1
+
+    promoted = False
+    if vouched_m.status != "verified" and vouched_m.verified_by_vouches >= 2:
+        vouched_m.status = "verified"
+        # visibility stays 'ghost' — only user can opt in
+        t.total_verified = (t.total_verified or 0) + 1
+        promoted = True
+        if t.total_members and (t.total_verified / max(t.total_members, 1)) >= 0.6:
+            t.is_unlocked = True  # Mural unlocks at 60%+ verified
+
+    db.commit()
+    track_event(current_user.id, "turma_vouched", {
+        "slug": t.slug, "for_user_id": user_id, "promoted": promoted,
+    })
+    return {
+        "success": True,
+        "verified_by_vouches": vouched_m.verified_by_vouches,
+        "promoted_to_verified": promoted,
+        "turma_unlocked": t.is_unlocked,
+    }
+
+
 # ===== DASHBOARDS =====
 @app.get("/map", response_class=FileResponse)
 async def map_dashboard():
@@ -4158,10 +4708,12 @@ async def news_dashboard():
     """📰 Dashboard de notícias locais por cidade"""
     return FileResponse("public/news-dashboard.html")
 
-@app.get("/events", response_class=FileResponse)
-async def events_dashboard():
-    """🎪 Dashboard de eventos locais"""
-    return FileResponse("public/events-dashboard.html")
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
+# @app.get("/events", response_class=FileResponse)
+# async def events_dashboard():
+#     """Dashboard de eventos locais"""
+#     return FileResponse("public/events-dashboard.html")
 
 
 # ===== LANDING PAGE & LEGAL DOCS =====

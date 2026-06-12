@@ -1,3 +1,5 @@
+# DEPRECATED V2 PIVOT: we don't share, we reconnect privately. See POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
 # 📱 SOCIAL SHARING
 # Share buttons para WhatsApp, Facebook, Twitter, LinkedIn
 

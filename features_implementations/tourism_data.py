@@ -1,3 +1,5 @@
+# DEPRECATED V2 PIVOT: was for events product, see POSITIONING_V2
+# Will be removed after Phase 1 if no use case emerges
 # 🏖️ TOURISM DATA & DISTANCE CALCULATION
 # Atrações turísticas, hotéis, restaurantes, cálculo de distância
 

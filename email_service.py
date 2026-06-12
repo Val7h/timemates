@@ -97,7 +97,7 @@ def _base_template(title: str, body_html: str) -> str:
           Time<span style="color:#D4A853;">Mates</span>
         </h1>
         <p style="margin:4px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">
-          Reconecte com quem fez parte da sua história
+          Quem ainda lembra de você?
         </p>
       </td></tr>
 
@@ -169,198 +169,238 @@ def _send(to_email: str, subject: str, html: str, full_name: str | None = None):
 # ── Templates de e-mail ───────────────────────────────────────────────────────
 
 def send_welcome(to_email: str, name: str):
-    """Boas-vindas após cadastro."""
+    """Boas-vindas após cadastro — tom saudoso/brotherly (Copy V2)."""
     first = name.split()[0]
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">Olá, {first}! 👋</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">Que bom que você chegou, {first}.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Bem-vindo(a) ao TimeMates! Sua conta foi criada com sucesso.
+      A gente guardou seu lugar.
     </p>
     <p style="color:#374151;font-size:15px;line-height:1.6;">
-      Agora você pode <strong>explorar instituições</strong>, entrar em salas de ex-colegas
-      e reconectar com pessoas que fizeram parte da sua história. 🎓
+      O TimeMates é o lugar de <strong>matar saudade da sua turma</strong> —
+      gente da escola, da faculdade, da empresa, da rua onde você cresceu.
+      Bora achar quem te conhecia?
     </p>
-    {_btn(BASE_URL + '/index.html', 'Explorar agora', '#D4A853')}
+    {_btn(BASE_URL + '/index.html', 'Achar minha galera', '#D4A853')}
     <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
     <p style="color:#9CA3AF;font-size:12px;text-align:center;">
-      💡 Dica: Busque sua escola, faculdade ou empresa e veja se alguém da sua turma já está lá!
+      Você é descobrível só por quem você escolher. Por padrão, você é invisível.
     </p>"""
-    _send(to_email, f"Bem-vindo(a) ao TimeMates, {first}!", _base_template("Bem-vindo ao TimeMates", body), full_name=name)
+    _send(to_email, f"{first}, a gente guardou seu lugar", _base_template("Bem-vindo ao TimeMates", body), full_name=name)
 
 
 def send_join_request_to_admin(admin_email: str, admin_name: str,
                                 requester_name: str, room_name: str,
                                 inst_name: str, room_id: int):
-    """Avisa ADM da sala que alguém pediu para entrar."""
+    """Avisa ADM da sala que alguém pediu para entrar — tom Copy V2."""
     first = admin_name.split()[0]
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">Nova solicitação de acesso 🔔</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">Ô {first}, olha quem apareceu.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Olá, {first}! Alguém quer entrar na sua sala.
+      Tem gente querendo entrar na sua turma.
     </p>
     <div style="background:#F7F5F2;border-radius:8px;padding:20px;margin:0 0 20px;">
-      <p style="margin:0 0 8px;color:#374151;"><strong>Solicitante:</strong> {requester_name}</p>
+      <p style="margin:0 0 8px;color:#374151;"><strong>Quem:</strong> {requester_name}</p>
       <p style="margin:0 0 8px;color:#374151;"><strong>Sala:</strong> {room_name}</p>
-      <p style="margin:0;color:#374151;"><strong>Instituição:</strong> {inst_name}</p>
+      <p style="margin:0;color:#374151;"><strong>Onde:</strong> {inst_name}</p>
     </div>
     <p style="color:#374151;font-size:15px;">
-      Acesse o TimeMates para <strong>aprovar ou rejeitar</strong> a entrada.
+      Você que decide. Lembra dessa pessoa? Bora abrir a porta.
     </p>
-    {_btn(BASE_URL, 'Ver solicitação')}"""
-    _send(admin_email, f"{requester_name} quer entrar na sala", _base_template("Nova solicitação", body))
+    {_btn(BASE_URL, 'Ver quem é')}"""
+    _send(admin_email, f"{requester_name} quer matar saudade com a turma", _base_template("Nova solicitação", body))
 
 
 def send_approved(to_email: str, name: str, room_name: str, inst_name: str):
-    """Avisa usuário que foi aprovado em uma sala."""
+    """Avisa usuário que foi aprovado em uma sala — tom Copy V2."""
     first = name.split()[0]
     body = f"""
-    <h2 style="color:#22C55E;margin:0 0 8px;">✅ Você foi aprovado(a)!</h2>
+    <h2 style="color:#22C55E;margin:0 0 8px;">Tá dentro, {first}.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Boa notícia, {first}!
+      A turma te abriu a porta.
     </p>
     <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:20px;margin:0 0 20px;">
       <p style="margin:0 0 8px;color:#374151;"><strong>Sala:</strong> {room_name}</p>
-      <p style="margin:0;color:#374151;"><strong>Instituição:</strong> {inst_name}</p>
+      <p style="margin:0;color:#374151;"><strong>Onde:</strong> {inst_name}</p>
     </div>
     <p style="color:#374151;font-size:15px;">
-      Sua solicitação foi <strong>aprovada</strong>! Agora você pode participar do chat,
-      ver fotos e reconectar com sua turma. 🎉
+      Bora matar saudade. Manda um oi, posta uma foto antiga, conta o que ficou.
+      A galera tá esperando.
     </p>
-    {_btn(BASE_URL, 'Entrar na sala agora', '#22C55E')}"""
-    _send(to_email, f"Você foi aprovado(a) em {room_name}", _base_template("Aprovado!", body))
+    {_btn(BASE_URL, 'Entrar no rolê', '#22C55E')}"""
+    _send(to_email, f"Tá dentro de {room_name}, {first}", _base_template("Aprovado!", body))
 
 
 def send_rejected(to_email: str, name: str, room_name: str, inst_name: str):
-    """Avisa usuário que foi rejeitado."""
+    """Avisa usuário que foi rejeitado — tom Copy V2 (humano, sem ferir)."""
     first = name.split()[0]
     body = f"""
-    <h2 style="color:#EF4444;margin:0 0 8px;">Solicitação não aprovada</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">{first}, dessa vez não rolou.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Olá, {first}.
+      A porta dessa sala ficou fechada.
     </p>
     <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:20px;margin:0 0 20px;">
       <p style="margin:0 0 8px;color:#374151;"><strong>Sala:</strong> {room_name}</p>
-      <p style="margin:0;color:#374151;"><strong>Instituição:</strong> {inst_name}</p>
+      <p style="margin:0;color:#374151;"><strong>Onde:</strong> {inst_name}</p>
     </div>
     <p style="color:#374151;font-size:15px;">
-      Infelizmente sua solicitação de entrada não foi aprovada pelo administrador da sala.
-      Caso acredite que houve um engano, você pode tentar novamente ou entrar em contato
-      com quem criou a sala.
+      Acontece. Pode ter sido engano da turma — você pode tentar de novo, ou procurar
+      outra sala da sua época. Tem muita gente que ainda lembra de você por aí.
     </p>
-    {_btn(BASE_URL, 'Explorar outras salas')}"""
-    _send(to_email, f"Atualização sobre {room_name}", _base_template("Solicitação não aprovada", body))
+    {_btn(BASE_URL, 'Achar outra turma')}"""
+    _send(to_email, f"Sobre a sala {room_name}, {first}", _base_template("Resposta da turma", body))
 
 
 def send_password_reset(to_email: str, name: str, reset_token: str):
-    """Link de recuperação de senha."""
+    """Link de recuperação de senha — tom Copy V2."""
     first = name.split()[0]
     reset_url = f"{BASE_URL}/resetar-senha?token={reset_token}"
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">Recuperação de senha 🔐</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">Bora trocar essa senha, {first}.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Olá, {first}!
+      A gente recebeu o pedido. Aqui é o caminho.
     </p>
     <p style="color:#374151;font-size:15px;line-height:1.6;">
-      Recebemos uma solicitação para redefinir a senha da sua conta no TimeMates.
-      Clique no botão abaixo para criar uma nova senha. O link é válido por <strong>1 hora</strong>.
+      Clica no botão e cria uma senha nova. O link vale por <strong>1 hora</strong> —
+      depois disso ele expira e você pede outro de boa.
     </p>
-    {_btn(reset_url, 'Redefinir minha senha', '#D4A853')}
+    {_btn(reset_url, 'Criar senha nova', '#D4A853')}
     <div style="background:#FEF3C7;border-radius:8px;padding:16px;margin:20px 0 0;">
       <p style="margin:0;color:#92400E;font-size:13px;">
-        ⚠️ Se você não solicitou isso, ignore este e-mail. Sua senha permanece a mesma.
+        Não foi você que pediu? Ignora esse e-mail — sua senha continua a mesma.
       </p>
     </div>"""
-    _send(to_email, "Redefinição de senha", _base_template("Recuperação de senha", body))
+    _send(to_email, f"Sua senha nova tá a um clique, {first}", _base_template("Trocar senha", body))
 
 
-def send_you_were_remembered(to_email: str, name: str, room_name: str, inst_name: str):
-    """Avisa o usuário que alguém na sala lembra dele — ele foi 'lembrado'."""
+def send_you_were_remembered(to_email: str, name: str, room_name: str, inst_name: str,
+                              allow_reconnect_requests: bool = False):
+    """Avisa o usuário que alguém na sala lembra dele — Copy V2.
+
+    GATE DE PRIVACIDADE: este e-mail só é enviado se o destinatário tiver
+    explicitamente habilitado `user.allow_reconnect_requests = TRUE`. Por padrão
+    todo mundo é invisível e não recebe esse tipo de toque — opt-in puro.
+    """
+    if not allow_reconnect_requests:
+        print(f"[EMAIL OPT-OUT] {to_email} não autorizou pedidos de reencontro — pulando 'remembered'")
+        return False
     first = name.split()[0]
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">🥹 Alguém lembra de você!</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">{first}, alguém lembrou de você hoje.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Que saudade boa, {first}!
+      Que saudade boa, hein?
     </p>
     <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:20px;margin:0 0 20px;">
       <p style="margin:0;color:#374151;font-size:16px;line-height:1.6;">
-        Um colega da sala <strong>{room_name}</strong> ({inst_name}) te adicionou
-        na lista de <em>"pessoas que eu lembro"</em>.<br/><br/>
-        Você fez parte da história de alguém. ❤️
+        Tem gente da sala <strong>{room_name}</strong> ({inst_name}) que ainda
+        guarda lembrança de você.<br/><br/>
+        Você fez parte da história de alguém. E isso não é pouco. ❤️
       </p>
     </div>
     <p style="color:#374151;font-size:15px;">
-      Entre no TimeMates para ver quem lembra de você e dizer oi!
+      Bora ver quem é? Pode ser hora de matar essa saudade.
     </p>
-    {_btn(BASE_URL, 'Ver quem lembra de mim', '#D4A853')}"""
-    _send(to_email, "Alguém lembra de você no TimeMates!", _base_template("Você foi lembrado!", body))
+    {_btn(BASE_URL, 'Quem lembra de mim?', '#D4A853')}
+    <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
+    <p style="color:#9CA3AF;font-size:11px;text-align:center;line-height:1.5;">
+      Você tá recebendo isso porque autorizou pedidos de reencontro nas suas configurações.
+      Quer parar? <a href="{BASE_URL}/configuracoes" style="color:#1E3A5F;">É um clique aqui</a>.
+    </p>"""
+    _send(to_email, f"{first}, alguém lembrou de você hoje", _base_template("Você foi lembrado", body))
 
 
-def send_followup_day3(to_email: str, name: str):
-    """Dia 3: convida o usuário a ver os rolês/eventos da cidade dele.
+def send_followup_day3(to_email: str, name: str, allow_reconnect_requests: bool = False):
+    """Dia 3: convida o usuário a voltar e procurar a turma — Copy V2.
 
-    Reescrito 2026-06-07: o template antigo ("Seus ex-colegas estão esperando")
-    contradizia POSITIONING.md (somos EVENTOS, não reconexão) e foi o vetor do
-    incidente de bombardeio de bounces. Novo copy é alinhado ao posicionamento
-    de eventos locais. Só dispara se _is_sendable + EMAIL_ENABLED permitirem.
+    Reescrito 2026-06-12 (Copy V2): retorna ao posicionamento de saudade/reencontro
+    com tom saudoso/brotherly. Substitui o antigo "Seus ex-colegas estão esperando"
+    com linguagem mais humana e menos agressiva.
+
+    GATE: só dispara se o usuário tiver `allow_reconnect_requests=TRUE`. Os
+    filtros _is_sendable + EMAIL_ENABLED continuam aplicados a jusante.
     """
+    if not allow_reconnect_requests:
+        print(f"[EMAIL OPT-OUT] {to_email} não autorizou toques de reencontro — pulando day3")
+        return False
     first = name.split()[0] if name else "amigo(a)"
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">Não perca os rolês de hoje, {first}! 🎉</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">{first}, faz 3 dias que você passou por aqui.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Já faz 3 dias desde que você chegou no TimeMates — bora ver o que está rolando na sua cidade?
+      A turma cresce todo dia. Bora dar uma olhada?
     </p>
     <p style="color:#374151;font-size:15px;line-height:1.6;">
-      Festas, shows, encontros, esportes, gastronomia, cultura — tudo em um lugar só.
-      Descubra eventos perto de você e bora marcar presença!
+      Talvez aquele nome que você esqueceu apareça. Talvez alguém lembre de você.
+      Saudade tem disso — chega sem avisar, mas vai embora bem mais leve quando a gente
+      mata ela junto.
     </p>
-    {_btn(BASE_URL + '/index.html', 'Ver eventos da minha cidade', '#D4A853')}
+    {_btn(BASE_URL + '/index.html', 'Achar minha galera', '#D4A853')}
     <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
-    <p style="color:#9CA3AF;font-size:12px;text-align:center;">
-      💡 Novos eventos toda semana em centenas de cidades do Brasil.
+    <p style="color:#9CA3AF;font-size:11px;text-align:center;line-height:1.5;">
+      Você tá recebendo isso porque autorizou pedidos de reencontro.
+      Não quer mais? <a href="{BASE_URL}/configuracoes" style="color:#1E3A5F;">Desativa aqui</a>.
     </p>"""
-    _send(to_email, f"Não perca os rolês de hoje na sua cidade, {first}!",
-          _base_template("Eventos perto de você", body), full_name=name)
+    _send(to_email, f"{first}, sua turma cresceu essa semana",
+          _base_template("Bora matar saudade", body), full_name=name)
 
 
-def send_followup_day7(to_email: str, name: str):
-    """Dia 7: convite para trazer amigos."""
+def send_followup_day7(to_email: str, name: str, allow_reconnect_requests: bool = False):
+    """Dia 7: chama a galera — Copy V2 (saudoso/brotherly + opt-in)."""
+    if not allow_reconnect_requests:
+        print(f"[EMAIL OPT-OUT] {to_email} não autorizou — pulando day7")
+        return False
     first = name.split()[0]
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">Traga seus amigos para o TimeMates! 🥹</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">{first}, ninguém mata saudade sozinho.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Olá, {first}! Uma semana com a gente e você ainda não trouxe ninguém?
+      Uma semana aqui, e a sua sala ainda tá meio vazia.
     </p>
     <p style="color:#374151;font-size:15px;line-height:1.6;">
-      O TimeMates fica muito melhor com mais gente. Compartilhe o link da sua sala com
-      seus ex-colegas — quanto mais pessoas entrarem, mais memórias vocês vão reviver juntos. ❤️
+      Chama a galera. Manda o link no grupo do zap antigo, naquele que ninguém manda
+      mensagem mas todo mundo lê. Você vai ver — quando um volta, o resto vem junto.
     </p>
     <div style="background:#F7F5F2;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">
-      <p style="margin:0 0 8px;color:#6B7280;font-size:13px;">Cole isso no grupo do WhatsApp:</p>
+      <p style="margin:0 0 8px;color:#6B7280;font-size:13px;">Cola isso no grupo:</p>
       <p style="margin:0;color:#374151;font-size:14px;font-style:italic;">
-        "Ei, você usa o TimeMates? É uma plataforma incrível pra reencontrar ex-colegas!<br/>
-        Entra lá: {BASE_URL}"
+        "Galera, lembra da gente? Tô no TimeMates matando saudade da nossa turma.<br/>
+        Bora? {BASE_URL}"
       </p>
     </div>
-    {_btn(BASE_URL + '/index.html', 'Abrir o TimeMates e convidar amigos', '#1E3A5F')}"""
-    _send(to_email, f"Chame seus amigos para o TimeMates, {first}!",
-          _base_template("Traga seus amigos", body), full_name=name)
+    {_btn(BASE_URL + '/index.html', 'Chamar a galera', '#1E3A5F')}
+    <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
+    <p style="color:#9CA3AF;font-size:11px;text-align:center;line-height:1.5;">
+      Recebendo porque autorizou pedidos de reencontro. <a href="{BASE_URL}/configuracoes" style="color:#1E3A5F;">Desativar</a>.
+    </p>"""
+    _send(to_email, f"{first}, chama a galera pra cá",
+          _base_template("Chama a turma", body), full_name=name)
 
 
-def send_remembered_found(to_email: str, name: str, found_name: str, room_name: str):
-    """Avisa que alguém que a pessoa lembrava entrou na sala."""
+def send_remembered_found(to_email: str, name: str, found_name: str, room_name: str,
+                           allow_reconnect_requests: bool = False):
+    """Avisa que alguém que a pessoa lembrava entrou na sala — Copy V2.
+
+    GATE: só envia se o destinatário autorizou pedidos de reencontro.
+    """
+    if not allow_reconnect_requests:
+        print(f"[EMAIL OPT-OUT] {to_email} não autorizou — pulando remembered_found")
+        return False
     first = name.split()[0]
     body = f"""
-    <h2 style="color:#1E3A5F;margin:0 0 8px;">🎉 Alguém que você lembrava apareceu!</h2>
+    <h2 style="color:#1E3A5F;margin:0 0 8px;">{first}, olha quem reapareceu.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">
-      Que surpresa boa, {first}!
+      Aquela pessoa que você guardou na memória... voltou.
     </p>
     <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:20px;margin:0 0 20px;">
-      <p style="margin:0 0 8px;color:#374151;font-size:16px;">
-        <strong>{found_name}</strong> acabou de entrar na sala <strong>{room_name}</strong>!
+      <p style="margin:0 0 8px;color:#374151;font-size:16px;line-height:1.6;">
+        <strong>{found_name}</strong> acabou de chegar na sala <strong>{room_name}</strong>.
       </p>
     </div>
     <p style="color:#374151;font-size:15px;">
-      Você havia lembrado desta pessoa na lista "Lembrados". Agora ela está lá — vai dizer oi? 😊
+      Você tinha guardado essa pessoa na sua lista de lembrados. Agora ela tá ali.
+      Bora dizer oi? Pode ser uma frase só. Às vezes é o que faltava.
     </p>
-    {_btn(BASE_URL, 'Abrir a sala')}"""
-    _send(to_email, f"{found_name} entrou na sala!", _base_template("Pessoa lembrada encontrada", body))
+    {_btn(BASE_URL, 'Dizer oi')}
+    <hr style="border:none;border-top:1px solid #E5E0D6;margin:24px 0;"/>
+    <p style="color:#9CA3AF;font-size:11px;text-align:center;">
+      Recebendo porque autorizou pedidos de reencontro. <a href="{BASE_URL}/configuracoes" style="color:#1E3A5F;">Desativar</a>.
+    </p>"""
+    _send(to_email, f"{found_name} reapareceu, {first}", _base_template("Reencontro", body))
