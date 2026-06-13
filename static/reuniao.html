@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Reunião — TimeMates</title>
+<meta name="description" content="Marca reunião com a turma. Vota datas, confirma RSVP, chama a galera."/>
+<meta name="theme-color" content="#0a0a0a"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-warm: #110b06;
+  --card: #161210;
+  --card-soft: #1f1814;
+  --border: rgba(212, 168, 83, 0.18);
+  --border-strong: rgba(212, 168, 83, 0.4);
+  --amber: #d4a853;
+  --amber-soft: #e8c06a;
+  --amber-glow: rgba(212, 168, 83, 0.35);
+  --sunset: #ff7e5f;
+  --text: #fff8e7;
+  --text-muted: rgba(255, 248, 231, 0.6);
+  --text-faint: rgba(255, 248, 231, 0.35);
+  --success: #8dd07c;
+  --danger: #e87b6b;
+  --maybe: #e8c06a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.serif {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80vw 60vh at 50% 100%,
+    rgba(255, 126, 95, 0.10) 0%,
+    rgba(212, 168, 83, 0.06) 30%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 0 22px;
+}
+
+/* ─── Top bar ─── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0 12px;
+}
+.brand {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 20px;
+  color: var(--amber);
+  letter-spacing: 0.02em;
+}
+.brand .dot { color: var(--sunset); }
+.back-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.back-btn:hover { color: var(--amber); border-color: var(--amber); }
+.spacer { width: 38px; }
+
+/* ─── Screens ─── */
+.screen { display: none; padding-bottom: 80px; animation: fadeIn 0.5s ease; }
+.screen.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Headings ─── */
+.eyebrow {
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+h1.title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 400;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+h1.title em {
+  color: var(--amber);
+  font-style: italic;
+}
+.subtitle {
+  color: var(--text-muted);
+  font-size: 15px;
+  margin-bottom: 28px;
+}
+
+/* ─── Form elements ─── */
+.field { margin-bottom: 20px; }
+.field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.field-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 6px;
+}
+input[type="text"],
+input[type="date"],
+input[type="datetime-local"],
+textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 300;
+  transition: all 0.2s;
+  outline: none;
+}
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="datetime-local"]:focus,
+textarea:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+textarea { resize: vertical; min-height: 80px; }
+
+/* Date row */
+.date-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+.date-row input { flex: 1; }
+.remove-date {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--danger);
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.add-date-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--amber);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+  transition: all 0.2s;
+}
+.add-date-btn:hover {
+  border-color: var(--amber);
+  background: rgba(212, 168, 83, 0.05);
+}
+.add-date-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Autocomplete */
+.autocomplete-wrap { position: relative; }
+.autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+}
+.autocomplete-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: rgba(212, 168, 83, 0.08); color: var(--amber); }
+
+/* ─── Buttons ─── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px 22px;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--amber) 0%, var(--amber-soft) 100%);
+  color: #1a1208;
+  box-shadow: 0 4px 18px rgba(212, 168, 83, 0.25);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(212, 168, 83, 0.35); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-secondary {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover { border-color: var(--amber); color: var(--amber); }
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.btn-ghost:hover { color: var(--amber); border-color: var(--amber); }
+
+/* ─── Detail screen ─── */
+.detail-header { margin-bottom: 22px; }
+.detail-turma {
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.detail-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 32px;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.status-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+.status-collecting { background: rgba(212, 168, 83, 0.15); color: var(--amber); border: 1px solid var(--border-strong); }
+.status-confirmed { background: rgba(141, 208, 124, 0.12); color: var(--success); border: 1px solid rgba(141, 208, 124, 0.3); }
+.status-happened { background: rgba(255, 248, 231, 0.06); color: var(--text-muted); border: 1px solid var(--border); }
+
+.section {
+  margin: 26px 0;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.section h3 {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 20px;
+  font-weight: 400;
+  margin-bottom: 14px;
+  color: var(--amber);
+}
+.section .desc {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ─── Voting ─── */
+.vote-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vote-item.voted {
+  border-color: var(--amber);
+  background: rgba(212, 168, 83, 0.08);
+}
+.vote-item-left { display: flex; align-items: center; gap: 12px; }
+.vote-check {
+  width: 22px; height: 22px;
+  border: 2px solid var(--border-strong);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.vote-item.voted .vote-check {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #1a1208;
+}
+.vote-date-label {
+  font-size: 15px;
+  color: var(--text);
+}
+.vote-tally {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.vote-tally strong { color: var(--amber); }
+
+.progress {
+  background: var(--card-soft);
+  border-radius: 8px;
+  height: 8px;
+  overflow: hidden;
+  margin: 14px 0 8px;
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber), var(--sunset));
+  transition: width 0.4s ease;
+}
+.progress-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.confirm-date-btn {
+  margin-top: 14px;
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+/* ─── Confirmed state ─── */
+.final-date-card {
+  text-align: center;
+  padding: 32px 20px;
+  background: linear-gradient(135deg, rgba(212, 168, 83, 0.08), rgba(255, 126, 95, 0.05));
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  margin: 20px 0;
+}
+.final-date-eyebrow {
+  font-size: 11px;
+  color: var(--amber);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.final-date {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 38px;
+  line-height: 1.05;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.final-date-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ─── RSVP ─── */
+.rsvp-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin: 18px 0;
+}
+.rsvp-btn {
+  padding: 14px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: all 0.2s;
+  line-height: 1.2;
+}
+.rsvp-btn .emoji { font-size: 22px; display: block; margin-bottom: 6px; }
+.rsvp-btn:hover { border-color: var(--amber); }
+.rsvp-btn.active.going { background: rgba(141, 208, 124, 0.12); border-color: var(--success); color: var(--success); }
+.rsvp-btn.active.maybe { background: rgba(232, 192, 106, 0.12); border-color: var(--maybe); color: var(--maybe); }
+.rsvp-btn.active.not_going { background: rgba(232, 123, 107, 0.10); border-color: var(--danger); color: var(--danger); }
+
+/* Plus-ones stepper */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 10px 0 18px;
+}
+.stepper-label { font-size: 14px; color: var(--text-muted); }
+.stepper-controls { display: flex; align-items: center; gap: 14px; }
+.stepper-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--amber);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.stepper-btn:hover { background: var(--amber); color: #1a1208; }
+.stepper-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.stepper-value { font-size: 18px; font-weight: 500; min-width: 24px; text-align: center; }
+
+/* ─── Attendees list ─── */
+.attendee-list { margin-top: 14px; }
+.attendee {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.attendee:last-child { border-bottom: none; }
+.attendee-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--amber), var(--sunset));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1208;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.attendee-name { font-size: 14px; color: var(--text); flex: 1; }
+.attendee-plus {
+  font-size: 12px;
+  color: var(--amber);
+  background: rgba(212, 168, 83, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* ─── Share modal ─── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.85);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  animation: fadeIn 0.2s;
+}
+.modal-backdrop.active { display: flex; }
+.modal {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--card);
+  border-top: 1px solid var(--border-strong);
+  border-radius: 22px 22px 0 0;
+  padding: 24px 22px 32px;
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.modal-handle {
+  width: 40px; height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+  margin: 0 auto 18px;
+}
+.modal-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 22px;
+  color: var(--amber);
+  text-align: center;
+  margin-bottom: 18px;
+}
+.share-grid { display: flex; flex-direction: column; gap: 10px; }
+.share-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  transition: all 0.2s;
+  text-align: left;
+}
+.share-btn:hover { border-color: var(--amber); background: rgba(212, 168, 83, 0.06); }
+.share-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.share-icon.whatsapp { background: rgba(37, 211, 102, 0.15); color: #25d366; }
+.share-icon.copy { background: rgba(212, 168, 83, 0.15); color: var(--amber); }
+.share-icon.instagram {
+  background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+  color: #fff;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--amber);
+  color: #1a1208;
+  padding: 12px 22px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 300;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(212, 168, 83, 0.3);
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* Loading & error states */
+.loading, .error-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-muted);
+}
+.error-state { color: var(--danger); }
+
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Top bar -->
+  <header class="topbar">
+    <button class="back-btn" onclick="goBack()" aria-label="Voltar">←</button>
+    <div class="brand">timemates<span class="dot">.</span></div>
+    <div class="spacer"></div>
+  </header>
+
+  <!-- ─── SCREEN: CREATE REUNIÃO ─── -->
+  <section class="screen" id="screen-create">
+    <div class="eyebrow">Reunião</div>
+    <h1 class="title serif">Bora marcar <em>com a turma!</em></h1>
+    <p class="subtitle">Joga as datas que podem rolar — a galera vota e a gente fecha.</p>
+
+    <form id="form-create" onsubmit="event.preventDefault(); criarReuniao();">
+      <div class="field">
+        <label class="field-label" for="titulo">Título</label>
+        <input type="text" id="titulo" name="titulo" required maxlength="120"
+               placeholder="Churrasco dos 20 anos / Almoço da galera"/>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="descricao">Descrição (opcional)</label>
+        <textarea id="descricao" name="descricao" maxlength="500"
+                  placeholder="Conta um detalhe pra animar — leva a família? Quem tá ajudando a organizar?"></textarea>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Quais datas?</label>
+        <div id="date-list"></div>
+        <button type="button" class="add-date-btn" id="add-date-btn" onclick="addDate()">
+          + adicionar outra data
+        </button>
+        <div class="field-hint">Coloca até 6 opções. Quem for vai marcar quais consegue.</div>
+      </div>
+
+      <div class="field autocomplete-wrap">
+        <label class="field-label" for="venue">Onde?</label>
+        <input type="text" id="venue" name="venue" maxlength="200"
+               placeholder="Bar do Zé / Casa do João / Restaurante X"/>
+        <div class="field-hint" style="margin-top:10px">Cidade</div>
+        <input type="text" id="cidade" name="cidade" autocomplete="off"
+               placeholder="Buscar cidade…"
+               oninput="searchCidades(this.value)"/>
+        <div class="autocomplete-list" id="cidade-list"></div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="btn-criar">
+        Criar reunião
+      </button>
+    </form>
+  </section>
+
+  <!-- ─── SCREEN: DETAIL ─── -->
+  <section class="screen" id="screen-detail">
+    <div id="detail-loading" class="loading">
+      <p>Carregando reunião…</p>
+    </div>
+    <div id="detail-error" class="error-state" style="display:none">
+      <p>Não rolou achar essa reunião. Tenta de novo?</p>
+    </div>
+    <div id="detail-content" style="display:none">
+      <div class="detail-header">
+        <div class="detail-turma" id="detail-turma-name">—</div>
+        <h1 class="detail-title serif" id="detail-title">—</h1>
+        <span class="status-badge" id="detail-status">—</span>
+      </div>
+
+      <div class="section" id="section-desc" style="display:none">
+        <p class="desc" id="detail-desc"></p>
+      </div>
+
+      <!-- Collecting votes block -->
+      <div class="section" id="section-voting" style="display:none">
+        <h3>Vota nas datas que você tá livre</h3>
+        <p class="desc" style="margin-bottom:14px">Marca todas que dá pra você. Quanto mais opções, melhor a chance de fechar a galera toda.</p>
+        <div id="voting-list"></div>
+        <div class="progress"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+        <div class="progress-label" id="progress-label">0 votos coletados</div>
+
+        <div id="organizer-confirm" style="display:none; margin-top:18px">
+          <p class="desc" style="margin-bottom:10px"><strong style="color:var(--amber)">Você é o organizador.</strong> Quando achar que tá bom, escolhe a data final:</p>
+          <div id="confirm-date-list"></div>
+        </div>
+      </div>
+
+      <!-- Confirmed block -->
+      <div class="section" id="section-confirmed" style="display:none; padding:0; border:none; background:none">
+        <div class="final-date-card">
+          <div class="final-date-eyebrow">Data confirmada</div>
+          <div class="final-date serif" id="final-date">—</div>
+          <div class="final-date-sub" id="final-date-sub">—</div>
+        </div>
+
+        <div class="section">
+          <h3>Você vai?</h3>
+          <div class="rsvp-buttons">
+            <button class="rsvp-btn going" data-rsvp="going" onclick="setRSVP('going')">
+              <span class="emoji">🙌</span>Tô dentro!
+            </button>
+            <button class="rsvp-btn maybe" data-rsvp="maybe" onclick="setRSVP('maybe')">
+              <span class="emoji">🤔</span>Talvez
+            </button>
+            <button class="rsvp-btn not_going" data-rsvp="not_going" onclick="setRSVP('not_going')">
+              <span class="emoji">😔</span>Da próxima
+            </button>
+          </div>
+
+          <div class="stepper" id="plus-one-stepper" style="display:none">
+            <div class="stepper-label">Vai levar alguém? (+1?)</div>
+            <div class="stepper-controls">
+              <button class="stepper-btn" onclick="changePlusOnes(-1)" id="plus-minus">−</button>
+              <span class="stepper-value" id="plus-value">0</span>
+              <button class="stepper-btn" onclick="changePlusOnes(1)" id="plus-plus">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Quem já confirmou</h3>
+          <div class="attendee-list" id="attendee-list">
+            <p class="desc" id="no-attendees">Ainda ninguém respondeu. Chama a galera!</p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="shareWhatsApp()">
+            💬 WhatsApp
+          </button>
+          <button class="btn btn-primary" onclick="openShareModal()">
+            Chamar pra reunião
+          </button>
+        </div>
+      </div>
+
+      <!-- Happened block -->
+      <div class="section" id="section-happened" style="display:none">
+        <h3>Essa reunião já rolou</h3>
+        <p class="desc">Espero que tenha sido massa. Cria a próxima quando bater a saudade.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ─── SHARE MODAL ─── -->
+<div class="modal-backdrop" id="share-modal" onclick="closeShareModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title serif">Chamar a galera</div>
+    <div class="share-grid">
+      <button class="share-btn" onclick="shareWhatsApp()">
+        <div class="share-icon whatsapp">💬</div>
+        <div>
+          <div>WhatsApp</div>
+          <div style="font-size:12px; color:var(--text-faint)">Mensagem pronta pra mandar</div>
+        </div>
+      </button>
+      <button class="share-btn" onclick="copyShareLink()">
+        <div class="share-icon copy">🔗</div>
+        <div>
+          <div>Copiar link</div>
+          <div style="font-size:12px; color:var(--text-faint)">Cola onde quiser</div>
+        </div>
+      </button>
+      <button class="share-btn" onclick="shareInstagram()">
+        <div class="share-icon instagram">📸</div>
+        <div>
+          <div>Story do Instagram</div>
+          <div style="font-size:12px; color:var(--text-faint)">Bota nos Stories</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   REUNIÃO BUTTON — Frontend
+   ═══════════════════════════════════════════════ */
+
+const API = '';
+let STATE = {
+  mode: 'create', // 'create' | 'detail'
+  reuniaoId: null,
+  turmaSlug: null,
+  reuniao: null,
+  myVotes: new Set(),
+  myRsvp: null,
+  plusOnes: 0,
+  isOrganizer: false,
+  cidadeSelected: null,
+};
+
+/* ─── Routing ─── */
+function routeFromUrl() {
+  const path = window.location.pathname;
+  const params = new URLSearchParams(window.location.search);
+  if (path === '/reuniao/nova') {
+    STATE.mode = 'create';
+    STATE.turmaSlug = params.get('turma');
+    showScreen('screen-create');
+    initCreateForm();
+  } else {
+    const m = path.match(/\/reuniao\/(\d+)/);
+    if (m) {
+      STATE.mode = 'detail';
+      STATE.reuniaoId = parseInt(m[1], 10);
+      showScreen('screen-detail');
+      loadReuniao();
+    } else {
+      showScreen('screen-create');
+      initCreateForm();
+    }
+  }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function goBack() {
+  if (STATE.turmaSlug) {
+    window.location.href = `/turma/${STATE.turmaSlug}`;
+  } else if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    window.location.href = '/';
+  }
+}
+
+/* ─── Toast ─── */
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ─── CREATE FORM ─── */
+function initCreateForm() {
+  // start with 2 date inputs
+  const list = document.getElementById('date-list');
+  list.innerHTML = '';
+  addDate();
+  addDate();
+}
+
+function addDate() {
+  const list = document.getElementById('date-list');
+  if (list.children.length >= 6) return;
+  const row = document.createElement('div');
+  row.className = 'date-row';
+  row.innerHTML = `
+    <input type="datetime-local" class="date-input" required/>
+    <button type="button" class="remove-date" aria-label="Remover">×</button>
+  `;
+  row.querySelector('.remove-date').addEventListener('click', () => {
+    if (list.children.length > 1) {
+      row.remove();
+      updateAddBtn();
+    }
+  });
+  list.appendChild(row);
+  updateAddBtn();
+}
+
+function updateAddBtn() {
+  const list = document.getElementById('date-list');
+  document.getElementById('add-date-btn').disabled = list.children.length >= 6;
+}
+
+/* ─── Cidade autocomplete ─── */
+let cidadeTimer = null;
+async function searchCidades(q) {
+  STATE.cidadeSelected = null;
+  const listEl = document.getElementById('cidade-list');
+  if (!q || q.length < 2) {
+    listEl.style.display = 'none';
+    return;
+  }
+  clearTimeout(cidadeTimer);
+  cidadeTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`${API}/api/cidades/search?q=${encodeURIComponent(q)}&limit=8`);
+      if (!r.ok) throw new Error('search failed');
+      const data = await r.json();
+      const items = data.cidades || data.results || data || [];
+      if (!items.length) { listEl.style.display = 'none'; return; }
+      listEl.innerHTML = items.map(c => {
+        const label = c.nome ? `${c.nome}${c.uf ? ' - ' + c.uf : ''}` : (c.label || c.name || '');
+        return `<div class="autocomplete-item" data-id="${c.id || ''}" data-label="${label}">${label}</div>`;
+      }).join('');
+      listEl.style.display = 'block';
+      listEl.querySelectorAll('.autocomplete-item').forEach(it => {
+        it.addEventListener('click', () => {
+          document.getElementById('cidade').value = it.dataset.label;
+          STATE.cidadeSelected = { id: it.dataset.id, label: it.dataset.label };
+          listEl.style.display = 'none';
+        });
+      });
+    } catch (err) {
+      listEl.style.display = 'none';
+    }
+  }, 250);
+}
+
+/* ─── Criar reunião ─── */
+async function criarReuniao() {
+  const btn = document.getElementById('btn-criar');
+  btn.disabled = true;
+  btn.textContent = 'Criando…';
+
+  const titulo = document.getElementById('titulo').value.trim();
+  const descricao = document.getElementById('descricao').value.trim();
+  const venue = document.getElementById('venue').value.trim();
+  const cidade = document.getElementById('cidade').value.trim();
+  const dates = Array.from(document.querySelectorAll('.date-input'))
+    .map(i => i.value)
+    .filter(Boolean);
+
+  if (!titulo || !dates.length) {
+    toast('Coloca pelo menos um título e uma data');
+    btn.disabled = false;
+    btn.textContent = 'Criar reunião';
+    return;
+  }
+
+  const body = {
+    titulo,
+    descricao: descricao || null,
+    turma_slug: STATE.turmaSlug,
+    proposed_dates: dates,
+    venue: venue || null,
+    cidade: cidade || null,
+    cidade_id: STATE.cidadeSelected ? STATE.cidadeSelected.id : null,
+  };
+
+  try {
+    const r = await fetch(`${API}/api/reunioes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Erro ao criar reunião');
+    }
+    const data = await r.json();
+    toast('Reunião criada!');
+    setTimeout(() => {
+      window.location.href = `/reuniao/${data.id || data.reuniao_id}`;
+    }, 600);
+  } catch (err) {
+    toast(err.message || 'Não rolou criar');
+    btn.disabled = false;
+    btn.textContent = 'Criar reunião';
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   DETAIL SCREEN
+   ═══════════════════════════════════════════════ */
+
+async function loadReuniao() {
+  document.getElementById('detail-loading').style.display = 'block';
+  document.getElementById('detail-error').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'none';
+
+  try {
+    const r = await fetch(`${API}/api/reunioes/${STATE.reuniaoId}`, { credentials: 'include' });
+    if (!r.ok) throw new Error('Reunião não encontrada');
+    const data = await r.json();
+    STATE.reuniao = data;
+    STATE.isOrganizer = !!data.is_organizer;
+    STATE.myVotes = new Set((data.my_votes || []).map(String));
+    STATE.myRsvp = data.my_rsvp || null;
+    STATE.plusOnes = data.my_plus_ones || 0;
+    STATE.turmaSlug = data.turma_slug || STATE.turmaSlug;
+    renderReuniao();
+  } catch (err) {
+    document.getElementById('detail-loading').style.display = 'none';
+    document.getElementById('detail-error').style.display = 'block';
+  }
+}
+
+function renderReuniao() {
+  const r = STATE.reuniao;
+  document.getElementById('detail-loading').style.display = 'none';
+  document.getElementById('detail-content').style.display = 'block';
+
+  document.getElementById('detail-turma-name').textContent = r.turma_label || r.turma_name || 'Turma';
+  document.getElementById('detail-title').textContent = r.titulo || 'Reunião';
+
+  if (r.descricao) {
+    document.getElementById('section-desc').style.display = 'block';
+    document.getElementById('detail-desc').textContent = r.descricao;
+  }
+
+  // status badge
+  const badge = document.getElementById('detail-status');
+  const status = r.status || 'collecting_votes';
+  badge.className = 'status-badge';
+  if (status === 'collecting_votes') {
+    badge.classList.add('status-collecting');
+    badge.textContent = 'Coletando votos';
+    renderVoting();
+  } else if (status === 'confirmed') {
+    badge.classList.add('status-confirmed');
+    badge.textContent = 'Confirmada';
+    renderConfirmed();
+  } else if (status === 'happened') {
+    badge.classList.add('status-happened');
+    badge.textContent = 'Já aconteceu';
+    document.getElementById('section-happened').style.display = 'block';
+  }
+}
+
+/* ─── Voting ─── */
+function renderVoting() {
+  document.getElementById('section-voting').style.display = 'block';
+  const r = STATE.reuniao;
+  const dates = r.proposed_dates || [];
+  const tally = r.vote_tally || {};
+  const totalVoters = r.total_voters || 0;
+
+  const list = document.getElementById('voting-list');
+  list.innerHTML = dates.map(d => {
+    const dateId = String(d.id || d.date || d);
+    const dateVal = d.date || d;
+    const voted = STATE.myVotes.has(dateId);
+    const count = tally[dateId] || 0;
+    return `
+      <div class="vote-item ${voted ? 'voted' : ''}" data-id="${dateId}" onclick="toggleVote('${dateId}')">
+        <div class="vote-item-left">
+          <div class="vote-check">${voted ? '✓' : ''}</div>
+          <div class="vote-date-label">${fmtDateLong(dateVal)}</div>
+        </div>
+        <div class="vote-tally"><strong>${count}</strong> ${count === 1 ? 'voto' : 'votos'}</div>
+      </div>
+    `;
+  }).join('');
+
+  const maxVotes = Math.max(1, ...dates.map(d => tally[String(d.id || d.date || d)] || 0));
+  document.getElementById('progress-bar').style.width = Math.min(100, (totalVoters / Math.max(1, r.turma_members || 10)) * 100) + '%';
+  document.getElementById('progress-label').textContent = `${totalVoters} ${totalVoters === 1 ? 'voto coletado' : 'votos coletados'}`;
+
+  if (STATE.isOrganizer) {
+    document.getElementById('organizer-confirm').style.display = 'block';
+    const confirmList = document.getElementById('confirm-date-list');
+    confirmList.innerHTML = dates.map(d => {
+      const dateId = String(d.id || d.date || d);
+      const dateVal = d.date || d;
+      const count = tally[dateId] || 0;
+      return `
+        <button class="btn btn-secondary confirm-date-btn" onclick="confirmDate('${dateId}')">
+          Confirmar ${fmtDateShort(dateVal)} (${count} ${count === 1 ? 'voto' : 'votos'})
+        </button>
+      `;
+    }).join('');
+  }
+}
+
+async function toggleVote(dateId) {
+  const voted = STATE.myVotes.has(dateId);
+  try {
+    const r = await fetch(`${API}/api/reunioes/${STATE.reuniaoId}/vote`, {
+      method: voted ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ date_id: dateId }),
+    });
+    if (!r.ok) throw new Error('vote failed');
+    if (voted) STATE.myVotes.delete(dateId);
+    else STATE.myVotes.add(dateId);
+    loadReuniao(); // refetch tallies
+  } catch (err) {
+    toast('Não rolou registrar o voto');
+  }
+}
+
+async function confirmDate(dateId) {
+  if (!confirm('Confirmar essa data como a oficial?')) return;
+  try {
+    const r = await fetch(`${API}/api/reunioes/${STATE.reuniaoId}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ date_id: dateId }),
+    });
+    if (!r.ok) throw new Error('confirm failed');
+    toast('Data confirmada!');
+    setTimeout(() => loadReuniao(), 500);
+  } catch (err) {
+    toast('Não rolou confirmar');
+  }
+}
+
+/* ─── Confirmed ─── */
+function renderConfirmed() {
+  document.getElementById('section-voting').style.display = 'none';
+  document.getElementById('section-confirmed').style.display = 'block';
+
+  const r = STATE.reuniao;
+  document.getElementById('final-date').textContent = fmtDateLong(r.final_date);
+  document.getElementById('final-date-sub').textContent = [r.venue, r.cidade].filter(Boolean).join(' · ') || 'Local a combinar';
+
+  // mark current rsvp
+  document.querySelectorAll('.rsvp-btn').forEach(b => {
+    b.classList.remove('active');
+    if (b.dataset.rsvp === STATE.myRsvp) b.classList.add('active');
+  });
+
+  // plus-ones visible only if going
+  document.getElementById('plus-one-stepper').style.display = STATE.myRsvp === 'going' ? 'flex' : 'none';
+  document.getElementById('plus-value').textContent = STATE.plusOnes;
+  document.getElementById('plus-minus').disabled = STATE.plusOnes <= 0;
+  document.getElementById('plus-plus').disabled = STATE.plusOnes >= 5;
+
+  // attendees
+  const att = (r.attendees || []).filter(a => a.rsvp === 'going');
+  const list = document.getElementById('attendee-list');
+  if (!att.length) {
+    list.innerHTML = '<p class="desc" id="no-attendees">Ainda ninguém respondeu. Chama a galera!</p>';
+  } else {
+    list.innerHTML = att.map(a => {
+      const initial = (a.name || '?').charAt(0).toUpperCase();
+      const plus = a.plus_ones > 0 ? `<span class="attendee-plus">+${a.plus_ones}</span>` : '';
+      return `
+        <div class="attendee">
+          <div class="attendee-avatar">${initial}</div>
+          <div class="attendee-name">${a.name || 'Alguém'}</div>
+          ${plus}
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+async function setRSVP(rsvp) {
+  STATE.myRsvp = rsvp;
+  if (rsvp !== 'going') STATE.plusOnes = 0;
+  try {
+    const r = await fetch(`${API}/api/reunioes/${STATE.reuniaoId}/rsvp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ rsvp, plus_ones: STATE.plusOnes }),
+    });
+    if (!r.ok) throw new Error('rsvp failed');
+    toast(rsvp === 'going' ? 'Tá confirmado!' : rsvp === 'maybe' ? 'Anotado!' : 'Tudo bem, próxima!');
+    loadReuniao();
+  } catch (err) {
+    toast('Não rolou salvar');
+  }
+}
+
+async function changePlusOnes(delta) {
+  const next = Math.max(0, Math.min(5, STATE.plusOnes + delta));
+  if (next === STATE.plusOnes) return;
+  STATE.plusOnes = next;
+  document.getElementById('plus-value').textContent = next;
+  document.getElementById('plus-minus').disabled = next <= 0;
+  document.getElementById('plus-plus').disabled = next >= 5;
+  // debounce
+  clearTimeout(window._plusTimer);
+  window._plusTimer = setTimeout(() => setRSVP('going'), 400);
+}
+
+/* ─── Share ─── */
+function openShareModal() {
+  document.getElementById('share-modal').classList.add('active');
+}
+function closeShareModal(e) {
+  if (e && e.target.id !== 'share-modal') return;
+  document.getElementById('share-modal').classList.remove('active');
+}
+
+function buildShareMessage() {
+  const r = STATE.reuniao || {};
+  const turmaLabel = r.turma_label || r.turma_name || 'Turma';
+  const dataStr = r.final_date ? fmtDateLong(r.final_date) : 'em breve';
+  const url = `${window.location.origin}/reuniao/${STATE.reuniaoId}`;
+  return `Tá rolando reunião da ${turmaLabel}! ${dataStr}. Te espero, viu? ${url}`;
+}
+
+function shareWhatsApp() {
+  const msg = buildShareMessage();
+  const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(waUrl, '_blank');
+  closeShareModal({ target: { id: 'share-modal' } });
+}
+
+async function copyShareLink() {
+  const msg = buildShareMessage();
+  try {
+    await navigator.clipboard.writeText(msg);
+    toast('Copiado! Cola onde quiser.');
+  } catch (err) {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = msg;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Copiado!');
+  }
+  closeShareModal({ target: { id: 'share-modal' } });
+}
+
+function shareInstagram() {
+  // Native share if available with image-style intent — fallback to copy
+  if (navigator.share) {
+    navigator.share({
+      title: STATE.reuniao?.titulo || 'Reunião TimeMates',
+      text: buildShareMessage(),
+      url: `${window.location.origin}/reuniao/${STATE.reuniaoId}`,
+    }).catch(() => {});
+  } else {
+    copyShareLink();
+    toast('Link copiado — cola no Story!');
+  }
+  closeShareModal({ target: { id: 'share-modal' } });
+}
+
+/* ─── Date formatting ─── */
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+function fmtDateLong(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  const hasTime = iso.length > 10 && !iso.endsWith('00:00:00');
+  const day = d.getDate();
+  const month = MESES[d.getMonth()];
+  const weekday = DIAS[d.getDay()];
+  let s = `${weekday}, ${day} de ${month}`;
+  if (hasTime) {
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    s += ` · ${hh}h${mm !== '00' ? mm : ''}`;
+  }
+  return s;
+}
+
+function fmtDateShort(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
+/* ─── Init ─── */
+routeFromUrl();
+</script>
+
+</body>
+</html>

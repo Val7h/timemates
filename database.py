@@ -847,6 +847,48 @@ class UserConsent(Base):
     user_agent_hash = Column(String(64), nullable=True)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Reunião Button — turma encontros (churrasco/dinner/etc.)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TurmaReuniao(Base):
+    """Reuniao planejada de uma turma."""
+    __tablename__ = "turma_reunioes"
+    id = Column(Integer, primary_key=True)
+    turma_id = Column(Integer, ForeignKey("turmas.id"), nullable=False, index=True)
+    organizer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    proposed_dates = Column(JSON, default=list)  # list of ISO dates: ["2026-07-20", ...]
+    suggested_venue = Column(String(300), nullable=True)
+    venue_city = Column(String(100), nullable=True)
+    final_date = Column(DateTime, nullable=True)  # once confirmed
+    status = Column(String(20), default='collecting_votes')  # 'collecting_votes', 'confirmed', 'happened', 'cancelled'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TurmaReuniaoVote(Base):
+    """Voto de turma membro numa data proposta."""
+    __tablename__ = "turma_reuniao_votes"
+    id = Column(Integer, primary_key=True)
+    reuniao_id = Column(Integer, ForeignKey("turma_reunioes.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    date_voted = Column(String(20), nullable=False)  # YYYY-MM-DD
+    available = Column(Boolean, default=True)  # True=available, False=cant make it
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TurmaReuniaoRSVP(Base):
+    """Quem vai (final RSVP)."""
+    __tablename__ = "turma_reuniao_rsvps"
+    id = Column(Integer, primary_key=True)
+    reuniao_id = Column(Integer, ForeignKey("turma_reunioes.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String(20), default='confirmed')  # 'confirmed', 'maybe', 'no'
+    plus_ones = Column(Integer, default=0)  # leva 1, 2 convidados
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def get_db():
     db = SessionLocal()
     try:

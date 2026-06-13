@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Turma — timeMates</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #e8e8f0;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container { max-width: 720px; margin: 0 auto; padding: 20px 16px 80px; }
+
+    /* HEADER */
+    .header {
+      background: rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 22px 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .header-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #aab; text-decoration: none; font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .header-back:hover { color: #fff; }
+    .turma-name {
+      font-size: 26px; font-weight: 700; line-height: 1.2;
+      margin-bottom: 6px; color: #fff;
+    }
+    .turma-meta {
+      color: #b8b8d0; font-size: 14px; margin-bottom: 12px;
+    }
+    .turma-stats {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      font-size: 13px; color: #ddd;
+    }
+    .stat-chip {
+      background: rgba(255,255,255,0.08);
+      padding: 6px 12px; border-radius: 999px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .lock-banner {
+      margin-top: 14px; padding: 10px 14px;
+      background: rgba(255,193,7,0.12);
+      border: 1px solid rgba(255,193,7,0.3);
+      border-radius: 12px; font-size: 13px; color: #ffd966;
+    }
+
+    /* ACTIONS GRID */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px; margin-bottom: 24px;
+    }
+    .action-btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 20px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      color: #fff; text-decoration: none;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 600;
+    }
+    .action-btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.12); }
+    .action-btn.locked { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    .action-emoji { font-size: 32px; line-height: 1; }
+    .action-label { color: #fff; }
+    .action-sub { font-size: 11px; color: #b8b8d0; font-weight: 400; }
+
+    /* SECTIONS */
+    .section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px; padding: 18px 18px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .section-title {
+      font-size: 16px; font-weight: 700;
+      margin-bottom: 12px; color: #fff;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-link {
+      color: #6cc7ff; font-size: 13px; text-decoration: none;
+      margin-left: auto; font-weight: 500;
+    }
+    .section-link:hover { text-decoration: underline; }
+
+    /* MURAL PREVIEW */
+    .mural-list { display: flex; flex-direction: column; gap: 10px; }
+    .mural-item {
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px; padding: 12px 14px;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .mural-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;
+    }
+    .mural-content { flex: 1; min-width: 0; }
+    .mural-author { font-size: 13px; font-weight: 600; color: #fff; }
+    .mural-text {
+      font-size: 14px; color: #d0d0e8; margin-top: 4px;
+      overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .mural-date { font-size: 11px; color: #888; margin-top: 4px; }
+
+    /* REUNIAO */
+    .reuniao-card { text-align: center; padding: 8px 0; }
+    .reuniao-date-big {
+      font-size: 34px; font-weight: 800; color: #fff;
+      line-height: 1; margin: 8px 0 4px;
+    }
+    .reuniao-month {
+      font-size: 14px; color: #6cc7ff;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .reuniao-where { font-size: 14px; color: #ccc; margin: 10px 0; }
+    .rsvp-row { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+    .rsvp-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff; padding: 8px 14px; border-radius: 999px;
+      font-size: 13px; cursor: pointer; font-weight: 500;
+    }
+    .rsvp-btn:hover { background: rgba(255,255,255,0.18); }
+    .rsvp-btn.yes { border-color: #4ade80; color: #4ade80; }
+    .rsvp-btn.no { border-color: #f87171; color: #f87171; }
+
+    .empty-cta {
+      text-align: center; padding: 16px;
+      background: rgba(108,199,255,0.08);
+      border-radius: 12px;
+    }
+    .empty-cta p { color: #d0d0e8; margin-bottom: 12px; font-size: 14px; }
+    .cta-btn {
+      background: #6cc7ff; color: #0f3460;
+      padding: 10px 22px; border-radius: 999px;
+      font-weight: 700; text-decoration: none;
+      display: inline-block; font-size: 14px;
+    }
+    .cta-btn:hover { background: #93d6ff; }
+
+    /* IN MEMORIAM */
+    .memoriam {
+      background: rgba(0,0,0,0.25);
+      border-radius: 16px; padding: 20px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+    }
+    .candle { font-size: 40px; margin-bottom: 8px; }
+    .memoriam-title {
+      font-size: 15px; color: #d0d0e8;
+      font-style: italic; margin-bottom: 12px;
+    }
+    .memoriam-names {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center;
+    }
+    .memoriam-name {
+      background: rgba(255,255,255,0.06);
+      padding: 6px 14px; border-radius: 999px;
+      font-size: 13px; color: #eee;
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000; padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #16213e;
+      border-radius: 18px; padding: 24px;
+      max-width: 420px; width: 100%;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .modal h3 { margin-bottom: 6px; color: #fff; font-size: 18px; }
+    .modal p { color: #b8b8d0; font-size: 13px; margin-bottom: 16px; }
+    .modal input {
+      width: 100%; padding: 12px 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px; color: #fff;
+      font-size: 14px; margin-bottom: 12px;
+    }
+    .modal input:focus { outline: none; border-color: #6cc7ff; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .modal-btn {
+      padding: 10px 18px; border-radius: 999px;
+      border: none; cursor: pointer; font-weight: 600; font-size: 14px;
+    }
+    .modal-btn.cancel { background: transparent; color: #aaa; }
+    .modal-btn.submit { background: #6cc7ff; color: #0f3460; }
+
+    .loading, .empty-state {
+      text-align: center; color: #888; padding: 20px;
+      font-size: 14px;
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 10px; height: 60px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- 1. HEADER -->
+    <header class="header">
+      <a href="/" class="header-back">← voltar</a>
+      <h1 class="turma-name" id="turma-name">Carregando...</h1>
+      <div class="turma-meta" id="turma-meta">—</div>
+      <div class="turma-stats">
+        <span class="stat-chip" id="members-chip">👥 <span id="members-count">0</span> colegas verificados</span>
+        <span class="stat-chip" id="unlock-chip" style="display:none;">🔓 Mural desbloqueado</span>
+      </div>
+      <div class="lock-banner" id="lock-banner" style="display:none;">
+        🔒 Mural trancado — faltam <strong><span id="lock-remaining">?</span></strong> verificações para 60% da turma desbloquear o Mural da Saudade.
+      </div>
+    </header>
+
+    <!-- 2. ACTION BUTTONS -->
+    <div class="actions-grid">
+      <a class="action-btn" id="btn-mural" href="#">
+        <span class="action-emoji">🎨</span>
+        <span class="action-label">Mural da Saudade</span>
+        <span class="action-sub">memórias da turma</span>
+      </a>
+      <a class="action-btn" id="btn-reuniao" href="#">
+        <span class="action-emoji">🍻</span>
+        <span class="action-label">Marcar Reunião</span>
+        <span class="action-sub">encontros presenciais</span>
+      </a>
+      <a class="action-btn" id="btn-cade" href="javascript:void(0)" onclick="openCadeModal()">
+        <span class="action-emoji">🔍</span>
+        <span class="action-label">Cadê o(a)...</span>
+        <span class="action-sub">procurar colega sumido</span>
+      </a>
+      <a class="action-btn" id="btn-tunel" href="#">
+        <span class="action-emoji">🎬</span>
+        <span class="action-label">Túnel do Tempo</span>
+        <span class="action-sub">reconectar via foto antiga</span>
+      </a>
+    </div>
+
+    <!-- 3. SECTION: LATEST FROM MURAL -->
+    <section class="section">
+      <div class="section-title">
+        🎨 Últimas do Mural
+        <a class="section-link" id="mural-link" href="#">ver tudo →</a>
+      </div>
+      <div class="mural-list" id="mural-list">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </section>
+
+    <!-- 4. SECTION: NEXT REUNIÃO -->
+    <section class="section">
+      <div class="section-title">
+        🍻 Próxima Reunião
+        <a class="section-link" id="reuniao-link" href="#">organizar →</a>
+      </div>
+      <div id="reuniao-content">
+        <div class="skeleton"></div>
+      </div>
+    </section>
+
+    <!-- 5. SECTION: IN MEMORIAM -->
+    <section class="memoriam" id="memoriam-section" style="display:none;">
+      <div class="candle">🕯️</div>
+      <div class="memoriam-title">Quem partiu, mas continua na memória</div>
+      <div class="memoriam-names" id="memoriam-names"></div>
+    </section>
+
+  </div>
+
+  <!-- MODAL: Cadê -->
+  <div class="modal-overlay" id="cade-modal">
+    <div class="modal">
+      <h3>🔍 Cadê o(a)...</h3>
+      <p>Quem está sumido? A gente avisa quando alguém da turma encontrar essa pessoa.</p>
+      <input type="text" id="cade-name" placeholder="Nome completo (ou apelido)" autocomplete="off" />
+      <input type="text" id="cade-hint" placeholder="Dica: última cidade conhecida, profissão..." autocomplete="off" />
+      <div class="modal-actions">
+        <button class="modal-btn cancel" onclick="closeCadeModal()">Cancelar</button>
+        <button class="modal-btn submit" onclick="submitCade()">Procurar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SLUG = window.location.pathname.split('/').filter(Boolean).pop() || '';
+    let turmaData = null;
+
+    // -------- INIT --------
+    async function init() {
+      if (!SLUG) {
+        document.getElementById('turma-name').textContent = 'Turma não encontrada';
+        return;
+      }
+
+      // wire action buttons
+      document.getElementById('btn-mural').href = `/mural/${SLUG}`;
+      document.getElementById('btn-reuniao').href = `/reuniao/nova?turma=${SLUG}`;
+      document.getElementById('btn-tunel').href = `/tunel?turma=${SLUG}`;
+      document.getElementById('mural-link').href = `/mural/${SLUG}`;
+      document.getElementById('reuniao-link').href = `/reuniao/nova?turma=${SLUG}`;
+
+      await Promise.all([
+        loadTurma(),
+        loadMural(),
+        loadReuniao(),
+        loadMemoriam()
+      ]);
+    }
+
+    // -------- 1. HEADER --------
+    async function loadTurma() {
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}`);
+        if (!res.ok) throw new Error('not found');
+        const t = await res.json();
+        turmaData = t;
+
+        document.getElementById('turma-name').textContent = t.name || t.nome || 'Turma';
+        const ano = t.ano || t.year || '';
+        const escola = t.escola || t.school || '';
+        const cidade = t.cidade || t.city || '';
+        document.getElementById('turma-meta').textContent =
+          [ano, escola, cidade].filter(Boolean).join(' • ') || '—';
+
+        const verified = t.verified_members ?? t.members_verified ?? t.members_count ?? 0;
+        document.getElementById('members-count').textContent = verified;
+
+        // unlock state
+        const unlocked = t.mural_unlocked ?? t.unlocked ?? false;
+        const pctNeeded = t.unlock_percent ?? 60;
+        const totalEstimated = t.total_estimated ?? t.size ?? 0;
+        if (unlocked) {
+          document.getElementById('unlock-chip').style.display = 'inline-flex';
+        } else if (totalEstimated > 0) {
+          const need = Math.ceil(totalEstimated * pctNeeded / 100) - verified;
+          if (need > 0) {
+            document.getElementById('lock-banner').style.display = 'block';
+            document.getElementById('lock-remaining').textContent = need;
+            document.getElementById('btn-mural').classList.add('locked');
+          }
+        }
+      } catch (e) {
+        document.getElementById('turma-name').textContent = 'Turma';
+        document.getElementById('turma-meta').textContent = SLUG;
+      }
+    }
+
+    // -------- 3. MURAL PREVIEW --------
+    async function loadMural() {
+      const list = document.getElementById('mural-list');
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/mural?limit=3`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const items = data.items || data.memories || data || [];
+        if (!items.length) {
+          list.innerHTML = `<div class="empty-state">Ninguém postou ainda. Seja o primeiro!</div>`;
+          return;
+        }
+        list.innerHTML = items.slice(0, 3).map(m => {
+          const author = m.author_name || m.author || 'Anônimo';
+          const initial = author.charAt(0).toUpperCase();
+          const text = m.text || m.content || m.message || '';
+          const date = m.created_at ? formatDate(m.created_at) : '';
+          return `
+            <div class="mural-item">
+              <div class="mural-avatar">${initial}</div>
+              <div class="mural-content">
+                <div class="mural-author">${escapeHtml(author)}</div>
+                <div class="mural-text">${escapeHtml(text)}</div>
+                <div class="mural-date">${date}</div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch {
+        list.innerHTML = `<div class="empty-state">O mural ainda está vazio.</div>`;
+      }
+    }
+
+    // -------- 4. NEXT REUNIAO --------
+    async function loadReuniao() {
+      const wrap = document.getElementById('reuniao-content');
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/reuniao/next`);
+        if (!res.ok) throw new Error();
+        const r = await res.json();
+
+        if (r.status === 'confirmed' && r.date) {
+          const d = new Date(r.date);
+          const day = d.getDate();
+          const month = d.toLocaleString('pt-BR', { month: 'long' });
+          wrap.innerHTML = `
+            <div class="reuniao-card">
+              <div class="reuniao-month">${month} ${d.getFullYear()}</div>
+              <div class="reuniao-date-big">${day}</div>
+              <div class="reuniao-where">📍 ${escapeHtml(r.location || r.where || 'local a definir')}</div>
+              <div class="rsvp-row">
+                <button class="rsvp-btn yes" onclick="rsvp('yes')">✓ Vou</button>
+                <button class="rsvp-btn" onclick="rsvp('maybe')">? Talvez</button>
+                <button class="rsvp-btn no" onclick="rsvp('no')">✕ Não posso</button>
+              </div>
+            </div>`;
+        } else if (r.status === 'collecting_votes' || r.status === 'voting') {
+          wrap.innerHTML = `
+            <div class="empty-cta">
+              <p>🗳️ Tem uma votação em andamento. Vote nas datas propostas!</p>
+              <a class="cta-btn" href="/reuniao/${r.id || SLUG}">Ver opções</a>
+            </div>`;
+        } else {
+          wrap.innerHTML = `
+            <div class="empty-cta">
+              <p>Nenhuma reunião marcada. Bora marcar a primeira?</p>
+              <a class="cta-btn" href="/reuniao/nova?turma=${SLUG}">🍻 Marcar agora</a>
+            </div>`;
+        }
+      } catch {
+        wrap.innerHTML = `
+          <div class="empty-cta">
+            <p>Nenhuma reunião marcada. Bora marcar a primeira?</p>
+            <a class="cta-btn" href="/reuniao/nova?turma=${SLUG}">🍻 Marcar agora</a>
+          </div>`;
+      }
+    }
+
+    // -------- 5. IN MEMORIAM --------
+    async function loadMemoriam() {
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/memoriam`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const names = data.names || data.items || data || [];
+        if (!names.length) return;
+        document.getElementById('memoriam-section').style.display = 'block';
+        document.getElementById('memoriam-names').innerHTML =
+          names.map(n => `<span class="memoriam-name">${escapeHtml(n.name || n)}</span>`).join('');
+      } catch { /* silently skip */ }
+    }
+
+    // -------- CADE MODAL --------
+    function openCadeModal() {
+      document.getElementById('cade-modal').classList.add('active');
+      setTimeout(() => document.getElementById('cade-name').focus(), 100);
+    }
+    function closeCadeModal() {
+      document.getElementById('cade-modal').classList.remove('active');
+      document.getElementById('cade-name').value = '';
+      document.getElementById('cade-hint').value = '';
+    }
+    async function submitCade() {
+      const name = document.getElementById('cade-name').value.trim();
+      const hint = document.getElementById('cade-hint').value.trim();
+      if (!name) {
+        document.getElementById('cade-name').focus();
+        return;
+      }
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/cade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, hint })
+        });
+        if (res.ok) {
+          alert(`✓ Aviso criado. Avisamos quando alguém encontrar ${name}.`);
+          closeCadeModal();
+        } else {
+          alert('Não foi possível registrar agora. Tente de novo.');
+        }
+      } catch {
+        alert('Sem conexão. Tente novamente.');
+      }
+    }
+
+    // -------- RSVP --------
+    async function rsvp(answer) {
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/reuniao/rsvp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answer })
+        });
+        if (res.ok) {
+          const labels = { yes: 'Confirmado ✓', maybe: 'Talvez', no: 'Recusado' };
+          alert(labels[answer] || 'Resposta enviada');
+        }
+      } catch {
+        alert('Sem conexão. Tente novamente.');
+      }
+    }
+
+    // -------- UTILS --------
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+    function formatDate(iso) {
+      try {
+        const d = new Date(iso);
+        const diff = Date.now() - d.getTime();
+        const days = Math.floor(diff / 86400000);
+        if (days === 0) return 'hoje';
+        if (days === 1) return 'ontem';
+        if (days < 7) return `há ${days} dias`;
+        return d.toLocaleDateString('pt-BR');
+      } catch { return ''; }
+    }
+
+    // close modal on overlay click
+    document.getElementById('cade-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'cade-modal') closeCadeModal();
+    });
+    // ESC to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeCadeModal();
+    });
+
+    init();
+  </script>
+</body>
+</html>

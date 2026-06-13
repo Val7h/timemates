@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Mural da Saudade — TimeMates</title>
+<meta name="description" content="Cheiros, sons, lugares, pessoas. A turma lembra junto."/>
+<meta name="theme-color" content="#0a0a0a"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-soft: #14100a;
+  --bg-card: #1a1410;
+  --amber: #d4a853;
+  --amber-soft: #e8c06a;
+  --amber-deep: #a07d33;
+  --sunset-1: #ff7e5f;
+  --sunset-2: #feb47b;
+  --text: #fff8e7;
+  --text-muted: rgba(255, 248, 231, 0.55);
+  --text-faint: rgba(255, 248, 231, 0.3);
+  --border: rgba(212, 168, 83, 0.18);
+  --border-soft: rgba(255, 248, 231, 0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 300;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.serif {
+  font-family: 'Crimson Text', 'Lora', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* ──── Container mobile-first ──── */
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100svh;
+  position: relative;
+  padding-bottom: 120px;
+}
+
+/* Sunset glow background — same emotional language as index_v2 */
+body::before {
+  content: "";
+  position: fixed;
+  bottom: -30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140vw;
+  height: 80vh;
+  background: radial-gradient(
+    ellipse at center bottom,
+    rgba(255, 126, 95, 0.12) 0%,
+    rgba(212, 168, 83, 0.06) 30%,
+    transparent 60%
+  );
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app > * { position: relative; z-index: 1; }
+
+/* ──── Header ──── */
+.header {
+  padding: 32px 24px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-decoration: none;
+  margin-bottom: 16px;
+  transition: color 0.2s;
+}
+.back-link:hover { color: var(--amber); }
+
+.h-title {
+  font-size: 26px;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.h-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ──── Hero (no turma) ──── */
+.hero {
+  padding: 60px 24px 40px;
+  text-align: center;
+}
+
+.hero-title {
+  font-size: 30px;
+  line-height: 1.15;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.hero-title em {
+  color: var(--amber);
+  font-style: italic;
+}
+
+.hero-sub {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.search-wrap {
+  position: relative;
+  margin: 0 auto 24px;
+  max-width: 380px;
+}
+
+.search-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px 14px 44px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.search-input:focus {
+  border-color: var(--amber);
+  background: var(--bg-soft);
+}
+.search-input::placeholder { color: var(--text-faint); }
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-results {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  margin: 12px auto 0;
+  max-width: 380px;
+  overflow: hidden;
+  display: none;
+}
+.search-results.show { display: block; }
+
+.search-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background: var(--bg-soft); }
+.search-item-title {
+  font-size: 14px;
+  color: var(--text);
+}
+.search-item-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* "Suas turmas" list */
+.my-turmas {
+  margin-top: 40px;
+  padding: 0 24px;
+}
+.section-label {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.turma-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.turma-card:hover {
+  border-color: var(--amber);
+  transform: translateY(-1px);
+}
+.turma-card-info { flex: 1; min-width: 0; }
+.turma-card-year {
+  font-size: 13px;
+  color: var(--amber);
+  margin-bottom: 2px;
+}
+.turma-card-name {
+  font-size: 15px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.turma-card-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.turma-card-arrow { color: var(--text-faint); margin-left: 12px; }
+
+/* ──── Tabs ──── */
+.tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 16px 24px 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+.tab.active {
+  background: var(--amber);
+  color: var(--bg);
+  border-color: var(--amber);
+  font-weight: 500;
+}
+
+/* ──── Memory feed ──── */
+.feed {
+  padding: 20px 20px 40px;
+}
+
+.mem-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.mem-card.in-memoriam {
+  background: linear-gradient(180deg, rgba(212,168,83,0.06), var(--bg-card));
+  border-color: rgba(212, 168, 83, 0.25);
+}
+
+.mem-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.mem-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(212, 168, 83, 0.1);
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--amber);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.mem-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+
+.mem-text {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.mem-text .more {
+  color: var(--amber);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  margin-left: 4px;
+}
+
+.mem-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.mem-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(255, 248, 231, 0.04);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.mem-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 12px;
+  gap: 10px;
+}
+
+.mem-echoes {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mem-echoes strong {
+  color: var(--amber);
+  font-weight: 500;
+}
+
+.mem-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-echo {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--amber);
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-echo:hover {
+  background: rgba(212, 168, 83, 0.1);
+}
+.btn-echo.echoed {
+  background: var(--amber);
+  color: var(--bg);
+  border-color: var(--amber);
+}
+.btn-echo:disabled { opacity: 0.6; cursor: default; }
+
+.btn-audio {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-audio:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* ──── FAB ──── */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(calc(-50% + 200px));
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sunset-1), var(--amber));
+  border: none;
+  color: var(--bg);
+  font-size: 30px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(255, 126, 95, 0.35), 0 0 0 1px rgba(255, 248, 231, 0.06);
+  z-index: 50;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding-bottom: 4px;
+}
+.fab:hover {
+  transform: translateX(calc(-50% + 200px)) scale(1.05);
+  box-shadow: 0 10px 30px rgba(255, 126, 95, 0.45);
+}
+.fab:active {
+  transform: translateX(calc(-50% + 200px)) scale(0.97);
+}
+
+@media (max-width: 520px) {
+  .fab {
+    right: 20px;
+    left: auto;
+    transform: none;
+  }
+  .fab:hover { transform: scale(1.05); }
+  .fab:active { transform: scale(0.97); }
+}
+
+/* "Cadê?" secondary fab */
+.fab-cade {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--amber);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  z-index: 49;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  transition: all 0.2s;
+}
+.fab-cade:hover {
+  border-color: var(--amber);
+  background: var(--bg-soft);
+}
+
+/* ──── Modal ──── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 100;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade-in 0.2s ease-out;
+}
+.modal-backdrop.show { display: flex; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-up { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.modal {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 22px 22px 0 0;
+  width: 100%;
+  max-width: 480px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 28px 24px 32px;
+  animation: slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 521px) {
+  .modal-backdrop { align-items: center; }
+  .modal { border-radius: 22px; max-height: 88vh; }
+}
+
+.modal-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: -8px auto 18px;
+}
+
+.modal-title {
+  font-size: 22px;
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+.modal-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 22px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text); }
+
+/* Type chips */
+.type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.type-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.type-chip:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+.type-chip.active {
+  background: var(--amber);
+  color: var(--bg);
+  border-color: var(--amber);
+  font-weight: 500;
+}
+
+/* Form fields */
+.field { margin-bottom: 18px; }
+.field-label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.textarea {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 14px;
+  color: var(--text);
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.textarea:focus { border-color: var(--amber); }
+.textarea::placeholder { color: var(--text-faint); font-style: italic; }
+
+.char-counter {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+.char-counter.warn { color: var(--sunset-1); }
+
+.text-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.text-input:focus { border-color: var(--amber); }
+
+.tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tag-pill {
+  background: rgba(212, 168, 83, 0.08);
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  color: var(--amber);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tag-pill:hover { background: rgba(212, 168, 83, 0.18); }
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.checkbox-row:hover { border-color: var(--border); }
+.checkbox-row input { margin-top: 2px; accent-color: var(--amber); }
+.checkbox-row-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.checkbox-row-text strong { color: var(--text); font-weight: 500; }
+
+.btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, var(--sunset-1), var(--amber));
+  border: none;
+  color: var(--bg);
+  padding: 15px;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s, box-shadow 0.2s;
+  margin-top: 8px;
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(255, 126, 95, 0.3);
+}
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ──── Empty state ──── */
+.empty {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-muted);
+}
+.empty-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+.empty-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 19px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.empty-sub {
+  font-size: 14px;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* ──── In Memoriam ──── */
+.memoriam-header {
+  text-align: center;
+  padding: 50px 24px 30px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.candle-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.candle {
+  width: 36px;
+  height: 80px;
+  background: linear-gradient(180deg, #f5e8c8, #d4b888);
+  border-radius: 4px 4px 2px 2px;
+  position: relative;
+  box-shadow: 0 0 20px rgba(255, 200, 100, 0.15);
+}
+.candle::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 6px;
+  background: #555;
+}
+.flame {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 22px;
+  background: radial-gradient(ellipse at center bottom, #fff5b6 0%, #ffb648 40%, #ff7e3a 80%, transparent 100%);
+  border-radius: 50% 50% 30% 30% / 60% 60% 40% 40%;
+  filter: blur(0.5px);
+  transform-origin: bottom center;
+  animation: flicker 1.6s ease-in-out infinite;
+  box-shadow: 0 -8px 28px rgba(255, 160, 60, 0.55), 0 -2px 14px rgba(255, 220, 120, 0.4);
+}
+@keyframes flicker {
+  0%, 100% { transform: translateX(-50%) scaleY(1) rotate(-1deg); opacity: 1; }
+  25% { transform: translateX(-52%) scaleY(0.94) rotate(2deg); opacity: 0.95; }
+  50% { transform: translateX(-50%) scaleY(1.04) rotate(-2deg); opacity: 1; }
+  75% { transform: translateX(-48%) scaleY(0.96) rotate(1deg); opacity: 0.97; }
+}
+
+.memoriam-title {
+  font-size: 24px;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.memoriam-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ──── Toast ──── */
+.toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--amber);
+  color: var(--text);
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+/* ──── Loading ──── */
+.loader {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-soft) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite;
+  border-radius: 14px;
+  height: 120px;
+  margin-bottom: 12px;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Hide by default */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ════════ SCREEN 1: HERO (no turma) ════════ -->
+  <section id="screen-hero" class="hidden">
+    <div class="header" style="border:none;">
+      <a href="/" class="back-link">&larr; voltar pra home</a>
+    </div>
+    <div class="hero">
+      <h1 class="serif hero-title">Qual turma você quer <em>matar saudade</em>?</h1>
+      <p class="hero-sub">Cheiros, sons, lugares, gente que sumiu. A turma toda lembra junto.</p>
+
+      <div class="search-wrap">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="turmaSearch" class="search-input" placeholder="Colégio, ano, cidade..." autocomplete="off"/>
+      </div>
+      <div id="searchResults" class="search-results"></div>
+    </div>
+
+    <div class="my-turmas" id="myTurmasWrap">
+      <div class="section-label">Suas turmas</div>
+      <div id="myTurmasList">
+        <div class="loader">carregando...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════ SCREEN 2: TURMA MURAL ════════ -->
+  <section id="screen-mural" class="hidden">
+    <div class="header">
+      <a href="/mural" class="back-link">&larr; outras turmas</a>
+      <h1 class="serif h-title" id="muralTitle">Turma —</h1>
+      <p class="h-sub" id="muralSub">carregando memórias...</p>
+    </div>
+
+    <div class="tabs" id="muralTabs">
+      <button class="tab active" data-type="all">TUDO</button>
+      <button class="tab" data-type="smell">CHEIROS 👃</button>
+      <button class="tab" data-type="sound">SONS 🎵</button>
+      <button class="tab" data-type="place">LUGARES 📍</button>
+      <button class="tab" data-type="person">PESSOAS 👤</button>
+      <button class="tab" data-type="event">EVENTOS 🎉</button>
+      <button class="tab" data-type="taste">TASTES 🍬</button>
+      <button class="tab" data-type="gesture">GESTURES ✋</button>
+      <button class="tab" data-type="cade">CADÊ?</button>
+      <button class="tab" data-type="memoriam">IN MEMORIAM</button>
+    </div>
+
+    <div class="feed" id="memFeed">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+  </section>
+
+  <!-- ════════ SCREEN 5: IN MEMORIAM (embedded as tab content variant) ════════ -->
+  <section id="screen-memoriam-header" class="hidden">
+    <div class="memoriam-header">
+      <div class="candle-wrap">
+        <div class="candle"><div class="flame"></div></div>
+      </div>
+      <h2 class="serif memoriam-title">Quem partiu — mas a turma lembra.</h2>
+      <p class="memoriam-sub">Aqui as memórias são sagradas.</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ════════ FAB ════════ -->
+<button class="fab-cade hidden" id="fabCade" onclick="openCadeModal()">Cadê o(a)…?</button>
+<button class="fab hidden" id="fabNew" onclick="openNewMemModal()" aria-label="Nova memória">+</button>
+
+<!-- ════════ MODAL: NOVA MEMÓRIA ════════ -->
+<div class="modal-backdrop" id="modalNew">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modalNew')" aria-label="Fechar">×</button>
+    <h2 class="serif modal-title">Conta uma memória da turma</h2>
+    <p class="modal-sub">Não é pra contar conquista — é pra trazer cheiro, som, lugar, pessoa. Curtinho.</p>
+
+    <div class="field">
+      <label class="field-label">Que tipo de memória?</label>
+      <div class="type-chips" id="typeChips">
+        <button class="type-chip" data-type="smell">Cheiro 👃</button>
+        <button class="type-chip" data-type="sound">Som 🎵</button>
+        <button class="type-chip" data-type="place">Lugar 📍</button>
+        <button class="type-chip" data-type="person">Pessoa 👤</button>
+        <button class="type-chip" data-type="event">Evento 🎉</button>
+        <button class="type-chip" data-type="taste">Gosto 🍬</button>
+        <button class="type-chip" data-type="gesture">Gesto ✋</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">A memória</label>
+      <textarea id="memText" class="textarea" maxlength="500" placeholder="O cheiro do mimeógrafo na prova de história..."></textarea>
+      <div class="char-counter" id="charCounter">0 / 500</div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Tags (opcional)</label>
+      <input type="text" id="memTags" class="text-input" placeholder="separadas por vírgula"/>
+      <div class="tag-suggestions" id="tagSuggestions"></div>
+    </div>
+
+    <label class="checkbox-row" style="margin-bottom:20px;">
+      <input type="checkbox" id="memMemoriam"/>
+      <div class="checkbox-row-text">
+        <strong>É memória de quem já partiu</strong><br/>
+        Marca como In Memoriam — vai pra área solene.
+      </div>
+    </label>
+
+    <button class="btn-primary" id="btnSubirMem" onclick="submitMemory()">Subir memória</button>
+  </div>
+</div>
+
+<!-- ════════ MODAL: CADÊ ════════ -->
+<div class="modal-backdrop" id="modalCade">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal('modalCade')" aria-label="Fechar">×</button>
+    <h2 class="serif modal-title">Cadê o(a)…?</h2>
+    <p class="modal-sub">Alguém da turma que sumiu. A galera toda vai te ajudar a procurar.</p>
+
+    <div class="field">
+      <label class="field-label">Nome (ou apelido)</label>
+      <input type="text" id="cadeNome" class="text-input" placeholder="Ex: Carla, do fundão"/>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Última lembrança que tenho dessa pessoa</label>
+      <textarea id="cadeMem" class="textarea" maxlength="400" placeholder="Sumiu depois da formatura. Era amiga da Bia, morava perto da escola..."></textarea>
+    </div>
+
+    <button class="btn-primary" onclick="submitCade()">Pedir ajuda da turma</button>
+    <p class="modal-sub" style="text-align:center;margin-top:14px;margin-bottom:0;font-size:12px;">
+      A turma toda vai ser avisada e ajudar a procurar.
+    </p>
+  </div>
+</div>
+
+<!-- ════════ Toast ════════ -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+const state = {
+  turmaSlug: null,
+  turma: null,
+  memories: [],
+  activeTab: 'all',
+  selectedType: null,
+  topTags: [],
+  echoed: new Set(JSON.parse(localStorage.getItem('echoed_mems') || '[]')),
+};
+
+const TYPE_ICONS = {
+  smell: '👃', sound: '🎵', place: '📍', person: '👤',
+  event: '🎉', taste: '🍬', gesture: '✋', cade: '🔎', memoriam: '🕯️'
+};
+const TYPE_LABELS = {
+  smell: 'Cheiro', sound: 'Som', place: 'Lugar', person: 'Pessoa',
+  event: 'Evento', taste: 'Gosto', gesture: 'Gesto', cade: 'Cadê?', memoriam: 'In Memoriam'
+};
+
+// ════════════════════════════════════════════════════
+// API helpers
+// ════════════════════════════════════════════════════
+async function api(path, opts = {}) {
+  const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(path, { ...opts, headers });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`${res.status} ${txt}`);
+  }
+  return res.json();
+}
+
+// ════════════════════════════════════════════════════
+// ROUTING — read /mural/{slug}
+// ════════════════════════════════════════════════════
+function getSlugFromUrl() {
+  const m = window.location.pathname.match(/^\/mural\/([^\/]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// ════════════════════════════════════════════════════
+// SCREEN 1: HERO
+// ════════════════════════════════════════════════════
+async function renderHero() {
+  show('screen-hero');
+  hide('screen-mural');
+  hide('screen-memoriam-header');
+  hide('fabNew');
+  hide('fabCade');
+
+  // Search input
+  const input = document.getElementById('turmaSearch');
+  const results = document.getElementById('searchResults');
+  let timer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 2) { results.classList.remove('show'); return; }
+    timer = setTimeout(() => searchTurmas(q, results), 250);
+  });
+
+  // My turmas
+  loadMyTurmas();
+}
+
+async function searchTurmas(q, container) {
+  try {
+    const data = await api(`/api/turmas/search?q=${encodeURIComponent(q)}`);
+    const list = Array.isArray(data) ? data : (data.turmas || data.results || []);
+    if (!list.length) {
+      container.innerHTML = '<div class="search-item"><div class="search-item-title" style="color:var(--text-muted)">Nenhuma turma encontrada</div></div>';
+    } else {
+      container.innerHTML = list.slice(0, 8).map(t => `
+        <div class="search-item" onclick="window.location.href='/mural/${encodeURIComponent(t.slug || t.turma_slug)}'">
+          <div class="search-item-title">${escape(t.year || '')} — ${escape(t.institution_name || t.institution || '')}</div>
+          <div class="search-item-sub">${escape(t.city || '')} ${t.member_count ? '· ' + t.member_count + ' membros' : ''}</div>
+        </div>
+      `).join('');
+    }
+    container.classList.add('show');
+  } catch (e) {
+    container.innerHTML = '<div class="search-item"><div class="search-item-title" style="color:var(--text-muted)">Erro buscando</div></div>';
+    container.classList.add('show');
+  }
+}
+
+async function loadMyTurmas() {
+  const el = document.getElementById('myTurmasList');
+  try {
+    const data = await api('/api/me/turmas');
+    const list = Array.isArray(data) ? data : (data.turmas || []);
+    if (!list.length) {
+      el.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">🏫</div>
+          <div class="empty-title">Você ainda não tá em nenhuma turma.</div>
+          <div class="empty-sub">Procura a sua aí em cima.</div>
+        </div>
+      `;
+      return;
+    }
+    el.innerHTML = list.map(t => `
+      <a href="/mural/${encodeURIComponent(t.slug || t.turma_slug)}" class="turma-card">
+        <div class="turma-card-info">
+          <div class="turma-card-year">Turma ${escape(t.year || '')}</div>
+          <div class="turma-card-name">${escape(t.institution_name || '')}</div>
+          <div class="turma-card-count">${t.memory_count || 0} memórias · ${t.member_count || 0} membros</div>
+        </div>
+        <div class="turma-card-arrow">→</div>
+      </a>
+    `).join('');
+  } catch (e) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🏫</div>
+        <div class="empty-title">Você ainda não tá em nenhuma turma.</div>
+        <div class="empty-sub">Procura a sua aí em cima.</div>
+      </div>
+    `;
+  }
+}
+
+// ════════════════════════════════════════════════════
+// SCREEN 2/5: TURMA MURAL + IN MEMORIAM
+// ════════════════════════════════════════════════════
+async function renderMural(slug) {
+  state.turmaSlug = slug;
+  hide('screen-hero');
+  show('screen-mural');
+  show('fabNew');
+  show('fabCade');
+
+  // Tabs handler (once)
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      state.activeTab = tab.dataset.type;
+      renderFeed();
+    };
+  });
+
+  await loadTurma();
+  await loadMemories();
+  renderFeed();
+}
+
+async function loadTurma() {
+  try {
+    const t = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}`);
+    state.turma = t;
+    document.getElementById('muralTitle').textContent = `Turma ${t.year || ''} — ${t.institution_name || ''}`;
+    state.topTags = t.top_tags || [];
+  } catch (e) {
+    document.getElementById('muralTitle').textContent = 'Turma';
+  }
+}
+
+async function loadMemories() {
+  try {
+    const data = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}/mural`);
+    state.memories = Array.isArray(data) ? data : (data.memories || []);
+    document.getElementById('muralSub').textContent =
+      `${state.memories.length} memórias subidas pela galera`;
+  } catch (e) {
+    state.memories = [];
+    document.getElementById('muralSub').textContent = 'Não foi possível carregar';
+  }
+}
+
+function renderFeed() {
+  const feed = document.getElementById('memFeed');
+  const tab = state.activeTab;
+  const isMemoriam = tab === 'memoriam';
+
+  // Toggle memoriam header
+  if (isMemoriam) show('screen-memoriam-header'); else hide('screen-memoriam-header');
+
+  // Filter
+  let list = state.memories;
+  if (tab === 'memoriam') {
+    list = state.memories.filter(m => m.is_memoriam || m.in_memoriam);
+  } else if (tab === 'cade') {
+    list = state.memories.filter(m => m.type === 'cade' || m.memory_type === 'cade');
+  } else if (tab !== 'all') {
+    list = state.memories.filter(m => (m.type || m.memory_type) === tab);
+  }
+
+  if (!list.length) {
+    feed.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🌅</div>
+        <div class="empty-title">Sua turma ainda não tem memórias no mural.</div>
+        <div class="empty-sub">Sobe a primeira?</div>
+      </div>
+    `;
+    return;
+  }
+
+  feed.innerHTML = list.map(renderMemCard).join('');
+}
+
+function renderMemCard(m) {
+  const type = m.type || m.memory_type || 'event';
+  const icon = TYPE_ICONS[type] || '✨';
+  const label = TYPE_LABELS[type] || 'Memória';
+  const isMemoriam = m.is_memoriam || m.in_memoriam;
+  const text = m.text || m.content || '';
+  const truncated = text.length > 200 ? text.slice(0, 200) + '…' : text;
+  const showMore = text.length > 200;
+  const echoes = m.echo_count || m.echoes || 0;
+  const echoed = state.echoed.has(m.id);
+  const author = m.author_name || m.author || 'alguém da turma';
+  const tags = m.tags || [];
+  const when = formatWhen(m.created_at);
+
+  return `
+    <article class="mem-card ${isMemoriam ? 'in-memoriam' : ''}" data-id="${escape(m.id)}">
+      <div class="mem-head">
+        <span class="mem-type-badge">${icon} ${escape(label)}</span>
+        <span class="mem-meta">${escape(author)} · ${when}</span>
+      </div>
+      <div class="mem-text" data-full="${escapeAttr(text)}">
+        ${escape(truncated)}
+        ${showMore ? '<span class="more" onclick="expandMem(this)">ver tudo</span>' : ''}
+      </div>
+      ${tags.length ? `<div class="mem-tags">${tags.map(t => `<span class="mem-tag">#${escape(t)}</span>`).join('')}</div>` : ''}
+      <div class="mem-foot">
+        <span class="mem-echoes"><strong>${echoes}</strong> ${echoes === 1 ? 'pessoa também lembra' : 'pessoas também lembram'}</span>
+        <div class="mem-actions">
+          <button class="btn-echo ${echoed ? 'echoed' : ''}" onclick="echoMem('${escape(m.id)}', this)" ${echoed ? 'disabled' : ''}>
+            ${echoed ? '✓ Lembrei' : 'Eu também lembro!'}
+          </button>
+          <button class="btn-audio" onclick="recordAudio('${escape(m.id)}')" title="Em breve">🎙️</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function expandMem(el) {
+  const wrap = el.closest('.mem-text');
+  const full = wrap.dataset.full;
+  wrap.innerHTML = escape(full);
+}
+
+async function echoMem(id, btn) {
+  if (state.echoed.has(id)) return;
+  btn.disabled = true;
+  try {
+    await api(`/mural/${encodeURIComponent(id)}/echo`, { method: 'POST' });
+    state.echoed.add(id);
+    localStorage.setItem('echoed_mems', JSON.stringify([...state.echoed]));
+    btn.classList.add('echoed');
+    btn.textContent = '✓ Lembrei';
+    // bump counter in DOM
+    const card = btn.closest('.mem-card');
+    const strong = card.querySelector('.mem-echoes strong');
+    strong.textContent = (parseInt(strong.textContent) || 0) + 1;
+    toast('Lembrança registrada.');
+  } catch (e) {
+    btn.disabled = false;
+    toast('Erro. Tenta de novo.');
+  }
+}
+
+function recordAudio(id) {
+  toast('Gravação de áudio chega em breve.');
+}
+
+// ════════════════════════════════════════════════════
+// NEW MEMORY MODAL
+// ════════════════════════════════════════════════════
+function openNewMemModal() {
+  state.selectedType = null;
+  document.querySelectorAll('#typeChips .type-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('memText').value = '';
+  document.getElementById('memTags').value = '';
+  document.getElementById('memMemoriam').checked = false;
+  document.getElementById('charCounter').textContent = '0 / 500';
+  document.getElementById('charCounter').classList.remove('warn');
+  renderTagSuggestions();
+  document.getElementById('modalNew').classList.add('show');
+}
+
+document.getElementById('typeChips').addEventListener('click', (e) => {
+  if (!e.target.classList.contains('type-chip')) return;
+  document.querySelectorAll('#typeChips .type-chip').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  state.selectedType = e.target.dataset.type;
+});
+
+document.getElementById('memText').addEventListener('input', (e) => {
+  const n = e.target.value.length;
+  const counter = document.getElementById('charCounter');
+  counter.textContent = `${n} / 500`;
+  counter.classList.toggle('warn', n > 450);
+});
+
+function renderTagSuggestions() {
+  const el = document.getElementById('tagSuggestions');
+  if (!state.topTags.length) { el.innerHTML = ''; return; }
+  el.innerHTML = state.topTags.slice(0, 8).map(t =>
+    `<span class="tag-pill" onclick="addTag('${escape(t)}')">#${escape(t)}</span>`
+  ).join('');
+}
+
+function addTag(tag) {
+  const input = document.getElementById('memTags');
+  const cur = input.value.trim();
+  const tags = cur ? cur.split(',').map(s => s.trim()).filter(Boolean) : [];
+  if (!tags.includes(tag)) tags.push(tag);
+  input.value = tags.join(', ');
+}
+
+async function submitMemory() {
+  const text = document.getElementById('memText').value.trim();
+  if (!state.selectedType) { toast('Escolhe o tipo de memória.'); return; }
+  if (text.length < 3) { toast('Conta um pouquinho mais.'); return; }
+  const tags = document.getElementById('memTags').value.split(',').map(s => s.trim()).filter(Boolean);
+  const isMemoriam = document.getElementById('memMemoriam').checked;
+
+  const btn = document.getElementById('btnSubirMem');
+  btn.disabled = true;
+  btn.textContent = 'Subindo...';
+
+  try {
+    const created = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}/mural`, {
+      method: 'POST',
+      body: JSON.stringify({
+        type: state.selectedType,
+        text: text,
+        tags: tags,
+        is_memoriam: isMemoriam,
+      })
+    });
+    toast('Memória subida. A turma vai ver.');
+    closeModal('modalNew');
+    // Optimistic prepend
+    if (created && created.id) {
+      state.memories.unshift(created);
+      document.getElementById('muralSub').textContent =
+        `${state.memories.length} memórias subidas pela galera`;
+      renderFeed();
+    } else {
+      await loadMemories();
+      renderFeed();
+    }
+  } catch (e) {
+    toast('Erro subindo. Tenta de novo.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Subir memória';
+  }
+}
+
+// ════════════════════════════════════════════════════
+// CADÊ MODAL
+// ════════════════════════════════════════════════════
+function openCadeModal() {
+  document.getElementById('cadeNome').value = '';
+  document.getElementById('cadeMem').value = '';
+  document.getElementById('modalCade').classList.add('show');
+}
+
+async function submitCade() {
+  const nome = document.getElementById('cadeNome').value.trim();
+  const mem = document.getElementById('cadeMem').value.trim();
+  if (!nome) { toast('Quem você procura?'); return; }
+  if (mem.length < 5) { toast('Conta uma lembrança da pessoa.'); return; }
+
+  try {
+    await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}/mural`, {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'cade',
+        text: `Cadê ${nome}? ${mem}`,
+        tags: ['cade', nome.toLowerCase()],
+        target_name: nome,
+      })
+    });
+    toast('A turma foi avisada. Bora encontrar.');
+    closeModal('modalCade');
+    await loadMemories();
+    renderFeed();
+  } catch (e) {
+    toast('Erro. Tenta de novo.');
+  }
+}
+
+// ════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════
+function show(id) { const el = document.getElementById(id); if (el) el.classList.remove('hidden'); }
+function hide(id) { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(b => {
+  b.addEventListener('click', (e) => { if (e.target === b) b.classList.remove('show'); });
+});
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function escape(s) {
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function escapeAttr(s) { return escape(s); }
+
+function formatWhen(iso) {
+  if (!iso) return 'há um tempo';
+  const d = new Date(iso);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'agora';
+  if (diff < 3600) return Math.floor(diff / 60) + 'min';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+  if (diff < 86400 * 7) return Math.floor(diff / 86400) + 'd';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+// ════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════
+(function boot() {
+  const slug = getSlugFromUrl();
+  if (slug) {
+    renderMural(slug);
+  } else {
+    renderHero();
+  }
+})();
+</script>
+
+</body>
+</html>

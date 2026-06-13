@@ -115,6 +115,8 @@ from auth import (
     require_18_plus, calculate_age,
 )
 from billing_routes import router as billing_router
+from mural_routes import mural_router
+from reuniao_routes import reuniao_router
 
 # ===== NEW FEATURE IMPORTS =====
 # Swagger Documentation
@@ -537,6 +539,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static_files")
 
 # ─── Billing Routes (Stripe) ──────────────────────────────────────────────────
 app.include_router(billing_router)
+
+# ─── Mural da Saudade Routes (memorias sensoriais coletivas) ──────────────────
+app.include_router(mural_router)
+
+# ─── Reunião Button Routes (turma churrasco/dinner organizer) ────────────────
+app.include_router(reuniao_router)
 
 # ─── Túnel do Tempo Routes (old photo upload + face detection foundation) ─────
 try:
@@ -5232,6 +5240,27 @@ async def homepage_v2_compat():
 async def tunel_page():
     """Túnel do Tempo: upload de foto antiga + reconexão via face match."""
     return FileResponse("static/tunel.html")
+
+@app.get("/turma/{turma_slug}", response_class=FileResponse)
+async def turma_page(turma_slug: str):
+    """Turma Hub: page central da turma integrando Mural, Reunião, Cadê e Túnel."""
+    return FileResponse("static/turma.html")
+
+@app.get("/reuniao/nova", response_class=FileResponse)
+async def reuniao_nova_page():
+    """Reunião Button: criar nova reunião (vota datas com a turma)."""
+    return FileResponse("static/reuniao.html")
+
+@app.get("/reuniao/{reuniao_id:int}", response_class=FileResponse)
+async def reuniao_detail_page(reuniao_id: int):
+    """Reunião Button: detalhe da reunião (votação, RSVP, share)."""
+    return FileResponse("static/reuniao.html")
+
+@app.get("/mural", response_class=FileResponse)
+@app.get("/mural/{turma_slug}", response_class=FileResponse)
+async def mural_page(turma_slug: str = None):
+    """Mural da Saudade: feed de memórias coletivas (cheiros, sons, lugares, pessoas)."""
+    return FileResponse("static/mural.html")
 
 @app.get("/privacy", response_class=FileResponse)
 async def privacy_policy():
