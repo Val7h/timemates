@@ -4738,6 +4738,11 @@ async def homepage_v2_compat():
     """Backwards-compat: /v2 continua servindo a mesma homepage V2."""
     return FileResponse("static/index_v2.html")
 
+@app.get("/tunel", response_class=FileResponse)
+async def tunel_page():
+    """Túnel do Tempo: upload de foto antiga + reconexão via face match."""
+    return FileResponse("static/tunel.html")
+
 @app.get("/privacy", response_class=FileResponse)
 async def privacy_policy():
     return FileResponse("public/landing/privacy.html")

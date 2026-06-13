@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Túnel do Tempo — TimeMates</title>
+<meta name="description" content="Sobe uma foto antiga. A gente acha sua turma."/>
+<meta name="theme-color" content="#0a0a0a"/>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-warm: #110b06;
+  --card: #161210;
+  --card-soft: #1f1814;
+  --border: rgba(212, 168, 83, 0.18);
+  --amber: #d4a853;
+  --amber-soft: #e8c06a;
+  --amber-glow: rgba(212, 168, 83, 0.35);
+  --sunset: #ff7e5f;
+  --text: #fff8e7;
+  --text-muted: rgba(255, 248, 231, 0.6);
+  --text-faint: rgba(255, 248, 231, 0.35);
+  --success: #8dd07c;
+  --danger: #e87b6b;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.serif {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Global amber glow */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80vw 60vh at 50% 100%,
+    rgba(255, 126, 95, 0.10) 0%,
+    rgba(212, 168, 83, 0.06) 30%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: 0 22px;
+}
+
+/* ─── Top bar ─── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0 12px;
+}
+.brand {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 20px;
+  color: var(--amber);
+  letter-spacing: 0.02em;
+}
+.brand .dot { color: var(--sunset); }
+.back-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.back-btn:hover { color: var(--amber); border-color: var(--amber); }
+.spacer { width: 38px; }
+
+/* ─── Screens ─── */
+.screen { display: none; padding-bottom: 60px; animation: fadeIn 0.5s ease; }
+.screen.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── SCREEN 1 · HERO ─── */
+.hero {
+  text-align: center;
+  padding: 8vh 0 6vh;
+}
+.hero-eyebrow {
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  opacity: 0.85;
+}
+.hero-title {
+  font-size: clamp(34px, 9vw, 44px);
+  line-height: 1.15;
+  color: var(--text);
+  margin-bottom: 20px;
+  font-style: italic;
+}
+.hero-sub {
+  font-size: 16px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 44px;
+  padding: 0 6px;
+}
+.cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--amber) 0%, var(--sunset) 100%);
+  color: #1a0e04;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  padding: 18px 36px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(212, 168, 83, 0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+  width: 100%;
+  max-width: 340px;
+  justify-content: center;
+}
+.cta-primary:active { transform: translateY(1px); box-shadow: 0 4px 16px rgba(212, 168, 83, 0.25); }
+.cta-primary:hover { box-shadow: 0 12px 40px rgba(212, 168, 83, 0.45); }
+
+.hero-hint {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: 24px;
+  font-style: italic;
+}
+
+/* Polaroid stack on hero */
+.polaroids {
+  position: relative;
+  height: 220px;
+  margin: 30px 0 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.polaroid {
+  position: absolute;
+  width: 140px;
+  height: 170px;
+  background: #f4ead5;
+  padding: 10px 10px 28px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+  border-radius: 2px;
+}
+.polaroid .ph {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, #c4a574 0%, #8a6a45 50%, #4d3522 100%);
+  position: relative;
+  overflow: hidden;
+}
+.polaroid .ph::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 35% 30%, rgba(255,200,140,0.4), transparent 60%);
+}
+.polaroid:nth-child(1) { transform: rotate(-9deg) translateX(-60px); }
+.polaroid:nth-child(2) { transform: rotate(4deg) translateX(0); z-index: 2; }
+.polaroid:nth-child(3) { transform: rotate(11deg) translateX(60px); }
+
+.lgpd-link {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 30px;
+  text-decoration: none;
+}
+.lgpd-link a { color: var(--amber); text-decoration: underline; }
+
+/* ─── SCREEN 2 · UPLOAD ─── */
+.section-title {
+  font-size: 28px;
+  margin: 30px 0 8px;
+  line-height: 1.2;
+}
+.section-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 28px;
+}
+
+.dropzone {
+  border: 1.5px dashed var(--border);
+  border-radius: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  background: rgba(255, 248, 231, 0.02);
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+.dropzone:hover, .dropzone.drag {
+  border-color: var(--amber);
+  background: rgba(212, 168, 83, 0.05);
+}
+.dropzone-icon {
+  font-size: 42px;
+  margin-bottom: 14px;
+  opacity: 0.8;
+}
+.dropzone-text {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.dropzone-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.dropzone input { display: none; }
+
+.preview-wrap {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.preview-wrap img {
+  width: 100%;
+  display: block;
+  max-height: 360px;
+  object-fit: contain;
+  background: #000;
+}
+.preview-change {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: rgba(0,0,0,0.7);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.field { margin: 20px 0; }
+.field label {
+  display: block;
+  font-size: 13px;
+  color: var(--amber);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+.field label .optional {
+  color: var(--text-faint);
+  font-size: 11px;
+  margin-left: 6px;
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+.field select, .field input[type="text"], .field textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field textarea { resize: none; min-height: 80px; }
+.field select:focus, .field input:focus, .field textarea:focus {
+  border-color: var(--amber);
+}
+.char-count {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+.privacy-note {
+  background: rgba(212, 168, 83, 0.06);
+  border-left: 2px solid var(--amber);
+  padding: 14px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 24px 0 20px;
+  line-height: 1.5;
+}
+.privacy-note strong { color: var(--amber); font-weight: 500; }
+
+.btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, var(--amber) 0%, var(--sunset) 100%);
+  color: #1a0e04;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(212, 168, 83, 0.25);
+  transition: transform 0.15s;
+}
+.btn-primary:active { transform: translateY(1px); }
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  width: 100%;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.btn-ghost:hover { color: var(--amber); border-color: var(--amber); }
+
+/* ─── SCREEN 3 · PROCESSING ─── */
+.processing {
+  text-align: center;
+  padding: 12vh 10px;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.proc-image {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 36px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.proc-image img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.proc-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, transparent 50%, rgba(212,168,83,0.4) 50%, transparent 51%);
+  animation: scan 2.6s linear infinite;
+}
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+.proc-face-mark {
+  position: absolute;
+  border: 1.5px solid var(--amber);
+  border-radius: 4px;
+  box-shadow: 0 0 12px rgba(212, 168, 83, 0.6);
+  animation: pop 0.6s ease-out forwards;
+  opacity: 0;
+}
+@keyframes pop {
+  0% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.proc-text {
+  font-size: 22px;
+  font-style: italic;
+  color: var(--text);
+  margin-bottom: 10px;
+  min-height: 30px;
+  transition: opacity 0.5s;
+}
+.proc-dots {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+.proc-dots span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: blink 1.4s infinite;
+}
+.proc-dots span:nth-child(2) { animation-delay: 0.2s; }
+.proc-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* ─── SCREEN 4 · RESULTS ─── */
+.results-photo {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 28px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.results-photo img { width: 100%; display: block; }
+.face-box {
+  position: absolute;
+  border: 2px solid rgba(212, 168, 83, 0.5);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.face-box::before {
+  content: attr(data-num);
+  position: absolute;
+  top: -10px; left: -10px;
+  background: var(--amber);
+  color: #1a0e04;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.face-box:hover, .face-box.active {
+  border-color: var(--amber);
+  border-width: 3px;
+  box-shadow: 0 0 20px var(--amber-glow);
+}
+
+.face-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 22px;
+  text-align: center;
+}
+.face-meta strong { color: var(--amber); font-weight: 500; }
+
+.matches-section {
+  margin-bottom: 26px;
+}
+.matches-header {
+  font-size: 14px;
+  color: var(--amber);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.match-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+.match-card:hover { border-color: var(--amber); }
+
+.match-avatar {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6b4e2e, #3d2a17);
+  flex-shrink: 0;
+  filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+}
+.match-avatar::after {
+  content: "?";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: rgba(255,248,231,0.4);
+  filter: blur(0);
+  font-family: 'Crimson Text', serif;
+}
+
+.match-info { flex: 1; min-width: 0; }
+.match-line1 {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 4px;
+  font-style: italic;
+}
+.match-line2 {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.match-similarity {
+  display: inline-block;
+  background: rgba(212, 168, 83, 0.15);
+  color: var(--amber);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  margin-right: 6px;
+}
+.match-btn {
+  background: var(--amber);
+  color: #1a0e04;
+  border: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+.match-btn:active { transform: scale(0.96); }
+
+.results-disclaimer {
+  background: var(--card-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 20px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 15px;
+  font-style: italic;
+}
+
+/* ─── SCREEN 5 · ICEBREAKER ─── */
+.icebreaker-intro {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+.icebreaker-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  font-style: italic;
+}
+.icebreaker-card:hover { border-color: var(--amber-soft); }
+.icebreaker-card.selected {
+  border-color: var(--amber);
+  background: rgba(212, 168, 83, 0.08);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+.icebreaker-card::before {
+  content: "“";
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 36px;
+  color: var(--amber);
+  line-height: 0;
+  vertical-align: -10px;
+  margin-right: 4px;
+}
+.editor-label {
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 0.04em;
+  margin: 22px 0 8px;
+}
+.editor-textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 16px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 130px;
+  outline: none;
+  resize: vertical;
+}
+.editor-textarea:focus { border-color: var(--amber); }
+
+/* ─── SCREEN 6 · SUCCESS ─── */
+.success {
+  text-align: center;
+  padding: 12vh 10px 8vh;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.success-icon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212,168,83,0.3), transparent 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30px;
+  position: relative;
+}
+.success-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--amber);
+  animation: pulse 2.5s ease-out infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.7); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.success-icon-inner {
+  font-size: 44px;
+  filter: drop-shadow(0 0 12px var(--amber-glow));
+}
+.success-title {
+  font-size: 30px;
+  margin-bottom: 16px;
+  font-style: italic;
+}
+.success-sub {
+  font-size: 15px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  max-width: 360px;
+  line-height: 1.6;
+}
+.success-anon {
+  font-size: 13px;
+  color: var(--amber);
+  font-style: italic;
+  margin: 8px 0 36px;
+  opacity: 0.85;
+}
+.success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* ─── Error toast ─── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card);
+  border: 1px solid var(--danger);
+  color: var(--text);
+  padding: 14px 22px;
+  border-radius: 12px;
+  font-size: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  z-index: 100;
+  transition: transform 0.3s ease;
+  max-width: 90%;
+  text-align: center;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ─── Spinner ─── */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(26,14,4,0.3);
+  border-top-color: #1a0e04;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Tablet+ */
+@media (min-width: 600px) {
+  .app { padding: 0 32px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <button class="back-btn" id="backBtn" style="visibility:hidden">←</button>
+    <div class="brand">TimeMates<span class="dot">.</span></div>
+    <div class="spacer"></div>
+  </div>
+
+  <!-- ─────────── SCREEN 1: HERO ─────────── -->
+  <section class="screen active" id="screen-hero">
+    <div class="hero">
+      <div class="hero-eyebrow">Túnel do Tempo</div>
+      <h1 class="serif hero-title">Sobe uma foto.<br/>A gente acha sua turma.</h1>
+      <p class="hero-sub">
+        Anuário, formatura, festa junina, festa de aniversário — qualquer foto antiga com pessoas que você quer reencontrar.
+      </p>
+
+      <div class="polaroids" aria-hidden="true">
+        <div class="polaroid"><div class="ph"></div></div>
+        <div class="polaroid"><div class="ph"></div></div>
+        <div class="polaroid"><div class="ph"></div></div>
+      </div>
+
+      <button class="cta-primary" onclick="go('upload')">
+        <span>📸</span> Subir foto antiga
+      </button>
+      <p class="hero-hint">Quanto mais cara, mais chance.<br/>Faces precisam estar visíveis.</p>
+
+      <p class="lgpd-link">
+        Sua privacidade vem antes. <a href="/privacy">Como tratamos sua foto →</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ─────────── SCREEN 2: UPLOAD ─────────── -->
+  <section class="screen" id="screen-upload">
+    <h2 class="serif section-title">Qual foto vamos abrir?</h2>
+    <p class="section-sub">Escolha uma onde dá pra ver os rostos.</p>
+
+    <div id="dropzone" class="dropzone">
+      <div class="dropzone-icon">🖼️</div>
+      <div class="dropzone-text">Toca aqui pra escolher uma foto</div>
+      <div class="dropzone-sub">JPG ou PNG, até 10 MB</div>
+      <input type="file" id="fileInput" accept="image/*"/>
+    </div>
+
+    <div id="previewWrap" class="preview-wrap" style="display:none">
+      <img id="previewImg" alt="Sua foto"/>
+      <button class="preview-change" onclick="resetUpload()">Trocar</button>
+    </div>
+
+    <div class="field">
+      <label>Em que ano foi tirada? <span class="optional">opcional</span></label>
+      <select id="yearSel">
+        <option value="">Não lembro</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Conta um pouco do contexto <span class="optional">opcional</span></label>
+      <textarea id="contextInput" maxlength="200" placeholder="Ex: formatura do Colégio Bandeirantes, 2003"></textarea>
+      <div class="char-count"><span id="charCount">0</span>/200</div>
+    </div>
+
+    <div class="privacy-note">
+      <strong>Sua foto fica privada.</strong> A gente processa e os rostos viram códigos. A imagem original pode ser apagada por você a qualquer momento. Só você vê os matches. <a href="/privacy" style="color:var(--amber)">Saiba mais</a>
+    </div>
+
+    <button class="btn-primary" id="submitBtn" onclick="submitUpload()" disabled>Procurar</button>
+  </section>
+
+  <!-- ─────────── SCREEN 3: PROCESSING ─────────── -->
+  <section class="screen" id="screen-processing">
+    <div class="processing">
+      <div class="proc-image" id="procImage">
+        <img id="procImg" alt=""/>
+      </div>
+      <div class="proc-text serif" id="procText">Detectando rostos...</div>
+      <div class="proc-dots"><span></span><span></span><span></span></div>
+    </div>
+  </section>
+
+  <!-- ─────────── SCREEN 4: RESULTS ─────────── -->
+  <section class="screen" id="screen-results">
+    <h2 class="serif section-title">A gente abriu sua foto.</h2>
+    <p class="section-sub">Toca em uma pessoa pra ver quem pode ser.</p>
+
+    <div class="results-photo" id="resultsPhoto">
+      <img id="resultsImg" alt="Sua foto"/>
+      <!-- face boxes injected -->
+    </div>
+
+    <div class="face-meta" id="faceMeta">
+      <strong id="faceCount">0</strong> pessoas nessa foto.
+    </div>
+
+    <div class="matches-section" id="matchesSection">
+      <div class="empty-state">Selecione uma pessoa acima.</div>
+    </div>
+
+    <div class="results-disclaimer">
+      Os rostos estão borrados de propósito. Você só descobre quem é se a pessoa aceitar reconectar.
+    </div>
+
+    <button class="btn-ghost" onclick="go('hero'); resetAll();">Subir outra foto</button>
+  </section>
+
+  <!-- ─────────── SCREEN 5: ICEBREAKER ─────────── -->
+  <section class="screen" id="screen-icebreaker">
+    <h2 class="serif section-title">Como você quer começar?</h2>
+    <p class="icebreaker-intro">
+      Escolhe uma das sugestões — ou escreve do seu jeito. <strong style="color:var(--amber);font-weight:500">A pessoa não vai saber quem é você</strong> até aceitar.
+    </p>
+
+    <div id="icebreakerCards">
+      <!-- cards injected -->
+    </div>
+
+    <div class="editor-label">Sua mensagem</div>
+    <textarea id="messageEditor" class="editor-textarea" maxlength="500" placeholder="Escreve uma mensagem que te represente..."></textarea>
+    <div class="char-count"><span id="msgCount">0</span>/500</div>
+
+    <div class="privacy-note" style="margin-top:12px">
+      <strong>Anônimo até aceitar.</strong> A pessoa vê só sua mensagem. Seu nome e foto ficam escondidos até ela decidir reconectar.
+    </div>
+
+    <button class="btn-primary" id="sendBtn" onclick="sendInvite()" disabled>Enviar convite</button>
+    <button class="btn-ghost" onclick="go('results')">Voltar pra lista</button>
+  </section>
+
+  <!-- ─────────── SCREEN 6: SUCCESS ─────────── -->
+  <section class="screen" id="screen-success">
+    <div class="success">
+      <div class="success-icon"><span class="success-icon-inner">✉️</span></div>
+      <h2 class="serif success-title">Convite enviado.</h2>
+      <p class="success-sub">A gente avisa quando a pessoa responder.</p>
+      <p class="success-anon">Por enquanto, ninguém sabe que foi você.</p>
+
+      <div class="success-actions">
+        <button class="btn-primary" onclick="go('hero'); resetAll();">Subir outra foto</button>
+        <button class="btn-ghost" onclick="window.location.href='/'">Voltar pro início</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────── State ───────────
+const state = {
+  file: null,
+  uploadId: null,
+  imageUrl: null,
+  faces: [],
+  selectedFaceIdx: null,
+  selectedMatch: null,
+  selectedIcebreaker: null,
+  history: ['hero']
+};
+
+const SCREENS = ['hero', 'upload', 'processing', 'results', 'icebreaker', 'success'];
+
+// ─────────── Navigation ───────────
+function go(name, recordHistory = true) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + name);
+  if (el) el.classList.add('active');
+  if (recordHistory && state.history[state.history.length - 1] !== name) state.history.push(name);
+  document.getElementById('backBtn').style.visibility = (name === 'hero') ? 'hidden' : 'visible';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  if (state.history.length > 1) {
+    state.history.pop();
+    go(state.history[state.history.length - 1], false);
+  } else {
+    go('hero', false);
+  }
+});
+
+function resetAll() {
+  state.file = null;
+  state.uploadId = null;
+  state.imageUrl = null;
+  state.faces = [];
+  state.selectedFaceIdx = null;
+  state.selectedMatch = null;
+  state.selectedIcebreaker = null;
+  state.history = ['hero'];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('dropzone').style.display = 'flex';
+  document.getElementById('contextInput').value = '';
+  document.getElementById('yearSel').value = '';
+  document.getElementById('charCount').textContent = '0';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+// ─────────── Year picker ───────────
+(function fillYears() {
+  const sel = document.getElementById('yearSel');
+  for (let y = 2020; y >= 1970; y--) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    sel.appendChild(opt);
+  }
+})();
+
+// ─────────── Dropzone ───────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) {
+    showToast('Precisa ser uma imagem (JPG ou PNG).');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('Essa foto é grande demais. Tenta uma menor que 10 MB.');
+    return;
+  }
+  state.file = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.imageUrl = e.target.result;
+    document.getElementById('previewImg').src = e.target.result;
+    document.getElementById('previewWrap').style.display = 'block';
+    document.getElementById('dropzone').style.display = 'none';
+    document.getElementById('submitBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetUpload() {
+  state.file = null;
+  state.imageUrl = null;
+  fileInput.value = '';
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('dropzone').style.display = 'flex';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+// ─────────── Char counters ───────────
+document.getElementById('contextInput').addEventListener('input', e => {
+  document.getElementById('charCount').textContent = e.target.value.length;
+});
+document.getElementById('messageEditor').addEventListener('input', e => {
+  document.getElementById('msgCount').textContent = e.target.value.length;
+  document.getElementById('sendBtn').disabled = e.target.value.trim().length < 10;
+});
+
+// ─────────── Upload + Processing ───────────
+async function submitUpload() {
+  if (!state.file) return;
+  const fd = new FormData();
+  fd.append('photo', state.file);
+  const year = document.getElementById('yearSel').value;
+  const ctx = document.getElementById('contextInput').value.trim();
+  if (year) fd.append('year', year);
+  if (ctx) fd.append('context', ctx);
+
+  go('processing');
+  document.getElementById('procImg').src = state.imageUrl;
+  runProcessingAnimation();
+
+  try {
+    const resp = await fetch('/api/tunel/upload', { method: 'POST', body: fd });
+    if (!resp.ok) throw new Error('upload-failed');
+    const data = await resp.json();
+    state.uploadId = data.upload_id || data.id;
+
+    // Poll faces + matches
+    const faces = await fetchJson(`/api/tunel/${state.uploadId}/faces`);
+    const matches = await fetchJson(`/api/tunel/${state.uploadId}/matches`);
+
+    state.faces = mergeFacesWithMatches(faces, matches);
+    // Hold processing a beat for the poetic rhythm
+    await sleep(900);
+    renderResults();
+    go('results');
+  } catch (err) {
+    console.error(err);
+    showToast('A foto resistiu. Tenta outra?');
+    go('upload', false);
+  }
+}
+
+async function fetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('fetch-failed');
+  return r.json();
+}
+
+function mergeFacesWithMatches(facesPayload, matchesPayload) {
+  // Be defensive about response shape
+  const faces = Array.isArray(facesPayload) ? facesPayload : (facesPayload.faces || []);
+  const matchesArr = Array.isArray(matchesPayload) ? matchesPayload : (matchesPayload.matches || []);
+
+  return faces.map((f, idx) => {
+    const matches = matchesArr
+      .filter(m => (m.face_index ?? m.face_idx ?? m.faceIndex) === (f.index ?? f.face_index ?? idx))
+      .map(m => ({
+        target_user_id: m.target_user_id || m.user_id || m.id,
+        similarity: m.similarity || m.score || 0,
+        hint: m.hint || m.context_hint || ''
+      }));
+    return {
+      idx: f.index ?? f.face_index ?? idx,
+      bbox: f.bbox || f.box || [0, 0, 0, 0], // [x, y, w, h] normalized 0-1
+      matches: matches
+    };
+  });
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─────────── Processing animation ───────────
+const PROC_LINES = [
+  'Detectando rostos...',
+  'Procurando memórias...',
+  'Achando saudade...'
+];
+async function runProcessingAnimation() {
+  const procText = document.getElementById('procText');
+  for (let i = 0; i < PROC_LINES.length; i++) {
+    procText.style.opacity = 0;
+    await sleep(300);
+    procText.textContent = PROC_LINES[i];
+    procText.style.opacity = 1;
+    await sleep(1400);
+  }
+}
+
+// ─────────── Results render ───────────
+function renderResults() {
+  const photo = document.getElementById('resultsPhoto');
+  // Remove existing face boxes
+  photo.querySelectorAll('.face-box').forEach(b => b.remove());
+  document.getElementById('resultsImg').src = state.imageUrl;
+  document.getElementById('faceCount').textContent = state.faces.length;
+
+  // Draw boxes once image is loaded
+  const img = document.getElementById('resultsImg');
+  const drawBoxes = () => {
+    state.faces.forEach((face, i) => {
+      const [x, y, w, h] = normalizeBbox(face.bbox);
+      const box = document.createElement('div');
+      box.className = 'face-box';
+      box.dataset.num = i + 1;
+      box.style.left = (x * 100) + '%';
+      box.style.top = (y * 100) + '%';
+      box.style.width = (w * 100) + '%';
+      box.style.height = (h * 100) + '%';
+      box.addEventListener('click', () => selectFace(i));
+      photo.appendChild(box);
+    });
+    if (state.faces.length === 1) selectFace(0);
+  };
+  if (img.complete) drawBoxes(); else img.onload = drawBoxes;
+}
+
+function normalizeBbox(bbox) {
+  // Accept [x,y,w,h] normalized or absolute. Defensive: if values > 1, treat as pixel and divide by image natural size.
+  let [x, y, w, h] = bbox;
+  const img = document.getElementById('resultsImg');
+  if (x > 1 || y > 1 || w > 1 || h > 1) {
+    const nw = img.naturalWidth || 1;
+    const nh = img.naturalHeight || 1;
+    return [x / nw, y / nh, w / nw, h / nh];
+  }
+  return [x, y, w, h];
+}
+
+function selectFace(idx) {
+  state.selectedFaceIdx = idx;
+  document.querySelectorAll('.face-box').forEach((b, i) => b.classList.toggle('active', i === idx));
+  const face = state.faces[idx];
+  const section = document.getElementById('matchesSection');
+
+  if (!face.matches || face.matches.length === 0) {
+    section.innerHTML = `
+      <div class="matches-header">Pessoa #${idx + 1}</div>
+      <div class="empty-state">A gente não achou ninguém ainda. Talvez essa pessoa ainda não esteja no TimeMates.</div>
+    `;
+    return;
+  }
+
+  let html = `<div class="matches-header">Pessoa #${idx + 1} · ${face.matches.length} provável${face.matches.length > 1 ? 'is' : ''} match${face.matches.length > 1 ? 'es' : ''}</div>`;
+  face.matches.forEach((m, i) => {
+    const pct = Math.round((m.similarity || 0) * 100);
+    html += `
+      <div class="match-card">
+        <div class="match-avatar"></div>
+        <div class="match-info">
+          <div class="match-line1">${m.hint || 'Alguém que pode te lembrar'}</div>
+          <div class="match-line2"><span class="match-similarity">${pct}% parecido</span></div>
+        </div>
+        <button class="match-btn" onclick="openIcebreaker('${m.target_user_id}')">Reconectar</button>
+      </div>
+    `;
+  });
+  section.innerHTML = html;
+}
+
+// ─────────── Icebreaker ───────────
+async function openIcebreaker(targetUserId) {
+  state.selectedMatch = targetUserId;
+  state.selectedIcebreaker = null;
+  document.getElementById('messageEditor').value = '';
+  document.getElementById('msgCount').textContent = '0';
+  document.getElementById('sendBtn').disabled = true;
+
+  go('icebreaker');
+
+  const cards = document.getElementById('icebreakerCards');
+  cards.innerHTML = `<div class="empty-state">Pensando em algo bonito pra dizer...</div>`;
+
+  try {
+    const data = await fetchJson(`/api/tunel/icebreaker/${targetUserId}`);
+    const suggestions = data.suggestions || data.icebreakers || data || [];
+    const list = Array.isArray(suggestions) ? suggestions : [];
+    if (list.length === 0) {
+      // Fallback poetic suggestions
+      cards.innerHTML = renderIcebreakers([
+        'Acho que a gente se conheceu há muito tempo. Tenho uma foto e dei de cara com seu rosto. Tudo bem?',
+        'Oi. Vou direto: tô tentando reencontrar pessoas de uma fase boa da minha vida. Acho que você foi uma delas.',
+        'Te achei numa foto antiga e o coração quentou. Posso te contar de onde?'
+      ]);
+    } else {
+      cards.innerHTML = renderIcebreakers(list);
+    }
+  } catch (err) {
+    cards.innerHTML = renderIcebreakers([
+      'Acho que a gente se conheceu há muito tempo. Posso te contar onde?',
+      'Oi. Apareci numa foto antiga sua. Tudo bem se eu contar a história?',
+      'Te achei numa lembrança boa. Posso te mandar?'
+    ]);
+  }
+}
+
+function renderIcebreakers(list) {
+  return list.map((s, i) => {
+    const text = typeof s === 'string' ? s : (s.text || s.message || s.suggestion || '');
+    return `<div class="icebreaker-card" data-idx="${i}" onclick="pickIcebreaker(${i}, this)">${escapeHtml(text)}</div>`;
+  }).join('');
+}
+
+function pickIcebreaker(idx, el) {
+  document.querySelectorAll('.icebreaker-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  state.selectedIcebreaker = idx;
+  const editor = document.getElementById('messageEditor');
+  editor.value = el.textContent.trim();
+  document.getElementById('msgCount').textContent = editor.value.length;
+  document.getElementById('sendBtn').disabled = editor.value.trim().length < 10;
+  editor.focus();
+}
+
+async function sendInvite() {
+  if (!state.selectedMatch) return;
+  const message = document.getElementById('messageEditor').value.trim();
+  if (message.length < 10) return;
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Enviando...';
+
+  try {
+    const r = await fetch(`/api/reconnect/${state.selectedMatch}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message, upload_id: state.uploadId })
+    });
+    if (!r.ok && r.status !== 201) throw new Error('send-failed');
+    go('success');
+  } catch (err) {
+    showToast('Não rolou enviar agora. Tenta de novo?');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar convite';
+  }
+}
+
+// ─────────── Utilities ───────────
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3800);
+}
+</script>
+
+</body>
+</html>

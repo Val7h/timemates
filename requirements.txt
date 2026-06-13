@@ -25,3 +25,11 @@ sentry-sdk[fastapi]==2.18.0
 
 # PostHog product analytics
 posthog==3.7.0
+
+# Túnel do Tempo — Face Detection (Sprint 2 S2)
+# Chosen opencv-python-headless over face-recognition because face_recognition
+# requires dlib, which needs cmake + boost to compile on Linux (~1.5GB build,
+# frequently fails on Render free tier). Haar Cascades come pre-trained with
+# opencv, no compilation step.
+opencv-python-headless==4.8.1.78
+numpy==1.26.4
