@@ -4717,9 +4717,16 @@ async def news_dashboard():
 
 
 # ===== LANDING PAGE & LEGAL DOCS =====
+# CUTOVER 2026-06-12: raiz / agora serve homepage V2 (narrativa de saudade/reconexão)
+# Old landing at public/landing/index.html ainda acessível via /landing
 @app.get("/", response_class=FileResponse)
 async def landing_page():
-    return FileResponse("public/landing/index.html")
+    return FileResponse("static/index_v2.html")
+
+@app.get("/v2", response_class=FileResponse)
+async def homepage_v2_compat():
+    """Backwards-compat: /v2 continua servindo a mesma homepage V2."""
+    return FileResponse("static/index_v2.html")
 
 @app.get("/privacy", response_class=FileResponse)
 async def privacy_policy():
