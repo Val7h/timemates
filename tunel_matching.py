@@ -102,6 +102,20 @@ def find_matches_for_face(
         # Filtro: not panic-ghost
         if getattr(owner, 'ghost_mode_global', False):
             continue
+        # ANTI-STALKER: target só aparece se ELE TAMBÉM upou foto E consentiu face_matching
+        try:
+            from consent_helpers import has_active_consent
+            from database import TunelUpload
+            target_has_consent = has_active_consent(db, owner.id, 'face_matching')
+            target_uploaded = db.query(TunelUpload).filter(
+                TunelUpload.user_id == owner.id,
+                TunelUpload.deleted_at.is_(None),
+            ).count() > 0
+            if not (target_has_consent and target_uploaded):
+                continue  # bloqueado por consent
+        except Exception:
+            # Conservador: se algo falhar, NÃO mostrar match
+            continue
         # PRIVACY: NÃO expor name, email, photo_url, nada identificável.
         # face_id é o handle pro reconnect flow assimétrico.
         results.append({

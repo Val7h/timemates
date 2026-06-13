@@ -1,6 +1,6 @@
 from sqlalchemy import (
     create_engine, Column, Integer, String, Boolean, Float,
-    DateTime, ForeignKey, Text, JSON
+    DateTime, Date, ForeignKey, Text, JSON
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -74,6 +74,14 @@ class User(Base):
     ghost_mode_global = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True)
     is_system_admin = Column(Boolean, default=False)
+    # ─── Age compliance (migration 006) ───────────────────────────────────────
+    # birthdate: nullable porque users existentes não têm; bloqueia áreas 18+
+    # quando ausente. LGPD Art. 14 + ECA exigem gate de menores em features
+    # sensíveis (Túnel do Tempo, reconnect, turmas — todas podem expor menores).
+    birthdate = Column(Date, nullable=True)
+    age_verified = Column(Boolean, default=False, nullable=False)
+    # age_verification_method: 'self_declared', 'gov_br', 'doc_upload', ...
+    age_verification_method = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     memberships = relationship("RoomMembership", foreign_keys="RoomMembership.user_id", back_populates="user")
@@ -803,6 +811,40 @@ class TunelFace(Base):
     matched_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     match_confidence = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MatchAttemptLog(Base):
+    """Audit log de todas tentativas de match no Túnel."""
+    __tablename__ = "match_attempt_logs"
+    id = Column(Integer, primary_key=True)
+    requester_id = Column(Integer, ForeignKey("users.id"), index=True)
+    face_id = Column(Integer, ForeignKey("tunel_faces.id"), nullable=True)
+    matches_count = Column(Integer, default=0)
+    action_taken = Column(String(50))  # 'viewed', 'reconnect_initiated', 'blocked_by_consent'
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LGPD Art. 11 — Granular Consent (migration 007)
+# Separate, revocable consent per data-processing purpose.
+# Biometric (tunel_biometric, face_matching) MUST be granted SEPARATELY
+# from generic TOS/privacy. Audit trail via ip/ua sha256 hashes.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class UserConsent(Base):
+    __tablename__ = "user_consents"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    consent_type = Column(String(80), nullable=False)
+    # types: 'terms_of_service', 'privacy_policy', 'tunel_biometric',
+    #        'face_matching', 'email_marketing', 'reconnect_emails',
+    #        'lgpd_data_processing'
+    granted = Column(Boolean, nullable=False)
+    granted_at = Column(DateTime, default=datetime.utcnow)
+    revoked_at = Column(DateTime, nullable=True)
+    version = Column(String(20), default='v1')  # version of TOS/policy at time of consent
+    ip_address_hash = Column(String(64), nullable=True)  # sha256 of IP for audit
+    user_agent_hash = Column(String(64), nullable=True)
 
 
 def get_db():

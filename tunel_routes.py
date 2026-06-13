@@ -19,13 +19,99 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database import get_db, User, TunelUpload, TunelFace
-from auth import get_current_user_required
+from auth import get_current_user_required, require_18_plus
+from consent_helpers import has_active_consent
 from tunel_icebreaker import generate_icebreaker
+
+
+# ─── Rate-limit key function ──────────────────────────────────────────────────
+# Slowapi's key_func runs BEFORE the FastAPI auth dependency, so we look at
+# request.state.user (which each endpoint binds explicitly) and fall back to IP.
+# IP-keyed rate limits would be trivially shared across NATed users (carrier
+# CGNAT, office wifi), so per-user buckets are the only sane choice for LGPD-
+# sensitive endpoints.
+def _user_id_key(request: Request) -> str:
+    user = getattr(request.state, "user", None)
+    if user is not None:
+        return f"user:{user.id}"
+    client = request.client.host if request.client else "unknown"
+    return f"ip:{client}"
+
+
+# Limiter is injected at app startup via ``attach_limiter`` (called from main.py
+# after the slowapi Limiter is constructed). We hold a module-level proxy so
+# the @decorators below resolve at import time without circular-importing main.
+class _LimiterProxy:
+    """Forwards .limit(...) to the real slowapi Limiter once attached.
+
+    The @limit decorators below execute at MODULE IMPORT time — before main.py
+    has a chance to inject the real Limiter. So this proxy returns a thin
+    wrapper that captures (args, kwargs, func) and re-applies them once the
+    real limiter is attached. This keeps the route registration order in main.py
+    sane (import → attach) without forcing a register_routes() refactor.
+    """
+    _real = None
+    _pending: list = []  # (args, kwargs, func) tuples awaiting real limiter
+
+    def limit(self, *args, **kwargs):
+        proxy = self
+
+        def _decorator(func):
+            if proxy._real is not None:
+                return proxy._real.limit(*args, **kwargs)(func)
+            # Stash for later. We mutate func in-place by wrapping it with a
+            # closure that re-resolves the wrapped target the first time it's
+            # called (after attach_limiter has run during app boot).
+            proxy._pending.append((args, kwargs, func))
+            return func  # FastAPI captures this; we patch its slot at attach.
+
+        return _decorator
+
+
+limiter = _LimiterProxy()
+
+
+def attach_limiter(real_limiter, app=None) -> None:
+    """Inject the app-wide slowapi Limiter and apply any pending decorators.
+
+    Call once from main.py BEFORE include_router(tunel_router). If called
+    after, we re-decorate every pending function and patch the router's
+    endpoint slot so FastAPI uses the wrapped version.
+    """
+    limiter._real = real_limiter
+    if not limiter._pending:
+        return
+    # Re-decorate every pending function. If the router has already been
+    # registered with the app, patch its routes in place.
+    patched = {}
+    for args, kwargs, func in limiter._pending:
+        wrapped = real_limiter.limit(*args, **kwargs)(func)
+        patched[func] = wrapped
+    limiter._pending.clear()
+    # Patch the router's APIRoute.endpoint pointers so FastAPI dispatches
+    # to the rate-limited version on the next request.
+    try:
+        for route in tunel_router.routes:
+            ep = getattr(route, "endpoint", None)
+            if ep in patched:
+                route.endpoint = patched[ep]
+                # FastAPI cached the dependant at add_api_route time. Rebuild it
+                # so the new endpoint signature (which slowapi reads via
+                # `request: Request`) is picked up.
+                try:
+                    from fastapi.dependencies.utils import get_dependant
+                    route.dependant = get_dependant(path=route.path_format,
+                                                    call=patched[ep])
+                except Exception:
+                    pass
+    except NameError:
+        # tunel_router not yet defined; decorators were registered first.
+        pass
 
 try:
     import tunel_detection
@@ -88,7 +174,9 @@ UPLOAD_DIR_BASE = "uploads/tunel"
 
 
 @tunel_router.post("/upload")
+@limiter.limit("5/day", key_func=_user_id_key)
 async def upload_old_photo(
+    request: Request,
     file: UploadFile = File(...),
     photo_year_estimated: Optional[int] = Form(None),
     photo_context: Optional[str] = Form(None),
@@ -100,7 +188,25 @@ async def upload_old_photo(
 
     Faz validação MIME + tamanho, scrubba EXIF (LGPD: GPS/câmera/timestamp são
     dados pessoais), e registra metadata pra face detection futura (Sprint 2 S2).
+    Rate-limit: 5/dia/user (uploads são caros — face detection, storage).
     """
+    request.state.user = current_user  # bind for slowapi key_func
+    # LGPD Art. 14 + ECA: gate 18+ antes de qualquer trabalho. Fotos escolares
+    # antigas costumam conter colegas menores; iniciar face matching nesse
+    # contexto exige operador adulto.
+    require_18_plus(current_user)
+    # LGPD Art. 11: biometric consent must be granted SEPARATELY from ToS.
+    # Uploads contain face biometrics (embeddings) — without consent, refuse.
+    if not has_active_consent(db, current_user.id, 'tunel_biometric'):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                'error': 'consent_required',
+                'consent_type': 'tunel_biometric',
+                'message': "Consentimento biométrico necessário (LGPD Art. 11). "
+                           "Conceda em POST /api/me/consents/tunel_biometric/grant.",
+            },
+        )
     # Validação MIME
     if file.content_type not in ALLOWED_MIME:
         raise HTTPException(400, f"Tipo não suportado. Use jpg, png ou webp.")
@@ -167,16 +273,21 @@ async def upload_old_photo(
 
 
 @tunel_router.post("/{upload_id}/process")
+@limiter.limit("3/day", key_func=_user_id_key)
 async def reprocess_upload(
     upload_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
     """Re-trigger face detection num upload existente.
 
-    Rate limit: 3 reprocessamentos/dia/user. Útil quando: melhoramos o modelo,
-    ou primeira detecção retornou 0 faces e o user quer tentar de novo.
+    Rate limit: 3 reprocessamentos/dia/user (slowapi). Útil quando: melhoramos
+    o modelo, ou primeira detecção retornou 0 faces e o user quer tentar de
+    novo. O bloco DB-based abaixo serve de defense-in-depth se slowapi reset
+    after restart.
     """
+    request.state.user = current_user
     upload = db.query(TunelUpload).filter(
         TunelUpload.id == upload_id,
         TunelUpload.user_id == current_user.id,
@@ -209,8 +320,10 @@ async def reprocess_upload(
 
 
 @tunel_router.get("/{upload_id}/faces")
+@limiter.limit("30/minute", key_func=_user_id_key)
 async def list_faces(
     upload_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
@@ -218,7 +331,9 @@ async def list_faces(
 
     Retorna bbox + confidence + match info. Embeddings ficam server-side pro
     matching, nunca expostos ao cliente (LGPD: embedding facial é sensível).
+    Rate-limit: 30/min/user (UI polling-friendly mas anti-scrape).
     """
+    request.state.user = current_user
     upload = db.query(TunelUpload).filter(
         TunelUpload.id == upload_id,
         TunelUpload.user_id == current_user.id,
@@ -257,11 +372,17 @@ async def list_faces(
 
 
 @tunel_router.get("/uploads/me")
+@limiter.limit("60/minute", key_func=_user_id_key)
 async def list_my_uploads(
+    request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
-    """Lista uploads do próprio user (não-deletados)."""
+    """Lista uploads do próprio user (não-deletados).
+
+    Rate-limit: 60/min/user (generoso — endpoint de leitura, mas evita scraping).
+    """
+    request.state.user = current_user
     uploads = db.query(TunelUpload).filter(
         TunelUpload.user_id == current_user.id,
         TunelUpload.deleted_at.is_(None),
@@ -320,8 +441,10 @@ async def delete_upload(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @tunel_router.get("/{upload_id}/matches")
+@limiter.limit("10/day", key_func=_user_id_key)
 async def get_matches_for_upload(
     upload_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
@@ -329,7 +452,22 @@ async def get_matches_for_upload(
 
     Só o dono do upload pode pedir matches. Resposta NÃO contém nome ou foto
     dos candidatos — só similarity, bbox e face_id (handle pro reconnect).
+    Rate-limit: 10/dia/user — matching é caro (embedding compare contra base
+    inteira) e cada chamada toca dados biométricos de terceiros.
     """
+    request.state.user = current_user
+    # LGPD Art. 11: face matching compares embeddings against OTHER users —
+    # distinct from just uploading your own photo. Requires its own consent.
+    if not has_active_consent(db, current_user.id, 'face_matching'):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                'error': 'consent_required',
+                'consent_type': 'face_matching',
+                'message': "Consentimento de matching facial necessário (LGPD Art. 11). "
+                           "Conceda em POST /api/me/consents/face_matching/grant.",
+            },
+        )
     result = find_matches_for_upload(db, upload_id, current_user.id)
     if 'error' in result:
         if result['error'] == 'upload not found':
@@ -341,8 +479,10 @@ async def get_matches_for_upload(
 
 
 @tunel_router.post("/match/{face_id}/reconnect")
+@limiter.limit("5/day", key_func=_user_id_key)
 async def reconnect_via_match(
     face_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
@@ -351,7 +491,10 @@ async def reconnect_via_match(
     Não revela identidade aqui: apenas retorna target_user_id pra ser passado
     pro /api/reconnect (que implementa double opt-in). Se o owner está em
     ghost_mode_global, devolve 404 (não vaza existência).
+    Rate-limit: 5/dia/user — espelho do limite em /api/reconnect (mesmo orçamento
+    diário, não importa o caminho usado pra iniciar o reveal).
     """
+    request.state.user = current_user
     return initiate_reconnect_for_face(db, face_id, current_user.id)
 
 
@@ -393,8 +536,10 @@ def _check_icebreaker_quota(user_id: int):
 
 
 @tunel_router.get("/icebreaker/{target_user_id}")
+@limiter.limit("20/day", key_func=_user_id_key)
 def get_icebreaker_suggestions(
     target_user_id: int,
+    request: Request,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
@@ -408,6 +553,7 @@ def get_icebreaker_suggestions(
     comum, que o requester já teria ao acessar a página da Turma de qualquer
     forma. Sem dado biométrico nem foto exposta neste endpoint.
     """
+    request.state.user = current_user
     if target_user_id == current_user.id:
         raise HTTPException(400, "Não dá pra se reconectar com você mesmo.")
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional
 import hashlib, os, hmac
 from jose import JWTError, jwt
@@ -72,6 +72,44 @@ def get_current_user_required(
         raise
     except Exception:
         raise HTTPException(status_code=401, detail="Token inválido")
+
+
+# ─── Age compliance helpers (migration 006) ───────────────────────────────────
+# LGPD Art. 14 + ECA exigem gate 18+ em features sensíveis. Centralizado aqui
+# pra que toda rota use o mesmo cálculo e a mesma mensagem ao usuário.
+
+def calculate_age(birthdate: date) -> int:
+    """Idade em anos completos. Lida com 29/fev nascido em ano não-bissexto
+    via a comparação de tupla (month, day) — sub-dia natural sem casos
+    especiais."""
+    today = date.today()
+    return today.year - birthdate.year - (
+        (today.month, today.day) < (birthdate.month, birthdate.day)
+    )
+
+
+def require_18_plus(user: User) -> None:
+    """Levanta HTTPException se o user é menor de 18 ou idade desconhecida.
+
+    Mensagens distintas pra:
+      * birthdate ausente → frontend deve abrir o prompt /api/me/birthdate.
+      * birthdate presente, <18 → mensagem definitiva (sem flow de retry).
+
+    Não retorna nada — em caso de sucesso, segue. Usar como dependência
+    interna depois de get_current_user_required (que já garante User válido).
+    """
+    if user is None:
+        raise HTTPException(status_code=401, detail="Faça login para continuar")
+    if not getattr(user, "birthdate", None):
+        raise HTTPException(
+            status_code=403,
+            detail="Confirme sua data de nascimento antes de continuar.",
+        )
+    if calculate_age(user.birthdate) < 18:
+        raise HTTPException(
+            status_code=403,
+            detail="TimeMates é restrito a maiores de 18 anos.",
+        )
 
 
 def validate_cpf(cpf: str) -> bool:

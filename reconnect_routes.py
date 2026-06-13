@@ -46,7 +46,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from database import get_db, User, RoomMembership
-from auth import get_current_user_required
+from auth import get_current_user_required, require_18_plus
 from reconnect_models import ReconnectRequest
 import reconnect_email
 
@@ -174,6 +174,14 @@ def register_routes(app, limiter):
         # Bind user to request.state so the rate-limit key_func can see it.
         request.state.user = current_user
 
+        # ── 18+ gate (LGPD Art. 14 + ECA).
+        # Reconnect inicia contato direto entre dois adultos via WhatsApp; o
+        # requester precisa ter idade comprovável. Diferente das outras
+        # branches "silenciosas" (que retornam _OPAQUE_OK pra esconder estado
+        # do target), aqui falhamos com 403 explícito: o problema está com o
+        # requester, não com o target, então não há informação a vazar.
+        require_18_plus(current_user)
+
         # Can't reconnect with yourself. Return opaque OK anyway (no signal).
         if target_user_id == current_user.id:
             return _OPAQUE_OK
@@ -249,16 +257,28 @@ def register_routes(app, limiter):
 
         # ── Send the asymmetric-reveal email. Fire-and-forget; failures
         # are logged but never surface to the requester.
+        # LGPD Art. 7/11: only email the TARGET if they've consented to receive
+        # reconnect emails. We silently skip otherwise so the requester gets the
+        # same opaque OK (no signal that the target opted out).
         try:
-            turma_name = _turma_label(db, payload.turma_id)
-            reconnect_email.send_reconnect_invite(
-                to_email=target.email,
-                turma_name=turma_name,
-                request_id=req.id,
-                full_name=target.full_name,
-            )
-        except Exception as e:
-            print(f"[RECONNECT] email send failed for req={req.id}: {e}")
+            from consent_helpers import has_active_consent as _has_consent
+            target_opted_in = _has_consent(db, target.id, 'reconnect_emails')
+        except Exception:
+            target_opted_in = False
+        if target_opted_in:
+            try:
+                turma_name = _turma_label(db, payload.turma_id)
+                reconnect_email.send_reconnect_invite(
+                    to_email=target.email,
+                    turma_name=turma_name,
+                    request_id=req.id,
+                    full_name=target.full_name,
+                )
+            except Exception as e:
+                print(f"[RECONNECT] email send failed for req={req.id}: {e}")
+        else:
+            print(f"[RECONNECT] target {target.id} not consented to reconnect_emails; "
+                  f"request {req.id} stored but email skipped")
 
         return _OPAQUE_OK
 

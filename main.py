@@ -111,7 +111,8 @@ from database import (
 )
 from auth import (
     get_current_user, get_current_user_required,
-    hash_password, verify_password, create_access_token, validate_cpf
+    hash_password, verify_password, create_access_token, validate_cpf,
+    require_18_plus, calculate_age,
 )
 from billing_routes import router as billing_router
 
@@ -373,7 +374,44 @@ async def lifespan(app):
     else:
         print("[EMAIL_SEQ] DISABLED (EMAIL_SEQUENCE_ENABLED!=true) — emergency stop active")
 
+    # ─── LGPD: nightly purge of soft-deleted tunel uploads (>30d) + cool-off
+    # ─── account deletions (>7d after request, not cancelled).
+    # Gated by PURGE_ENABLED so local/staging doesn't accidentally hard-delete
+    # while we're still debugging the deletion UX.
+    _tunel_purge_scheduler = None
+    if os.getenv("PURGE_ENABLED", "false").lower() == "true":
+        try:
+            from apscheduler.schedulers.background import BackgroundScheduler
+            from tunel_purge import (
+                purge_deleted_uploads,
+                purge_pending_account_deletions,
+            )
+            _tunel_purge_scheduler = BackgroundScheduler(timezone="UTC")
+            _tunel_purge_scheduler.add_job(
+                purge_deleted_uploads, 'cron', hour=3, minute=0,
+                id='tunel_purge_uploads', replace_existing=True,
+            )
+            _tunel_purge_scheduler.add_job(
+                purge_pending_account_deletions, 'cron', hour=3, minute=15,
+                id='lgpd_purge_accounts', replace_existing=True,
+            )
+            _tunel_purge_scheduler.start()
+            app.state.tunel_purge_scheduler = _tunel_purge_scheduler
+            print("[CRON] LGPD purge scheduler started (daily 03:00 UTC)")
+        except Exception as e:
+            print(f"[CRON] Failed to start LGPD purge scheduler: {e}")
+    else:
+        print("[CRON] LGPD purge DISABLED (PURGE_ENABLED!=true)")
+
     yield
+
+    # Graceful shutdown of background jobs so SIGTERM doesn't leave the
+    # scheduler thread alive on Render redeploys.
+    if _tunel_purge_scheduler is not None:
+        try:
+            _tunel_purge_scheduler.shutdown(wait=False)
+        except Exception:
+            pass
 
 
 def _run_email_sequence():
@@ -502,10 +540,14 @@ app.include_router(billing_router)
 
 # ─── Túnel do Tempo Routes (old photo upload + face detection foundation) ─────
 try:
-    from tunel_routes import tunel_router
-    app.include_router(tunel_router)
+    import tunel_routes as _tunel_mod
+    # Inject the slowapi limiter BEFORE include_router so per-user rate limits
+    # (5/day upload, 30/min faces, 10/day matches, etc.) attach to each route.
+    # See tunel_routes._LimiterProxy for the deferred-decoration mechanism.
+    _tunel_mod.attach_limiter(limiter, app)
+    app.include_router(_tunel_mod.tunel_router)
     os.makedirs("uploads/tunel", exist_ok=True)
-    print("[FEATURE] tunel routes registered")
+    print("[FEATURE] tunel routes registered (rate-limited per-user)")
 except Exception:
     logger.exception("Feature loader failed: %s", "tunel_routes")
     print("[FEATURE] Failed to load: tunel_routes")
@@ -1028,6 +1070,86 @@ async def login(
 @app.get("/api/auth/me")
 def me(current_user: User = Depends(get_current_user_required)):
     return user_to_dict(current_user)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LGPD Art. 11 — Granular Consent endpoints
+# Lists, grants, and revokes per-purpose consent. Biometric consents
+# (tunel_biometric, face_matching) MUST be granted separately from ToS.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/me/consents")
+def list_my_consents(
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Lista todos os consents do usuário, um por consent_type, incluindo
+    tipos válidos que o user ainda não tocou (granted=False)."""
+    from consent_helpers import list_consents
+    return {"consents": list_consents(db, current_user.id)}
+
+
+@app.post("/api/me/consents/{consent_type}/grant")
+def grant_my_consent(
+    consent_type: str,
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Concede consent específico. Persiste hash do IP+UA para audit (LGPD Art. 37)."""
+    from consent_helpers import VALID_CONSENT_TYPES, grant_consent
+    if consent_type not in VALID_CONSENT_TYPES:
+        raise HTTPException(400, f"consent_type inválido: {consent_type}")
+    c = grant_consent(db, current_user.id, consent_type, request=request, version='v1')
+    return {
+        "success": True,
+        "consent_type": c.consent_type,
+        "granted_at": c.granted_at.isoformat() if c.granted_at else None,
+        "version": c.version,
+    }
+
+
+@app.post("/api/me/consents/{consent_type}/revoke")
+def revoke_my_consent(
+    consent_type: str,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Revoga consent. LGPD Art. 8 §5: revogação deve ser tão fácil quanto conceder."""
+    from consent_helpers import VALID_CONSENT_TYPES, revoke_consent
+    if consent_type not in VALID_CONSENT_TYPES:
+        raise HTTPException(400, f"consent_type inválido: {consent_type}")
+    n = revoke_consent(db, current_user.id, consent_type)
+    return {"success": True, "consent_type": consent_type, "revoked_count": n}
+
+
+@app.post("/api/me/report-misuse")
+async def report_misuse(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """User reporta upload feito sem consent dele. Marca pra delete + log."""
+    body = await request.json()
+    upload_id = body.get('upload_id')
+    reason = body.get('reason', 'Não consentiu uso da foto')
+    if not upload_id:
+        raise HTTPException(400, "upload_id obrigatório")
+    from database import TunelUpload, MatchAttemptLog
+    upload = db.query(TunelUpload).filter(TunelUpload.id == upload_id).first()
+    if not upload:
+        raise HTTPException(404, "Upload não encontrado")
+    # Soft-delete the upload
+    upload.deleted_at = datetime.utcnow()
+    # Log incident
+    log = MatchAttemptLog(
+        requester_id=current_user.id,
+        action_taken='misuse_reported',
+    )
+    db.add(log)
+    db.commit()
+    logger.warning(f"[MISUSE] User {current_user.id} reported upload {upload_id}: {reason}")
+    return {"success": True, "upload_marked_deleted": True}
 
 
 @app.post("/api/auth/forgot-password")
@@ -2207,6 +2329,99 @@ def update_my_visibility(
         "is_discoverable": bool(current_user.is_discoverable),
         "allow_reconnect_requests": bool(current_user.allow_reconnect_requests),
         "ghost_mode_global": bool(current_user.ghost_mode_global),
+    }
+
+
+@app.put("/api/me/birthdate")
+async def set_my_birthdate(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🎂 Set data de nascimento (one-shot, imutável após gravar).
+
+    LGPD Art. 14 + ECA: gate 18+ exige data de nascimento. Aceitamos
+    auto-declaração (`age_verification_method='self_declared'`) — o
+    `age_verified` permanece FALSE até confirmação via gov.br ou docs.
+
+    Regras:
+      * Campo `birthdate` no body, formato ISO 'YYYY-MM-DD'.
+      * Ano entre 1925 e (ano atual − 18). Impede menores e datas absurdas.
+      * Imutável depois da primeira gravação. Mudança requer ticket via
+        DPO/suporte (defesa contra alteração pós-fato pra burlar gates).
+    """
+    # Bloqueia mudança se já tem birthdate
+    if current_user.birthdate is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Data de nascimento já registrada. Para corrigir, "
+                "abra um chamado com o DPO via suporte."
+            ),
+        )
+
+    # Aceita JSON ou form-data, mesmo padrão de /api/auth/register
+    content_type = (request.headers.get("content-type") or "").lower()
+    data: dict = {}
+    if "application/json" in content_type:
+        try:
+            data = await request.json()
+        except Exception:
+            raise HTTPException(status_code=422, detail="JSON inválido")
+    else:
+        try:
+            form = await request.form()
+            data = {k: v for k, v in form.items()}
+        except Exception:
+            data = {}
+
+    raw = (data.get("birthdate") or "").strip() if isinstance(data.get("birthdate"), str) else ""
+    if not raw:
+        raise HTTPException(status_code=422, detail="Campo 'birthdate' é obrigatório")
+
+    # Parse rígido YYYY-MM-DD (date.fromisoformat aceita exatamente esse formato)
+    from datetime import date as _date
+    try:
+        bd = _date.fromisoformat(raw)
+    except ValueError:
+        raise HTTPException(
+            status_code=422,
+            detail="Formato inválido. Use YYYY-MM-DD (ex: 1985-04-15).",
+        )
+
+    # Validação de ano: 1925..(ano atual − 18). Limite superior bloqueia menores.
+    today = _date.today()
+    min_year = 1925
+    max_year = today.year - 18
+    if bd.year < min_year or bd.year > max_year:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Ano de nascimento deve estar entre {min_year} e {max_year}. "
+                "TimeMates é restrito a maiores de 18 anos."
+            ),
+        )
+
+    # Double-check idade efetiva: ano permitido mas dia/mês ainda não fizeram 18
+    if calculate_age(bd) < 18:
+        raise HTTPException(
+            status_code=422,
+            detail="TimeMates é restrito a maiores de 18 anos.",
+        )
+
+    current_user.birthdate = bd
+    current_user.age_verified = False  # self_declared não é verified
+    current_user.age_verification_method = "self_declared"
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "success": True,
+        "birthdate": current_user.birthdate.isoformat(),
+        "age": calculate_age(current_user.birthdate),
+        "age_verified": bool(current_user.age_verified),
+        "age_verification_method": current_user.age_verification_method,
+        "immutable": True,
     }
 
 
@@ -4582,6 +4797,10 @@ def turma_join(
     db: Session = Depends(get_db),
 ):
     """🙋 Pedir entrada na turma. Cria membership 'pending' + 'ghost' (LGPD)."""
+    # Gate 18+: turma reflete uma escola/série específica e historicamente
+    # tem membros menores (colegas de classe que ainda são crianças hoje).
+    # Bloqueia menores entrando em contextos com adultos. LGPD Art. 14 + ECA.
+    require_18_plus(current_user)
     t = db.query(Turma).filter(Turma.slug == slug).first()
     if not t:
         raise HTTPException(status_code=404, detail="Turma não encontrada")
@@ -4727,6 +4946,277 @@ async def news_dashboard():
 
 
 # ===== LANDING PAGE & LEGAL DOCS =====
+# ═══════════════════════════════════════════════════════════════════════════════
+# LGPD — Art. 18 V (portabilidade) + Art. 18 VI (eliminação)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Three endpoints:
+#   GET    /api/me/lgpd-export             → full data dump as JSON download
+#   POST   /api/me/lgpd-deletion-request   → soft-delete + 7-day cool-off
+#   POST   /api/me/lgpd-deletion-cancel    → undo within the cool-off window
+# Hard-delete after the cool-off is done by tunel_purge.purge_pending_account_deletions
+# (apscheduler job, see lifespan). We deliberately mark deletion via a sentinel
+# stored in User.bio (``__lgpd_deletion__:ISO_TS``) so we don't need a new column —
+# this flow is low-traffic and the bio is unused once is_active=False.
+
+from fastapi.responses import Response as _LGPDResponse
+from fastapi.security import HTTPBearer  # for lgpd-deletion-cancel (deactivated user)
+import json as _lgpd_json
+
+
+@app.get("/api/me/lgpd-export")
+@limiter.limit("3/day")
+def lgpd_export_my_data(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """LGPD Art. 18 V — direito à portabilidade.
+
+    Retorna TODOS os dados pessoais do usuário em JSON (download anexado).
+    Inclui: perfil, turmas (membership + role), mensagens, uploads (metadata
+    apenas — arquivos brutos não vão no JSON por tamanho; user pode baixá-los
+    individualmente via preview_url), consentimentos, faces detectadas (sem
+    embedding bruto — biometria é mantida server-side por design).
+
+    Rate-limit: 3/dia (operação cara, não deve ser usada como API regular).
+    """
+    # Profile (drop password_hash + cpf_hash — não são "do usuário", são
+    # credenciais do sistema, e expor é risco extra sem ganho LGPD).
+    profile = {
+        "id": current_user.id,
+        "full_name": current_user.full_name,
+        "email": current_user.email,
+        "phone": current_user.phone,
+        "phone_verified": current_user.phone_verified,
+        "profile_photo": current_user.profile_photo,
+        "city": current_user.city,
+        "profession": current_user.profession,
+        "bio": current_user.bio,
+        "is_discoverable": current_user.is_discoverable,
+        "allow_reconnect_requests": current_user.allow_reconnect_requests,
+        "ghost_mode_global": current_user.ghost_mode_global,
+        "is_active": current_user.is_active,
+        "created_at": current_user.created_at.isoformat()
+        if current_user.created_at else None,
+    }
+
+    # Memberships (Rooms + Turmas).
+    rooms = []
+    try:
+        for m in db.query(RoomMembership).filter(
+            RoomMembership.user_id == current_user.id
+        ).all():
+            rooms.append({
+                "room_id": m.room_id,
+                "role": m.role,
+                "status": m.status,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            })
+    except Exception:
+        pass
+
+    turmas = []
+    try:
+        from database import TurmaMembership  # local import (model added later)
+        for tm in db.query(TurmaMembership).filter(
+            TurmaMembership.user_id == current_user.id
+        ).all():
+            turmas.append({
+                "turma_id": tm.turma_id,
+                "status": tm.status,
+                "visibility": tm.visibility,
+                "is_founder": tm.is_founder,
+                "verified_by_vouches": tm.verified_by_vouches,
+            })
+    except Exception:
+        pass
+
+    # Messages.
+    messages = []
+    try:
+        for msg in db.query(Message).filter(
+            Message.user_id == current_user.id
+        ).all():
+            messages.append({
+                "id": msg.id,
+                "room_id": msg.room_id,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            })
+    except Exception:
+        pass
+
+    # Tunel uploads — metadata only.
+    uploads = []
+    try:
+        from database import TunelUpload as _TU
+        for u in db.query(_TU).filter(_TU.user_id == current_user.id).all():
+            uploads.append({
+                "id": u.id,
+                "turma_id": u.turma_id,
+                "file_path": u.file_path,  # so user can download separately
+                "file_size_bytes": u.file_size_bytes,
+                "mime_type": u.mime_type,
+                "original_filename": u.original_filename,
+                "photo_year_estimated": u.photo_year_estimated,
+                "photo_context": u.photo_context,
+                "faces_detected_count": u.faces_detected_count,
+                "processing_status": u.processing_status,
+                "exif_scrubbed": u.exif_scrubbed,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "deleted_at": u.deleted_at.isoformat() if u.deleted_at else None,
+            })
+    except Exception:
+        pass
+
+    # Faces — bbox + confidence, NO embedding (biométrico, mantido server-side).
+    faces = []
+    try:
+        from database import TunelFace as _TF, TunelUpload as _TU
+        user_upload_ids = [
+            u.id for u in db.query(_TU).filter(
+                _TU.user_id == current_user.id
+            ).all()
+        ]
+        if user_upload_ids:
+            for f in db.query(_TF).filter(
+                _TF.upload_id.in_(user_upload_ids)
+            ).all():
+                faces.append({
+                    "id": f.id,
+                    "upload_id": f.upload_id,
+                    "face_index": f.face_index,
+                    "bbox": {"x": f.bbox_x, "y": f.bbox_y,
+                             "w": f.bbox_w, "h": f.bbox_h},
+                    "confidence": f.confidence,
+                    "matched_user_id": f.matched_user_id,
+                    "match_confidence": f.match_confidence,
+                    # embedding propositalmente omitido (biometria server-side)
+                })
+    except Exception:
+        pass
+
+    # Consent audit trail (if consent_helpers table exists).
+    consents = []
+    try:
+        from consent_helpers import list_user_consents
+        consents = list_user_consents(db, current_user.id)
+    except Exception:
+        pass
+
+    payload = {
+        "_notice": (
+            "Esse arquivo contém TODOS seus dados pessoais. Guarde-o com "
+            "segurança — qualquer pessoa com acesso a ele pode reconstruir "
+            "sua identidade nessa plataforma. Compartilhe apenas via canais "
+            "seguros (criptografia ponta-a-ponta)."
+        ),
+        "_export_metadata": {
+            "exported_at_utc": datetime.utcnow().isoformat(),
+            "user_id": current_user.id,
+            "lgpd_basis": "Art. 18, V — portabilidade dos dados",
+            "embedding_data_omitted": True,
+            "embedding_data_reason": (
+                "Dado biométrico (LGPD Art. 11) — mantido server-side por "
+                "segurança. Para apagar, use POST /api/me/lgpd-deletion-request."
+            ),
+        },
+        "profile": profile,
+        "rooms": rooms,
+        "turmas": turmas,
+        "messages": messages,
+        "tunel_uploads": uploads,
+        "tunel_faces": faces,
+        "consents": consents,
+    }
+
+    body = _lgpd_json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    fname = f"timemates-lgpd-export-user{current_user.id}-{datetime.utcnow().date().isoformat()}.json"
+    return _LGPDResponse(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@app.post("/api/me/lgpd-deletion-request")
+@limiter.limit("3/day")
+def lgpd_deletion_request(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """LGPD Art. 18 VI — direito à eliminação.
+
+    Inicia um soft-delete da conta com COOL-OFF de 7 dias antes do hard-delete.
+    Durante a janela, o user pode cancelar via /api/me/lgpd-deletion-cancel.
+    Após 7 dias, o cron tunel_purge.purge_pending_account_deletions apaga
+    tudo (perfil, uploads, faces, mensagens em cascade via FKs).
+
+    Sentinel é gravado em User.bio (``__lgpd_deletion__:ISO_TS``) — coluna
+    nova só pra isso seria over-engineering, e o user não acessa bio depois
+    de is_active=False.
+    """
+    now = datetime.utcnow()
+    current_user.is_active = False
+    current_user.bio = f"__lgpd_deletion__:{now.isoformat()}"
+    # Defense-in-depth: also flip ghost_mode_global so anyone querying the
+    # platform during the cool-off window doesn't see the account.
+    current_user.ghost_mode_global = True
+    db.commit()
+    return {
+        "ok": True,
+        "deletion_requested_at_utc": now.isoformat(),
+        "scheduled_purge_at_utc": (now + timedelta(days=7)).isoformat(),
+        "cool_off_days": 7,
+        "cancel_endpoint": "POST /api/me/lgpd-deletion-cancel",
+        "message": (
+            "Sua conta foi desativada. Você tem 7 dias para cancelar a "
+            "exclusão antes que seus dados sejam permanentemente apagados. "
+            "Após o prazo, esse processo é IRREVERSÍVEL."
+        ),
+    }
+
+
+@app.post("/api/me/lgpd-deletion-cancel")
+@limiter.limit("5/day")
+def lgpd_deletion_cancel(
+    request: Request,
+    credentials = Depends(HTTPBearer(auto_error=False)),
+    db: Session = Depends(get_db),
+):
+    """Cancela um pedido de exclusão em andamento (dentro dos 7 dias).
+
+    Reativa a conta e remove o sentinel. CRÍTICO: usa decode manual em vez de
+    get_current_user_required porque o user está com is_active=False durante
+    o cool-off — o dep padrão filtraria a row e o cancel seria impossível.
+    """
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Faça login para continuar")
+    try:
+        from auth import decode_token
+        payload = decode_token(credentials.credentials)
+        user_id = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    # NB: no is_active filter here — that's exactly what we're trying to undo.
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+    # If the cool-off already expired the row was hard-deleted by the cron,
+    # so this path can't be hit. If is_active is True, idempotent no-op.
+    if (user.bio or "").startswith("__lgpd_deletion__:"):
+        user.bio = None  # clear sentinel
+    user.is_active = True
+    user.ghost_mode_global = False
+    db.commit()
+    return {
+        "ok": True,
+        "message": "Pedido de exclusão cancelado. Sua conta está ativa novamente.",
+    }
+
+
 # CUTOVER 2026-06-12: raiz / agora serve homepage V2 (narrativa de saudade/reconexão)
 # Old landing at public/landing/index.html ainda acessível via /landing
 @app.get("/", response_class=FileResponse)
