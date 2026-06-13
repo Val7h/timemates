@@ -33,3 +33,6 @@ posthog==3.7.0
 # opencv, no compilation step.
 opencv-python-headless==4.8.1.78
 numpy==1.26.4
+
+# SendGrid HTTP API (replaces Gmail SMTP after email bombardment crisis)
+sendgrid==6.11.0

@@ -6,9 +6,28 @@ Configure SMTP_USER e SMTP_PASS no .env ou diretamente aqui.
 import smtplib
 import os
 import threading
+import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+# ===== SENDGRID MIGRATION (2026-06-12) =====
+# Try SendGrid first if SENDGRID_API_KEY is configured.
+# Falls back to legacy SMTP code below (currently LOCKED).
+_USE_SENDGRID = bool(os.getenv("SENDGRID_API_KEY"))
+if _USE_SENDGRID:
+    try:
+        from email_service_sendgrid import (
+            send_welcome as _sg_welcome,
+            send_reconnect_request_email as _sg_reconnect,
+            send_password_reset as _sg_password_reset,
+        )
+        logger.info("[EMAIL] Using SendGrid backend")
+    except Exception as e:
+        logger.exception("[EMAIL] SendGrid import failed, falling back to SMTP")
+        _USE_SENDGRID = False
 
 # ── Configuração ──────────────────────────────────────────────────────────────
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -170,6 +189,8 @@ def _send(to_email: str, subject: str, html: str, full_name: str | None = None):
 
 def send_welcome(to_email: str, name: str):
     """Boas-vindas após cadastro — tom saudoso/brotherly (Copy V2)."""
+    if _USE_SENDGRID:
+        return _sg_welcome(to_email, name)
     first = name.split()[0]
     body = f"""
     <h2 style="color:#1E3A5F;margin:0 0 8px;">Que bom que você chegou, {first}.</h2>
@@ -255,6 +276,8 @@ def send_password_reset(to_email: str, name: str, reset_token: str):
     """Link de recuperação de senha — tom Copy V2."""
     first = name.split()[0]
     reset_url = f"{BASE_URL}/resetar-senha?token={reset_token}"
+    if _USE_SENDGRID:
+        return _sg_password_reset(to_email, name, reset_url)
     body = f"""
     <h2 style="color:#1E3A5F;margin:0 0 8px;">Bora trocar essa senha, {first}.</h2>
     <p style="color:#6B7280;font-size:14px;margin:0 0 20px;">

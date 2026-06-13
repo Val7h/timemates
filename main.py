@@ -975,6 +975,16 @@ def ping():
     return {"ok": True}
 
 
+@app.get("/api/admin/email-status")
+async def email_status():
+    """Diagnostic endpoint. Returns email backend config (no secrets)."""
+    try:
+        from email_service_sendgrid import is_email_configured
+        return is_email_configured()
+    except Exception as e:
+        return {"error": str(e), "backend": "unknown"}
+
+
 @app.post("/api/auth/register")
 async def register(
     request: Request,
