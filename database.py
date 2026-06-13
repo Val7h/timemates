@@ -762,6 +762,49 @@ class UserTurmaVisibility(Base):
     user = relationship("User", foreign_keys=[user_id])
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TÚNEL DO TEMPO — Old photo uploads + face detection (migration 005)
+# LGPD-sensitive: embeddings are biometric data, file_path holds personal images.
+# Soft-delete via deleted_at; cron purges rows + files older than 30 days.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TunelUpload(Base):
+    """Foto antiga que usuário upou pro Túnel do Tempo."""
+    __tablename__ = "tunel_uploads"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    turma_id = Column(Integer, ForeignKey("turmas.id"), nullable=True, index=True)
+    file_path = Column(String(500), nullable=False)  # /uploads/tunel/{user_id}/{uuid}.jpg
+    file_size_bytes = Column(Integer, nullable=False)
+    mime_type = Column(String(50), nullable=False)
+    original_filename = Column(String(255), nullable=True)
+    photo_year_estimated = Column(Integer, nullable=True)  # user can guess: 1998, 2003, etc
+    photo_context = Column(String(200), nullable=True)  # "Festa Junina 1999", "Formatura"
+    faces_detected_count = Column(Integer, default=0)
+    processing_status = Column(String(20), default='pending')  # pending, detected, matched, failed
+    exif_scrubbed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)  # soft delete (LGPD: 30-day purge)
+
+
+class TunelFace(Base):
+    """Cada face detectada em uma foto. Embedding é sensitive data (LGPD)."""
+    __tablename__ = "tunel_faces"
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(Integer, ForeignKey("tunel_uploads.id"), nullable=False, index=True)
+    face_index = Column(Integer, nullable=False)  # 0, 1, 2... ordem na foto
+    bbox_x = Column(Integer)  # bounding box
+    bbox_y = Column(Integer)
+    bbox_w = Column(Integer)
+    bbox_h = Column(Integer)
+    embedding = Column(JSON, nullable=True)  # 128 ou 512-dim vector (pgvector depois)
+    embedding_model = Column(String(50), nullable=True)  # 'face_recognition' ou 'insightface'
+    confidence = Column(Float, nullable=True)
+    matched_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    match_confidence = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def get_db():
     db = SessionLocal()
     try:

@@ -500,6 +500,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static_files")
 # ─── Billing Routes (Stripe) ──────────────────────────────────────────────────
 app.include_router(billing_router)
 
+# ─── Túnel do Tempo Routes (old photo upload + face detection foundation) ─────
+try:
+    from tunel_routes import tunel_router
+    app.include_router(tunel_router)
+    os.makedirs("uploads/tunel", exist_ok=True)
+    print("[FEATURE] tunel routes registered")
+except Exception:
+    logger.exception("Feature loader failed: %s", "tunel_routes")
+    print("[FEATURE] Failed to load: tunel_routes")
+
 # ─── Reconnect Routes (asymmetric reveal) ─────────────────────────────────────
 # Phase 1 spec: 5/day per-user rate limit, opaque responses, silent decline,
 # 365-day cooling-off, WhatsApp deeplink on accept. See reconnect_routes.py.
