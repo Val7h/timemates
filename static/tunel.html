@@ -513,9 +513,14 @@ body::before {
   border-radius: 50%;
   background: linear-gradient(135deg, #6b4e2e, #3d2a17);
   flex-shrink: 0;
-  filter: blur(8px);
+  filter: blur(15px);
   position: relative;
   overflow: hidden;
+}
+.match-avatar img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .match-avatar::after {
   content: "?";
@@ -605,12 +610,30 @@ body::before {
   color: var(--text);
   font-style: italic;
 }
-.icebreaker-card:hover { border-color: var(--amber-soft); }
+.icebreaker-card:hover {
+  border-color: var(--amber-soft);
+  box-shadow: 0 0 0 1px var(--amber-soft), 0 4px 18px rgba(212,168,83,0.08);
+  transform: translateY(-1px);
+}
 .icebreaker-card.selected {
   border-color: var(--amber);
-  background: rgba(212, 168, 83, 0.08);
-  box-shadow: 0 0 0 1px var(--amber);
+  background: rgba(212, 168, 83, 0.1);
+  box-shadow: 0 0 0 1px var(--amber), 0 0 28px rgba(212,168,83,0.25);
 }
+.icebreaker-context {
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin: 0 0 18px;
+  padding: 8px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  display: inline-block;
+  width: fit-content;
+}
+.icebreaker-context strong { color: var(--amber); font-weight: 500; }
+.icebreaker-context-wrap { display: flex; justify-content: center; margin-bottom: 6px; }
 .icebreaker-card::before {
   content: "“";
   font-family: 'Crimson Text', Georgia, serif;
@@ -633,8 +656,8 @@ body::before {
   border-radius: 12px;
   color: var(--text);
   padding: 16px;
-  font-family: inherit;
-  font-size: 15px;
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 16px;
   line-height: 1.6;
   min-height: 130px;
   outline: none;
@@ -743,9 +766,217 @@ body::before {
 @media (min-width: 600px) {
   .app { padding: 0 32px; }
 }
+
+/* ─────────── AUTH MODAL ─────────── */
+.tm-auth-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 5, 2, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9998;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  animation: tmFadeIn 0.35s ease;
+}
+.tm-auth-backdrop.show { display: flex; }
+@keyframes tmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.tm-auth-modal {
+  background: linear-gradient(160deg, #161210 0%, #1f1814 100%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 22px 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(212,168,83,0.08);
+  position: relative;
+  animation: tmRise 0.45s cubic-bezier(.2,.8,.2,1);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+@keyframes tmRise {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.tm-auth-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.tm-auth-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 22px;
+}
+.tm-auth-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 22px;
+}
+.tm-auth-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  padding: 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tm-auth-tab.active {
+  background: linear-gradient(135deg, var(--amber) 0%, var(--sunset) 100%);
+  color: #1a0e04;
+  box-shadow: 0 4px 14px rgba(212,168,83,0.25);
+}
+.tm-auth-form { display: none; flex-direction: column; gap: 12px; }
+.tm-auth-form.active { display: flex; animation: tmFadeIn 0.3s ease; }
+.tm-auth-field { display: flex; flex-direction: column; gap: 6px; }
+.tm-auth-field label {
+  font-size: 12px;
+  color: var(--amber);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.tm-auth-field input {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.tm-auth-field input:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(212,168,83,0.12);
+}
+.tm-auth-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: 4px;
+}
+.tm-auth-consent input {
+  margin-top: 2px;
+  accent-color: var(--amber);
+  flex-shrink: 0;
+}
+.tm-auth-consent a { color: var(--amber); text-decoration: underline; }
+.tm-auth-error {
+  background: rgba(232, 123, 107, 0.1);
+  border: 1px solid rgba(232, 123, 107, 0.35);
+  color: var(--danger);
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  margin-top: 4px;
+  display: none;
+}
+.tm-auth-error.show { display: block; animation: tmFadeIn 0.25s ease; }
+.tm-auth-submit {
+  background: linear-gradient(135deg, var(--amber) 0%, var(--sunset) 100%);
+  color: #1a0e04;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 6px 20px rgba(212,168,83,0.25);
+  transition: transform 0.15s;
+}
+.tm-auth-submit:active { transform: translateY(1px); }
+.tm-auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.tm-auth-footer {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 16px;
+}
+.tm-auth-footer a {
+  color: var(--amber);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(212,168,83,0.4);
+}
+.tm-auth-gate {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9997;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-style: italic;
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 16px;
+}
+.tm-auth-gate.hide { display: none; }
+</style>
+<style>
+  .tm-tab { background:transparent;color:#888;border:none;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;font-size:15px; }
+  .tm-tab-active { color:#fff8e7;border-bottom-color:#d4a853; }
+  .tm-input { background:#1a1a1a;border:1px solid #333;color:#fff8e7;padding:12px 16px;border-radius:8px;font-size:15px;font-family:inherit; }
+  .tm-input:focus { outline:none;border-color:#d4a853; }
+  .tm-btn-primary { background:#d4a853;color:#000;border:none;padding:12px 24px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px; }
+  .tm-btn-primary:hover { background:#e8b95f; }
 </style>
 </head>
 <body>
+
+<div id="tm-login-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#0a0a0a;border:1px solid #d4a853;border-radius:12px;padding:32px;max-width:420px;width:100%;color:#fff8e7;">
+    <h2 style="color:#d4a853;font-family:'Crimson Text',serif;margin:0 0 16px;">Pra usar o Túnel, faz login rapidinho</h2>
+    <div style="display:flex;gap:8px;margin-bottom:24px;">
+      <button id="tm-tab-login" class="tm-tab tm-tab-active">Entrar</button>
+      <button id="tm-tab-register" class="tm-tab">Criar conta</button>
+    </div>
+    <form id="tm-form-login" style="display:flex;flex-direction:column;gap:12px;">
+      <input type="email" name="email" placeholder="Seu email" required class="tm-input">
+      <input type="password" name="password" placeholder="Sua senha" required minlength="8" class="tm-input">
+      <button type="submit" class="tm-btn-primary">Entrar</button>
+      <div id="tm-login-error" style="color:#ff6666;font-size:14px;min-height:20px;"></div>
+    </form>
+    <form id="tm-form-register" style="display:none;flex-direction:column;gap:12px;">
+      <input type="text" name="full_name" placeholder="Seu nome completo" required class="tm-input">
+      <input type="email" name="email" placeholder="Email" required class="tm-input">
+      <input type="password" name="password" placeholder="Senha (min 8 chars)" required minlength="8" class="tm-input">
+      <input type="text" name="cpf" placeholder="CPF (só números)" required pattern="[0-9]{11}" class="tm-input">
+      <input type="tel" name="phone" placeholder="Celular com DDD" required class="tm-input">
+      <label style="font-size:13px;color:#aaa;display:flex;gap:8px;align-items:flex-start;">
+        <input type="checkbox" required style="margin-top:3px;">
+        <span>Aceito os termos e a política de privacidade (LGPD)</span>
+      </label>
+      <button type="submit" class="tm-btn-primary">Criar conta</button>
+      <div id="tm-register-error" style="color:#ff6666;font-size:14px;min-height:20px;"></div>
+    </form>
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:#888;">
+      Esqueceu? <a href="/forgot-password" style="color:#d4a853;">Recuperar senha</a>
+    </p>
+  </div>
+</div>
 
 <div class="app">
 
@@ -791,7 +1022,7 @@ body::before {
       <div class="dropzone-icon">🖼️</div>
       <div class="dropzone-text">Toca aqui pra escolher uma foto</div>
       <div class="dropzone-sub">JPG ou PNG, até 10 MB</div>
-      <input type="file" id="fileInput" accept="image/*"/>
+      <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png,image/webp"/>
     </div>
 
     <div id="previewWrap" class="preview-wrap" style="display:none">
@@ -862,6 +1093,8 @@ body::before {
       Escolhe uma das sugestões — ou escreve do seu jeito. <strong style="color:var(--amber);font-weight:500">A pessoa não vai saber quem é você</strong> até aceitar.
     </p>
 
+    <div class="icebreaker-context-wrap"><div class="icebreaker-context" id="icebreakerContext" style="display:none"></div></div>
+
     <div id="icebreakerCards">
       <!-- cards injected -->
     </div>
@@ -883,12 +1116,18 @@ body::before {
     <div class="success">
       <div class="success-icon"><span class="success-icon-inner">✉️</span></div>
       <h2 class="serif success-title">Convite enviado.</h2>
-      <p class="success-sub">A gente avisa quando a pessoa responder.</p>
-      <p class="success-anon">Por enquanto, ninguém sabe que foi você.</p>
+      <p class="success-sub">A pessoa <strong>não sabe ainda</strong> que foi você.</p>
+      <p class="success-anon">A gente avisa quando ela responder.</p>
 
       <div class="success-actions">
         <button class="btn-primary" onclick="go('hero'); resetAll();">Subir outra foto</button>
-        <button class="btn-ghost" onclick="window.location.href='/'">Voltar pro início</button>
+        <button class="btn-ghost" id="backToTurmaBtn" onclick="goBackToTurma()">Voltar pra minha turma</button>
+      </div>
+
+      <div id="acceptedBanner" style="display:none;margin-top:24px;padding:18px;border-radius:14px;background:linear-gradient(135deg,#f5e6c5,#e8d4a3);text-align:center;animation:fadeIn 0.5s ease;">
+        <p style="margin:0 0 4px;font-size:32px;">🎉</p>
+        <p id="acceptedText" style="margin:0 0 14px;font-weight:600;color:#3a2d1a;font-family:'Fraunces',serif;font-size:18px;"></p>
+        <a id="acceptedWaBtn" href="#" target="_blank" rel="noopener" class="btn-primary" style="display:inline-block;text-decoration:none;padding:12px 24px;">Abrir WhatsApp</a>
       </div>
     </div>
   </section>
@@ -977,13 +1216,16 @@ fileInput.addEventListener('change', e => {
   if (e.target.files.length) handleFile(e.target.files[0]);
 });
 
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 function handleFile(file) {
-  if (!file.type.startsWith('image/')) {
-    showToast('Precisa ser uma imagem (JPG ou PNG).');
+  if (!ALLOWED_FILE_TYPES.includes((file.type || '').toLowerCase())) {
+    showToast('Esse arquivo não é uma foto. Tenta JPG/PNG.');
     return;
   }
-  if (file.size > 10 * 1024 * 1024) {
-    showToast('Essa foto é grande demais. Tenta uma menor que 10 MB.');
+  if (file.size > MAX_FILE_BYTES) {
+    showToast('Foto muito grande. Tenta uma menor (max 10MB).');
     return;
   }
   state.file = file;
@@ -1016,46 +1258,145 @@ document.getElementById('messageEditor').addEventListener('input', e => {
   document.getElementById('sendBtn').disabled = e.target.value.trim().length < 10;
 });
 
+// ─────────── tmFetch (auth-aware wrapper) ───────────
+// Single fetch helper. Carries cookies (session auth) and surfaces
+// HTTP status as an error code so the caller can branch on 413/415/429/500.
+window.tmFetch = window.tmFetch || async function tmFetch(url, opts = {}) {
+  const init = Object.assign({ credentials: 'same-origin' }, opts);
+  // Don't auto-set Content-Type for FormData — the browser sets the boundary.
+  if (init.body && !(init.body instanceof FormData) && !init.headers) {
+    init.headers = { 'Content-Type': 'application/json' };
+  }
+  const resp = await fetch(url, init);
+  if (!resp.ok) {
+    const err = new Error('http-' + resp.status);
+    err.status = resp.status;
+    try { err.body = await resp.json(); } catch (_) { err.body = null; }
+    throw err;
+  }
+  return resp.json();
+};
+
 // ─────────── Upload + Processing ───────────
-async function submitUpload() {
-  if (!state.file) return;
-  const fd = new FormData();
-  fd.append('photo', state.file);
-  const year = document.getElementById('yearSel').value;
-  const ctx = document.getElementById('contextInput').value.trim();
-  if (year) fd.append('year', year);
-  if (ctx) fd.append('context', ctx);
-
-  go('processing');
-  document.getElementById('procImg').src = state.imageUrl;
-  runProcessingAnimation();
-
-  try {
-    const resp = await fetch('/api/tunel/upload', { method: 'POST', body: fd });
-    if (!resp.ok) throw new Error('upload-failed');
-    const data = await resp.json();
-    state.uploadId = data.upload_id || data.id;
-
-    // Poll faces + matches
-    const faces = await fetchJson(`/api/tunel/${state.uploadId}/faces`);
-    const matches = await fetchJson(`/api/tunel/${state.uploadId}/matches`);
-
-    state.faces = mergeFacesWithMatches(faces, matches);
-    // Hold processing a beat for the poetic rhythm
-    await sleep(900);
-    renderResults();
-    go('results');
-  } catch (err) {
-    console.error(err);
-    showToast('A foto resistiu. Tenta outra?');
-    go('upload', false);
+function mapUploadError(err) {
+  switch (err && err.status) {
+    case 413: return 'Foto muito grande. Tenta uma menor (max 10MB).';
+    case 415:
+    case 400: return 'Esse arquivo não é uma foto. Tenta JPG/PNG.';
+    case 429: return 'Você já mandou 5 hoje. Volta amanhã?';
+    case 500:
+    case 502:
+    case 503: return 'Algo travou. Tenta de novo em 1min?';
+    default:  return 'Algo travou. Tenta de novo em 1min?';
   }
 }
 
+async function submitUpload() {
+  if (!state.file) return;
+
+  // Defensive client-side validation (mirrors backend).
+  if (!ALLOWED_FILE_TYPES.includes((state.file.type || '').toLowerCase())) {
+    showToast('Esse arquivo não é uma foto. Tenta JPG/PNG.');
+    return;
+  }
+  if (state.file.size > MAX_FILE_BYTES) {
+    showToast('Foto muito grande. Tenta uma menor (max 10MB).');
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('file', state.file);
+  const year = document.getElementById('yearSel').value;
+  const ctx = document.getElementById('contextInput').value.trim();
+  if (year) fd.append('photo_year_estimated', year);
+  if (ctx) fd.append('photo_context', ctx);
+  if (window.TM_TURMA_ID) fd.append('turma_id', String(window.TM_TURMA_ID));
+
+  // Move to SCREEN 3 immediately — preserves the poetic flow.
+  document.getElementById('procImg').src = state.imageUrl;
+  go('processing');
+  const animPromise = runProcessingAnimation();
+
+  let uploadData;
+  try {
+    uploadData = await tmFetch('/api/tunel/upload', { method: 'POST', body: fd });
+  } catch (err) {
+    console.error('upload failed', err);
+    showToast(mapUploadError(err));
+    go('upload', false);
+    return;
+  }
+
+  state.uploadId = uploadData.upload_id || uploadData.id;
+  window.TM_UPLOAD_ID = state.uploadId;
+
+  // "Detectando rostos..." beat — give backend a moment, keep the rhythm.
+  await sleep(2000);
+
+  let facesData;
+  try {
+    facesData = await tmFetch('/api/tunel/' + state.uploadId + '/faces');
+  } catch (err) {
+    console.error('faces fetch failed', err);
+    showToast(mapUploadError(err));
+    go('upload', false);
+    return;
+  }
+
+  // Let the processing animation finish its current line before flipping.
+  await animPromise;
+
+  const facesList = Array.isArray(facesData) ? facesData : (facesData.faces || []);
+  if (facesList.length === 0) {
+    showToast('Nenhum rosto detectado. Tenta outra foto?');
+    go('upload', false);
+    return;
+  }
+
+  // Stage matches lookup but don't block initial render — boxes are clickable.
+  state.faces = facesList.map((f, idx) => ({
+    idx: f.face_index ?? f.index ?? idx,
+    bbox: normalizeFaceBbox(f),
+    confidence: f.confidence,
+    matched_user_id: f.matched_user_id,
+    matches: []
+  }));
+
+  renderResults();
+  go('results');
+
+  // Best-effort: pre-fetch matches so face click is instant.
+  tmFetch('/api/tunel/' + state.uploadId + '/matches')
+    .then(matchesPayload => {
+      const matchesArr = Array.isArray(matchesPayload)
+        ? matchesPayload
+        : (matchesPayload.matches || []);
+      state.faces.forEach((face) => {
+        face.matches = matchesArr
+          .filter(m => (m.face_index ?? m.face_idx ?? m.faceIndex) === face.idx)
+          .map(m => ({
+            target_user_id: m.target_user_id || m.user_id || m.id,
+            similarity: m.similarity || m.score || 0,
+            hint: m.hint || m.context_hint || ''
+          }));
+      });
+    })
+    .catch(err => { console.warn('matches prefetch failed', err); });
+}
+
+function normalizeFaceBbox(f) {
+  // Backend returns bbox as {x,y,w,h} object. Be defensive about legacy shapes.
+  if (f.bbox && typeof f.bbox === 'object' && !Array.isArray(f.bbox)) {
+    return [f.bbox.x, f.bbox.y, f.bbox.w, f.bbox.h];
+  }
+  if (Array.isArray(f.bbox)) return f.bbox;
+  if (f.box) return Array.isArray(f.box) ? f.box : [f.box.x, f.box.y, f.box.w, f.box.h];
+  if (f.bbox_x != null) return [f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h];
+  return [0, 0, 0, 0];
+}
+
 async function fetchJson(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('fetch-failed');
-  return r.json();
+  return tmFetch(url);
 }
 
 function mergeFacesWithMatches(facesPayload, matchesPayload) {
@@ -1147,20 +1488,21 @@ function selectFace(idx) {
   if (!face.matches || face.matches.length === 0) {
     section.innerHTML = `
       <div class="matches-header">Pessoa #${idx + 1}</div>
-      <div class="empty-state">A gente não achou ninguém ainda. Talvez essa pessoa ainda não esteja no TimeMates.</div>
+      <div class="empty-state">Ninguém na nossa base ainda. Talvez subir mais fotos ajude.</div>
     `;
     return;
   }
 
-  let html = `<div class="matches-header">Pessoa #${idx + 1} · ${face.matches.length} provável${face.matches.length > 1 ? 'is' : ''} match${face.matches.length > 1 ? 'es' : ''}</div>`;
+  const n = face.matches.length;
+  let html = `<div class="matches-header">Para essa pessoa, achamos ${n} provável${n > 1 ? 'is' : ''} match${n > 1 ? 'es' : ''}</div>`;
   face.matches.forEach((m, i) => {
     const pct = Math.round((m.similarity || 0) * 100);
     html += `
       <div class="match-card">
         <div class="match-avatar"></div>
         <div class="match-info">
-          <div class="match-line1">${m.hint || 'Alguém que pode te lembrar'}</div>
-          <div class="match-line2"><span class="match-similarity">${pct}% parecido</span></div>
+          <div class="match-line1">${escapeHtml(m.hint || 'Alguém que pode te lembrar')}</div>
+          <div class="match-line2"><span class="match-similarity">Similaridade: ${pct}%</span></div>
         </div>
         <button class="match-btn" onclick="openIcebreaker('${m.target_user_id}')">Reconectar</button>
       </div>
@@ -1176,6 +1518,9 @@ async function openIcebreaker(targetUserId) {
   document.getElementById('messageEditor').value = '';
   document.getElementById('msgCount').textContent = '0';
   document.getElementById('sendBtn').disabled = true;
+  const ctxEl = document.getElementById('icebreakerContext');
+  ctxEl.style.display = 'none';
+  ctxEl.innerHTML = '';
 
   go('icebreaker');
 
@@ -1186,6 +1531,22 @@ async function openIcebreaker(targetUserId) {
     const data = await fetchJson(`/api/tunel/icebreaker/${targetUserId}`);
     const suggestions = data.suggestions || data.icebreakers || data || [];
     const list = Array.isArray(suggestions) ? suggestions : [];
+    // Render context summary if backend provided one
+    const ctx = data.context_summary || data.context || null;
+    if (ctx) {
+      let ctxText = '';
+      if (typeof ctx === 'string') {
+        ctxText = ctx;
+      } else if (typeof ctx === 'object') {
+        const shared = ctx.shared_turmas ?? ctx.turmas_em_comum ?? ctx.common_turmas ?? ctx.count ?? null;
+        if (shared != null) ctxText = `<strong>${shared}</strong> turma${shared === 1 ? '' : 's'} em comum`;
+        else if (ctx.text) ctxText = ctx.text;
+      }
+      if (ctxText) {
+        ctxEl.innerHTML = ctxText;
+        ctxEl.style.display = 'inline-block';
+      }
+    }
     if (list.length === 0) {
       // Fallback poetic suggestions
       cards.innerHTML = renderIcebreakers([
@@ -1261,6 +1622,415 @@ function showToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3800);
 }
+</script>
+
+<script>
+// ===== TIMEMATES RECONNECT MODULE =====
+
+function generateWhatsAppLink(phone, message) {
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  const fullPhone = cleanPhone.length === 11 ? '55' + cleanPhone : cleanPhone;
+  return 'https://wa.me/' + fullPhone + '?text=' + encodeURIComponent(message);
+}
+window.generateWhatsAppLink = generateWhatsAppLink;
+
+async function submitReconnect(targetUserId, message, turmaId) {
+  try {
+    const resp = await window.tmFetch('/api/reconnect/' + targetUserId, {
+      method: 'POST',
+      body: JSON.stringify({ message, turma_id: turmaId || null }),
+    });
+    if (resp.status === 200) {
+      showSentScreen();
+      return true;
+    }
+    if (resp.status === 429) {
+      alert('Você já mandou 5 convites hoje. Volta amanhã?');
+      return false;
+    }
+    if (resp.status === 403) {
+      alert('Pra mandar convites, confirma sua data de nascimento primeiro.');
+      return false;
+    }
+    alert('Algo deu errado. Tenta de novo?');
+    return false;
+  } catch (err) {
+    if (err.message && err.message.includes('login')) return false;
+    alert('Erro: ' + err.message);
+    return false;
+  }
+}
+window.submitReconnect = submitReconnect;
+
+function showSentScreen() {
+  const screens = document.querySelectorAll('[data-screen]');
+  screens.forEach(s => s.style.display = 'none');
+  const sent = document.querySelector('[data-screen="sent"]');
+  if (sent) {
+    sent.style.display = 'block';
+  } else {
+    // Build one inline
+    document.body.insertAdjacentHTML('beforeend', `
+    <div data-screen="sent" style="text-align:center;padding:48px 24px;color:#fff8e7;">
+      <h2 style="color:#d4a853;font-family:'Crimson Text',serif;">✉️ Convite enviado.</h2>
+      <p style="font-size:18px;margin:24px 0;line-height:1.6;">A pessoa NÃO sabe ainda que foi você.</p>
+      <p style="color:#888;">A gente avisa quando ela responder.</p>
+      <div style="margin-top:32px;display:flex;flex-direction:column;gap:12px;">
+        <button onclick="location.reload()" style="background:#d4a853;color:#000;border:none;padding:14px 28px;border-radius:8px;font-size:16px;cursor:pointer;">Subir outra foto</button>
+        <a href="/" style="background:transparent;color:#d4a853;border:1px solid #d4a853;padding:14px 28px;border-radius:8px;font-size:16px;text-decoration:none;display:inline-block;">Voltar pra home</a>
+      </div>
+    </div>
+    `);
+    const newSent = document.querySelector('[data-screen="sent"]');
+    if (newSent) newSent.style.display = 'block';
+  }
+}
+window.showSentScreen = showSentScreen;
+
+// Poll for accepted reconnects every 60s
+let pollCount = 0;
+async function pollAcceptedReconnects() {
+  pollCount++;
+  if (!localStorage.getItem(window.TM_TOKEN_KEY)) return;
+  try {
+    const resp = await window.tmFetch('/api/me/reconnect-requests');
+    if (resp.status !== 200) return;
+    const data = await resp.json();
+    const accepted = (data.requests || []).filter(r => r.status === 'accepted' && !r.celebrated);
+    accepted.forEach(r => {
+      // Confetti + show WhatsApp button
+      showAcceptNotification(r);
+    });
+  } catch (err) {
+    // silent fail on poll
+  }
+}
+function showAcceptNotification(req) {
+  const phone = req.requester_phone || req.target_phone || '';
+  const name = req.requester_name || req.target_name || 'Alguém';
+  const msg = req.original_message || 'Oi! Bora marcar?';
+  const waLink = phone ? generateWhatsAppLink(phone, msg) : null;
+
+  const notif = document.createElement('div');
+  notif.style.cssText = 'position:fixed;top:24px;right:24px;background:#d4a853;color:#000;padding:16px 24px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:99999;max-width:320px;animation:slideIn 0.3s;';
+  notif.innerHTML = '<strong>🎉 ' + name + ' aceitou!</strong><br>' +
+    (waLink ? '<a href="' + waLink + '" target="_blank" style="color:#000;text-decoration:underline;font-weight:600;">Abrir WhatsApp →</a>' : 'Veja no app');
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 15000);
+}
+
+// Start polling after auth verified
+setTimeout(() => {
+  pollAcceptedReconnects();
+  setInterval(pollAcceptedReconnects, 60000);
+}, 5000);
+</script>
+
+<script>
+// ===== TIMEMATES AUTH MODULE =====
+window.TM_TOKEN_KEY = 'tm_token';
+
+function showLoginModal() {
+  const m = document.getElementById('tm-login-modal');
+  if (m) m.style.display = 'flex';
+}
+function hideLoginModal() {
+  const m = document.getElementById('tm-login-modal');
+  if (m) m.style.display = 'none';
+}
+
+async function tmFetch(url, options = {}) {
+  const token = localStorage.getItem(window.TM_TOKEN_KEY);
+  const headers = options.headers || {};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const resp = await fetch(url, { ...options, headers });
+  if (resp.status === 401) {
+    localStorage.removeItem(window.TM_TOKEN_KEY);
+    showLoginModal();
+    throw new Error('Faz login pra continuar');
+  }
+  return resp;
+}
+window.tmFetch = tmFetch;
+window.showLoginModal = showLoginModal;
+
+async function checkAuth() {
+  const token = localStorage.getItem(window.TM_TOKEN_KEY);
+  if (!token) {
+    showLoginModal();
+    return null;
+  }
+  try {
+    const resp = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (resp.status !== 200) {
+      localStorage.removeItem(window.TM_TOKEN_KEY);
+      showLoginModal();
+      return null;
+    }
+    const user = await resp.json();
+    window.TM_USER = user;
+    return user;
+  } catch (e) {
+    showLoginModal();
+    return null;
+  }
+}
+
+// Tabs
+document.addEventListener('DOMContentLoaded', () => {
+  const tabLogin = document.getElementById('tm-tab-login');
+  const tabReg = document.getElementById('tm-tab-register');
+  const formLogin = document.getElementById('tm-form-login');
+  const formReg = document.getElementById('tm-form-register');
+  if (tabLogin) {
+    tabLogin.onclick = () => {
+      tabLogin.classList.add('tm-tab-active');
+      tabReg.classList.remove('tm-tab-active');
+      formLogin.style.display = 'flex';
+      formReg.style.display = 'none';
+    };
+  }
+  if (tabReg) {
+    tabReg.onclick = () => {
+      tabReg.classList.add('tm-tab-active');
+      tabLogin.classList.remove('tm-tab-active');
+      formReg.style.display = 'flex';
+      formLogin.style.display = 'none';
+    };
+  }
+
+  if (formLogin) {
+    formLogin.onsubmit = async (e) => {
+      e.preventDefault();
+      const data = new FormData(formLogin);
+      const errBox = document.getElementById('tm-login-error');
+      errBox.textContent = '';
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: data.get('email'), password: data.get('password') }),
+        });
+        if (resp.status === 200) {
+          const result = await resp.json();
+          const token = result.access_token || result.token || result.jwt;
+          if (token) {
+            localStorage.setItem(window.TM_TOKEN_KEY, token);
+            hideLoginModal();
+            location.reload();
+          }
+        } else {
+          errBox.textContent = 'Email ou senha incorretos';
+        }
+      } catch (err) {
+        errBox.textContent = 'Algo deu errado. Tenta de novo?';
+      }
+    };
+  }
+
+  if (formReg) {
+    formReg.onsubmit = async (e) => {
+      e.preventDefault();
+      const data = new FormData(formReg);
+      const errBox = document.getElementById('tm-register-error');
+      errBox.textContent = '';
+      try {
+        const resp = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: data.get('full_name'),
+            email: data.get('email'),
+            password: data.get('password'),
+            cpf: data.get('cpf'),
+            phone: data.get('phone'),
+          }),
+        });
+        if (resp.status === 200 || resp.status === 201) {
+          const result = await resp.json();
+          const token = result.access_token || result.token || result.jwt;
+          if (token) {
+            localStorage.setItem(window.TM_TOKEN_KEY, token);
+            hideLoginModal();
+            location.reload();
+          } else {
+            errBox.textContent = 'Conta criada! Fazendo login...';
+            document.getElementById('tm-tab-login').click();
+          }
+        } else {
+          const errData = await resp.json().catch(() => ({}));
+          errBox.textContent = errData.detail || errData.message || 'Não deu pra criar conta. Verifica os dados.';
+        }
+      } catch (err) {
+        errBox.textContent = 'Algo deu errado. Tenta de novo?';
+      }
+    };
+  }
+
+  // Auto-check auth on load
+  checkAuth();
+});
+</script>
+
+<div data-screen="processing" style="display:none;text-align:center;padding:48px;">
+  <p id="tm-processing-msg" style="font-family:'Crimson Text',serif;font-size:24px;color:#d4a853;transition:opacity 0.3s;">Detectando rostos...</p>
+</div>
+<div data-screen="results" style="display:none;padding:24px;"></div>
+
+<script>
+// ===== TIMEMATES UPLOAD MODULE =====
+
+function showProcessingScreen() {
+  const screens = document.querySelectorAll('[data-screen]');
+  screens.forEach(s => s.style.display = 'none');
+  const proc = document.querySelector('[data-screen="processing"]');
+  if (proc) proc.style.display = 'block';
+
+  const messages = ['Detectando rostos...', 'Procurando memórias...', 'Achando saudade...'];
+  let i = 0;
+  const msgEl = document.getElementById('tm-processing-msg');
+  if (!msgEl) return;
+  const interval = setInterval(() => {
+    i = (i + 1) % messages.length;
+    msgEl.style.opacity = 0;
+    setTimeout(() => {
+      msgEl.textContent = messages[i];
+      msgEl.style.opacity = 1;
+    }, 300);
+  }, 2000);
+  window.TM_PROCESSING_INTERVAL = interval;
+}
+
+function hideProcessingScreen() {
+  if (window.TM_PROCESSING_INTERVAL) clearInterval(window.TM_PROCESSING_INTERVAL);
+  const proc = document.querySelector('[data-screen="processing"]');
+  if (proc) proc.style.display = 'none';
+}
+
+async function handleUploadSubmit(file, year, context, turmaId) {
+  if (!file) {
+    alert('Escolhe uma foto antes!');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    alert('Foto muito grande. Tenta uma menor (max 10MB).');
+    return;
+  }
+  const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    alert('Esse arquivo não é uma foto. Tenta JPG/PNG/WEBP.');
+    return;
+  }
+
+  showProcessingScreen();
+
+  const fd = new FormData();
+  fd.append('file', file);
+  if (year) fd.append('photo_year_estimated', year);
+  if (context) fd.append('photo_context', context);
+  if (turmaId) fd.append('turma_id', turmaId);
+
+  try {
+    const resp = await window.tmFetch('/api/tunel/upload', { method: 'POST', body: fd });
+    if (resp.status === 413) {
+      hideProcessingScreen();
+      alert('Foto muito grande. Tenta uma menor (max 10MB).');
+      return;
+    }
+    if (resp.status === 429) {
+      hideProcessingScreen();
+      alert('Você já mandou 5 hoje. Volta amanhã?');
+      return;
+    }
+    if (resp.status === 403) {
+      hideProcessingScreen();
+      alert('Pra usar o Túnel, confirma sua data de nascimento primeiro.');
+      return;
+    }
+    if (resp.status !== 200) {
+      hideProcessingScreen();
+      alert('Algo travou. Tenta de novo em 1min?');
+      return;
+    }
+    const data = await resp.json();
+    window.TM_UPLOAD_ID = data.upload_id;
+    window.TM_UPLOAD_PREVIEW = data.preview_url;
+
+    // Wait 2s for processing illusion
+    await new Promise(r => setTimeout(r, 2000));
+
+    // Get faces
+    const facesResp = await window.tmFetch('/api/tunel/' + data.upload_id + '/faces');
+    const facesData = await facesResp.json();
+    hideProcessingScreen();
+
+    if (!facesData.faces || facesData.faces.length === 0) {
+      showFacesResult(data.preview_url, []);
+      return;
+    }
+    showFacesResult(data.preview_url, facesData.faces);
+  } catch (err) {
+    hideProcessingScreen();
+    if (err.message && err.message.includes('login')) return; // login modal already shown
+    alert('Algo travou: ' + err.message);
+  }
+}
+
+function showFacesResult(previewUrl, faces) {
+  const screens = document.querySelectorAll('[data-screen]');
+  screens.forEach(s => s.style.display = 'none');
+  const results = document.querySelector('[data-screen="results"]');
+  if (!results) return;
+  results.style.display = 'block';
+
+  let html = '<div style="position:relative;display:inline-block;max-width:100%;">';
+  html += '<img src="' + previewUrl + '" style="max-width:100%;border-radius:8px;" id="tm-preview-img">';
+  if (faces.length === 0) {
+    html += '</div><p style="margin-top:24px;text-align:center;">Nenhum rosto detectado. Tenta outra foto?</p>';
+  } else {
+    faces.forEach((f, i) => {
+      html += '<div onclick="findMatchesForFace(' + i + ')" style="position:absolute;border:2px solid #d4a853;cursor:pointer;background:rgba(212,168,83,0.1);left:' + f.bbox_x + 'px;top:' + f.bbox_y + 'px;width:' + f.bbox_w + 'px;height:' + f.bbox_h + 'px;" title="Procurar matches"></div>';
+    });
+    html += '</div>';
+    html += '<button onclick="findAllMatches()" style="margin-top:24px;background:#d4a853;color:#000;border:none;padding:14px 28px;border-radius:8px;font-size:16px;cursor:pointer;width:100%;">Procurar matches de todas as pessoas</button>';
+    html += '<p style="margin-top:12px;color:#888;font-size:14px;text-align:center;">' + faces.length + ' pessoas detectadas na foto</p>';
+  }
+  results.innerHTML = html;
+}
+
+window.handleUploadSubmit = handleUploadSubmit;
+
+async function findAllMatches() {
+  if (!window.TM_UPLOAD_ID) return;
+  try {
+    const resp = await window.tmFetch('/api/tunel/' + window.TM_UPLOAD_ID + '/matches');
+    const data = await resp.json();
+    if (window.renderMatches) {
+      window.renderMatches(data);
+    } else {
+      alert('Carregando matches...');
+    }
+  } catch (err) {
+    alert('Algo travou: ' + err.message);
+  }
+}
+window.findAllMatches = findAllMatches;
+window.findMatchesForFace = findAllMatches; // simplified for MVP
+
+// Wire submit form (assumes form has id 'tm-upload-form')
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('tm-upload-form');
+  if (form) {
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      handleUploadSubmit(fd.get('file'), fd.get('year'), fd.get('context'), fd.get('turma_id'));
+    };
+  }
+});
 </script>
 
 </body>
