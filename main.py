@@ -511,10 +511,20 @@ stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
 # Tokens de recuperação de senha: { token: {"user_id": int, "expires": datetime} }
 _reset_tokens: Dict[str, dict] = {}
 
+_cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+if _cors_env:
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    _cors_allow_credentials = True
+else:
+    # Safe default: wildcard origin requires credentials=False per CORS spec.
+    # Set CORS_ALLOWED_ORIGINS env to enable credentialed requests from a strict allowlist.
+    _cors_origins = ["*"]
+    _cors_allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -2288,6 +2298,30 @@ def delete_account(
 # ═══════════════════════════════════════════════════════════════════════════════
 # DEFAULT-GHOST PRIVACY ENDPOINTS (migration 003)
 # ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/me")
+def get_me(
+    current_user: User = Depends(get_current_user_required),
+):
+    """Return the authenticated user's basic profile as JSON.
+
+    Without this dedicated endpoint, GET /api/me fell through to the SPA
+    catch-all and returned the homepage HTML with status 200, which
+    confused API clients and integration tests.
+    """
+    return {
+        "id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "phone": getattr(current_user, "phone", None),
+        "phone_verified": bool(getattr(current_user, "phone_verified", False)),
+        "is_discoverable": bool(getattr(current_user, "is_discoverable", False)),
+        "allow_reconnect_requests": bool(getattr(current_user, "allow_reconnect_requests", False)),
+        "ghost_mode_global": bool(getattr(current_user, "ghost_mode_global", False)),
+        "birthdate": current_user.birthdate.isoformat() if getattr(current_user, "birthdate", None) else None,
+        "created_at": current_user.created_at.isoformat() if getattr(current_user, "created_at", None) else None,
+    }
+
 
 @app.get("/api/me/visibility")
 def get_my_visibility(
@@ -5283,6 +5317,43 @@ async def terms_of_service():
 # Mount landing folder as static files
 app.mount("/landing", StaticFiles(directory="public/landing", html=True), name="landing")
 
+from fastapi.responses import JSONResponse, PlainTextResponse
+
+# Global exception handler — return JSON {detail} envelope for unhandled errors
+# (replaces FastAPI/Starlette default plain-text "Internal Server Error")
+@app.exception_handler(Exception)
+async def _global_exception_handler(request: Request, exc: Exception):
+    # Let HTTPException pass through (FastAPI handles it)
+    if isinstance(exc, HTTPException):
+        raise exc
+    logger.exception("Unhandled exception on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Erro interno do servidor", "path": request.url.path},
+    )
+
+# Proper robots.txt (was hitting SPA catch-all and returning HTML)
+@app.get("/robots.txt", include_in_schema=False)
+def robots_txt():
+    body = "User-agent: *\nAllow: /\nSitemap: https://timemates.onrender.com/sitemap.xml\n"
+    return PlainTextResponse(body, media_type="text/plain")
+
+# Proper favicon: serve real file if it exists, otherwise return 204 (was 200 HTML)
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    for candidate in ("static/favicon.ico", "public/landing/favicon.ico"):
+        if os.path.exists(candidate):
+            return FileResponse(candidate, media_type="image/x-icon")
+    return Response(status_code=204)
+
 @app.get("/{full_path:path}")
 def catch_all(full_path: str):
+    # Unknown /api/* paths must return JSON 404, NOT the SPA index.html.
+    # Without this, every unknown API URL returned 200 + HTML, breaking
+    # API clients, SEO, and 404-detection in monitoring.
+    if full_path.startswith("api/") or full_path == "api":
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Endpoint não encontrado", "path": "/" + full_path},
+        )
     return FileResponse("static/index.html")

@@ -40,7 +40,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -158,8 +158,8 @@ def register_routes(app, limiter):
     @limiter.limit("5/day", key_func=_user_id_key)
     def create_reconnect_request(
         target_user_id: int,
-        payload: ReconnectCreatePayload,
         request: Request,
+        payload: ReconnectCreatePayload = Body(...),
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user_required),
     ):
