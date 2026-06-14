@@ -118,9 +118,26 @@ def purge_pending_account_deletions(cool_off_days: int = 7) -> dict:
         db.close()
 
 
+def purge_old_login_attempts(retention_days: int = 30) -> dict:
+    """Delete login_attempts rows older than ``retention_days``. Daily cron.
+
+    Brute-force throttling only cares about the most recent 24h; anything older
+    is dead weight. Audit trail is still preserved for the retention window.
+    """
+    try:
+        from login_throttle import purge_old_attempts
+        report = purge_old_attempts(retention_days=retention_days)
+        logger.info(f"[LOGIN_ATTEMPTS_PURGE] {report}")
+        return report
+    except Exception as e:
+        logger.warning(f"[LOGIN_ATTEMPTS_PURGE] error: {e}")
+        return {'error': str(e)}
+
+
 if __name__ == "__main__":
     # Allows: python -m tunel_purge  (for Render Cron Job)
     logging.basicConfig(level=logging.INFO)
     r1 = purge_deleted_uploads()
     r2 = purge_pending_account_deletions()
-    print({"uploads": r1, "accounts": r2})
+    r3 = purge_old_login_attempts()
+    print({"uploads": r1, "accounts": r2, "login_attempts": r3})

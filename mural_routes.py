@@ -9,6 +9,7 @@ from datetime import datetime
 
 from database import get_db, MuralMemory, Turma, TurmaMembership, User
 from auth import get_current_user_required
+from rate_limit_db import check_rate_limit
 
 mural_router = APIRouter(prefix="/api", tags=["mural"])
 
@@ -23,6 +24,15 @@ async def add_memory(
     db: Session = Depends(get_db),
 ):
     """User adds ONE sensory memory to a turma's mural."""
+    # ── DB-backed rate limit (BUG H4): 30 memories/day/user. Mural creation
+    # is the spammable surface — content shows up in every turma feed — so
+    # the limit must be enforced across all workers, not per-process.
+    check_rate_limit(
+        db,
+        key=f"user:{current_user.id}:mural",
+        max_per_window=30,
+        window_seconds=86400,
+    )
     body = await request.json()
     memory_type = body.get('memory_type', 'event')
     content = body.get('content', '').strip()

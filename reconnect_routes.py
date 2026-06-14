@@ -34,8 +34,6 @@ Design rules (Phase 1 spec):
      target is in, and silently swallows any future reconnect attempts
      from the same requester toward the same target.
 """
-from __future__ import annotations
-
 from datetime import datetime, timedelta
 from typing import Optional
 from urllib.parse import quote
@@ -48,6 +46,7 @@ from sqlalchemy.orm import Session
 from database import get_db, User, RoomMembership
 from auth import get_current_user_required, require_18_plus
 from reconnect_models import ReconnectRequest
+from rate_limit_db import check_rate_limit
 import reconnect_email
 
 # Cooling-off after a decline. The requester gets no signal that this is
@@ -173,6 +172,17 @@ def register_routes(app, limiter):
         """
         # Bind user to request.state so the rate-limit key_func can see it.
         request.state.user = current_user
+
+        # ── DB-backed rate limit (BUG H4): slowapi above is per-worker on
+        # Render, so the real 5/day enforcement happens here against shared
+        # Postgres state. Slowapi is kept as a cheap first-line filter that
+        # short-circuits before we hit the DB on hot abuse.
+        check_rate_limit(
+            db,
+            key=f"user:{current_user.id}:reconnect",
+            max_per_window=5,
+            window_seconds=86400,
+        )
 
         # ── 18+ gate (LGPD Art. 14 + ECA).
         # Reconnect inicia contato direto entre dois adultos via WhatsApp; o

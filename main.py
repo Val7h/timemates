@@ -202,6 +202,13 @@ try:
             "CREATE INDEX IF NOT EXISTS ix_cities_state ON cities (state)",
             "CREATE INDEX IF NOT EXISTS ix_cities_population ON cities (population)",
             "CREATE INDEX IF NOT EXISTS ix_cities_state_population ON cities (state, population)",
+            # H8/H9 perf fix: covering indexes para /api/cities sob carga (50+ concurrent)
+            "CREATE INDEX IF NOT EXISTS idx_cities_state ON cities (state)",
+            "CREATE INDEX IF NOT EXISTS idx_cities_population ON cities (population DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_cities_name ON cities (name)",
+            # Speed up COUNT(*) GROUP BY city em local_news/local_events (N+1 -> single GROUP BY)
+            "CREATE INDEX IF NOT EXISTS idx_local_news_city ON local_news (city)",
+            "CREATE INDEX IF NOT EXISTS idx_local_events_city ON local_events (city)",
         ):
             try:
                 _conn.execute(_idx_text(_idx_sql))
@@ -388,6 +395,18 @@ async def lifespan(app):
                 purge_deleted_uploads,
                 purge_pending_account_deletions,
             )
+            from rate_limit_db import cleanup_old_hits as _rl_cleanup_old_hits
+            from database import SessionLocal as _RL_SessionLocal
+
+            def _purge_rate_limit_hits():
+                # APScheduler runs jobs with no args; wrap so we own the
+                # Session lifecycle (the cleanup helper takes a Session).
+                db = _RL_SessionLocal()
+                try:
+                    return _rl_cleanup_old_hits(db, older_than_days=1)
+                finally:
+                    db.close()
+
             _tunel_purge_scheduler = BackgroundScheduler(timezone="UTC")
             _tunel_purge_scheduler.add_job(
                 purge_deleted_uploads, 'cron', hour=3, minute=0,
@@ -396,6 +415,12 @@ async def lifespan(app):
             _tunel_purge_scheduler.add_job(
                 purge_pending_account_deletions, 'cron', hour=3, minute=15,
                 id='lgpd_purge_accounts', replace_existing=True,
+            )
+            # BUG H4 companion: rate_limit_hits grows unbounded without this.
+            # Runs at 03:30 UTC, after the LGPD purges and well clear of peak.
+            _tunel_purge_scheduler.add_job(
+                _purge_rate_limit_hits, 'cron', hour=3, minute=30,
+                id='rate_limit_hits_purge', replace_existing=True,
             )
             _tunel_purge_scheduler.start()
             app.state.tunel_purge_scheduler = _tunel_purge_scheduler
@@ -1088,9 +1113,22 @@ async def login(
     if not email or not password:
         missing = [f for f, v in (("email", email), ("password", password)) if not v]
         raise HTTPException(status_code=422, detail=f"Campos obrigatórios ausentes: {', '.join(missing)}")
+
+    # Brute-force protection: DB-backed progressive lockout (persistent across workers)
+    from login_throttle import is_locked_out, record_attempt
+    lock = is_locked_out(db, email)
+    if lock.get("locked"):
+        raise HTTPException(
+            status_code=429,
+            detail=lock.get("reason", "Muitas tentativas. Tenta de novo mais tarde."),
+            headers={"Retry-After": str(lock.get("retry_after_seconds", 60))},
+        )
+
     user = db.query(User).filter(User.email == email.lower().strip()).first()
     if not user or not verify_password(password, user.password_hash):
+        record_attempt(db, email, success=False, request=request)
         raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
+    record_attempt(db, email, success=True, request=request)
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user_to_dict(user)}
 
@@ -3946,6 +3984,7 @@ def _probe_news_events_tables(db: Session):
 @limiter.limit("60/minute")
 def list_cities(
     request: Request,
+    response: Response,
     page: int = Query(1, ge=1, description="Página (1-based)"),
     limit: int = Query(50, ge=1, le=200, description="Itens por página (max 200)"),
     state: Optional[str] = Query(None, description="Filtrar por UF, ex. SP"),
@@ -4051,32 +4090,55 @@ def list_cities(
         except Exception:
             pass
 
+    # H8/H9 perf fix: substituir N+1 (2*N COUNT queries) por 2 single GROUP BY queries.
+    # Antes: 50 cities -> 100 COUNT roundtrips. Depois: 2 GROUP BY agregadas (1 index scan cada).
+    city_names = [c.name for c in cities]
+    news_count_map: Dict[str, int] = {}
+    events_count_map: Dict[str, int] = {}
+    if city_names and news_table_ok:
+        try:
+            from sqlalchemy import func as _sql_func
+            rows = (
+                db.query(LocalNews.city, _sql_func.count(LocalNews.id))
+                .filter(LocalNews.city.in_(city_names))
+                .group_by(LocalNews.city)
+                .all()
+            )
+            news_count_map = {r[0]: int(r[1] or 0) for r in rows}
+        except Exception:
+            logger.exception("[/api/cities] news GROUP BY falhou; fallback zero")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+    if city_names and events_table_ok:
+        try:
+            from sqlalchemy import func as _sql_func
+            rows = (
+                db.query(LocalEvent.city, _sql_func.count(LocalEvent.id))
+                .filter(LocalEvent.city.in_(city_names))
+                .group_by(LocalEvent.city)
+                .all()
+            )
+            events_count_map = {r[0]: int(r[1] or 0) for r in rows}
+        except Exception:
+            logger.exception("[/api/cities] events GROUP BY falhou; fallback zero")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
     result = []
     for city in cities:
-        news_count = 0
-        events_count = 0
-        if news_table_ok:
-            try:
-                news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
-            except Exception:
-                logger.exception("[/api/cities] news_count falhou para %s", city.name)
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-                news_table_ok = False
-        if events_table_ok:
-            try:
-                events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
-            except Exception:
-                logger.exception("[/api/cities] events_count falhou para %s", city.name)
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-                events_table_ok = False
-
+        news_count = news_count_map.get(city.name, 0)
+        events_count = events_count_map.get(city.name, 0)
         result.append(_city_to_payload(city, news_count, events_count, total_users, total_cities_global))
+
+    # HTTP cache hint para CDN/browser — cidades mudam raramente
+    try:
+        response.headers["Cache-Control"] = "public, max-age=300"
+    except Exception:
+        pass
 
     return {
         "success": True,
@@ -4091,7 +4153,7 @@ def list_cities(
 
 @app.get("/api/cities/featured")
 @limiter.limit("120/minute")
-def list_featured_cities(request: Request, db: Session = Depends(get_db)):
+def list_featured_cities(request: Request, response: Response, db: Session = Depends(get_db)):
     """⭐ Top 27 capitais (backwards-compat para o mapa do frontend).
 
     Resposta cacheada em memória por 5 minutos — dados quase estáticos.
@@ -4099,6 +4161,11 @@ def list_featured_cities(request: Request, db: Session = Depends(get_db)):
     """
     import time
     now = time.time()
+    # HTTP cache hint — browsers/CDN podem reaproveitar por 5 min
+    try:
+        response.headers["Cache-Control"] = "public, max-age=300"
+    except Exception:
+        pass
     cached_payload = _FEATURED_CACHE.get("payload")
     cached_expires = _FEATURED_CACHE.get("expires_at", 0.0)
     if cached_payload is not None and isinstance(cached_expires, (int, float)) and now < cached_expires:
@@ -4125,28 +4192,45 @@ def list_featured_cities(request: Request, db: Session = Depends(get_db)):
 
     news_table_ok, events_table_ok = _probe_news_events_tables(db)
 
+    # H8/H9 perf fix: substituir N+1 por 2 GROUP BY agregadas
+    city_names = [c.name for c in cities]
+    news_count_map: Dict[str, int] = {}
+    events_count_map: Dict[str, int] = {}
+    if city_names and news_table_ok:
+        try:
+            from sqlalchemy import func as _sql_func
+            rows = (
+                db.query(LocalNews.city, _sql_func.count(LocalNews.id))
+                .filter(LocalNews.city.in_(city_names))
+                .group_by(LocalNews.city)
+                .all()
+            )
+            news_count_map = {r[0]: int(r[1] or 0) for r in rows}
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+    if city_names and events_table_ok:
+        try:
+            from sqlalchemy import func as _sql_func
+            rows = (
+                db.query(LocalEvent.city, _sql_func.count(LocalEvent.id))
+                .filter(LocalEvent.city.in_(city_names))
+                .group_by(LocalEvent.city)
+                .all()
+            )
+            events_count_map = {r[0]: int(r[1] or 0) for r in rows}
+        except Exception:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
     data = []
     for city in cities:
-        news_count = 0
-        events_count = 0
-        if news_table_ok:
-            try:
-                news_count = db.query(LocalNews).filter(LocalNews.city == city.name).count()
-            except Exception:
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-                news_table_ok = False
-        if events_table_ok:
-            try:
-                events_count = db.query(LocalEvent).filter(LocalEvent.city == city.name).count()
-            except Exception:
-                try:
-                    db.rollback()
-                except Exception:
-                    pass
-                events_table_ok = False
+        news_count = news_count_map.get(city.name, 0)
+        events_count = events_count_map.get(city.name, 0)
         data.append(_city_to_payload(city, news_count, events_count, total_users, max(len(cities), 27)))
 
     payload = {

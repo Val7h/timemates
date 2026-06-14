@@ -26,6 +26,7 @@ from sqlalchemy import func
 from database import get_db, User, TunelUpload, TunelFace
 from auth import get_current_user_required, require_18_plus
 from consent_helpers import has_active_consent
+from rate_limit_db import check_rate_limit
 from tunel_icebreaker import generate_icebreaker
 
 
@@ -191,6 +192,15 @@ async def upload_old_photo(
     Rate-limit: 5/dia/user (uploads são caros — face detection, storage).
     """
     request.state.user = current_user  # bind for slowapi key_func
+    # ── DB-backed rate limit (BUG H4): slowapi above is per-worker on Render.
+    # Uploads are expensive (storage + future face detection) and biometric-
+    # consent-gated; the 5/day cap must be a real cross-worker enforced limit.
+    check_rate_limit(
+        db,
+        key=f"user:{current_user.id}:tunel_upload",
+        max_per_window=5,
+        window_seconds=86400,
+    )
     # LGPD Art. 14 + ECA: gate 18+ antes de qualquer trabalho. Fotos escolares
     # antigas costumam conter colegas menores; iniciar face matching nesse
     # contexto exige operador adulto.
