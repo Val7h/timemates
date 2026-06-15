@@ -2398,7 +2398,7 @@ def get_me(
     """
     return {
         "id": current_user.id,
-        "name": current_user.name,
+        "full_name": getattr(current_user, "full_name", None),
         "email": current_user.email,
         "phone": getattr(current_user, "phone", None),
         "phone_verified": bool(getattr(current_user, "phone_verified", False)),
