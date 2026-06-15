@@ -3,15 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Turma — timeMates</title>
+  <title>Turma — TimeMates</title>
   <link rel="manifest" href="/static/manifest.json" />
-  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="theme-color" content="#0a0a0a" />
   <style>
+    :root {
+      --black: #0a0a0a;
+      --warm-black: #0a0604;
+      --amber: #d4a853;
+      --amber-soft: #e8c06a;
+      --text: #fff8e7;
+      --text-muted: rgba(255, 248, 231, 0.55);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: #e8e8f0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--black);
+      color: var(--text);
       min-height: 100vh;
       line-height: 1.5;
     }
@@ -91,7 +99,7 @@
       display: flex; align-items: center; gap: 8px;
     }
     .section-link {
-      color: #6cc7ff; font-size: 13px; text-decoration: none;
+      color: #d4a853; font-size: 13px; text-decoration: none;
       margin-left: auto; font-weight: 500;
     }
     .section-link:hover { text-decoration: underline; }
@@ -105,7 +113,7 @@
     }
     .mural-avatar {
       width: 38px; height: 38px; border-radius: 50%;
-      background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      background: linear-gradient(135deg, #d4a853, #e8c06a);
       display: flex; align-items: center; justify-content: center;
       color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0;
     }
@@ -125,7 +133,7 @@
       line-height: 1; margin: 8px 0 4px;
     }
     .reuniao-month {
-      font-size: 14px; color: #6cc7ff;
+      font-size: 14px; color: #d4a853;
       text-transform: uppercase; letter-spacing: 1px;
     }
     .reuniao-where { font-size: 14px; color: #ccc; margin: 10px 0; }
@@ -142,17 +150,17 @@
 
     .empty-cta {
       text-align: center; padding: 16px;
-      background: rgba(108,199,255,0.08);
+      background: rgba(212, 168, 83, 0.08);
       border-radius: 12px;
     }
     .empty-cta p { color: #d0d0e8; margin-bottom: 12px; font-size: 14px; }
     .cta-btn {
-      background: #6cc7ff; color: #0f3460;
+      background: #d4a853; color: #0a0a0a;
       padding: 10px 22px; border-radius: 999px;
       font-weight: 700; text-decoration: none;
       display: inline-block; font-size: 14px;
     }
-    .cta-btn:hover { background: #93d6ff; }
+    .cta-btn:hover { background: #e8c06a; }
 
     /* IN MEMORIAM */
     .memoriam {
@@ -186,7 +194,7 @@
     }
     .modal-overlay.active { display: flex; }
     .modal {
-      background: #16213e;
+      background: #1a1108;
       border-radius: 18px; padding: 24px;
       max-width: 420px; width: 100%;
       border: 1px solid rgba(255,255,255,0.15);
@@ -200,14 +208,14 @@
       border-radius: 10px; color: #fff;
       font-size: 14px; margin-bottom: 12px;
     }
-    .modal input:focus { outline: none; border-color: #6cc7ff; }
+    .modal input:focus { outline: none; border-color: #d4a853; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
     .modal-btn {
       padding: 10px 18px; border-radius: 999px;
       border: none; cursor: pointer; font-weight: 600; font-size: 14px;
     }
     .modal-btn.cancel { background: transparent; color: #aaa; }
-    .modal-btn.submit { background: #6cc7ff; color: #0f3460; }
+    .modal-btn.submit { background: #d4a853; color: #0a0a0a; }
 
     .loading, .empty-state {
       text-align: center; color: #888; padding: 20px;
@@ -232,7 +240,7 @@
     <header class="header">
       <a href="/" class="header-back">← voltar</a>
       <h1 class="turma-name" id="turma-name">Carregando...</h1>
-      <div class="turma-meta" id="turma-meta">—</div>
+      <div class="turma-meta" id="turma-meta"></div>
       <div class="turma-stats">
         <span class="stat-chip" id="members-chip">👥 <span id="members-count">0</span> colegas verificados</span>
         <span class="stat-chip" id="unlock-chip" style="display:none;">🔓 Mural desbloqueado</span>
@@ -343,23 +351,35 @@
       try {
         const res = await fetch(`/api/turmas/${SLUG}`);
         if (!res.ok) throw new Error('not found');
-        const t = await res.json();
+        const body = await res.json();
+        const t = body.turma || body;
         turmaData = t;
 
-        document.getElementById('turma-name').textContent = t.name || t.nome || 'Turma';
-        const ano = t.ano || t.year || '';
-        const escola = t.escola || t.school || '';
-        const cidade = t.cidade || t.city || '';
-        document.getElementById('turma-meta').textContent =
-          [ano, escola, cidade].filter(Boolean).join(' • ') || '—';
+        document.getElementById('turma-name').textContent = t.institution_name || 'Turma sem nome';
+        if (t.institution_name) {
+          document.title = `${t.institution_name} — TimeMates`;
+        }
+        const cohort = t.cohort_label || '';
+        const cidade = t.city || '';
+        const uf = t.state || '';
+        const cidadeUf = [cidade, uf].filter(Boolean).join(', ');
+        const metaParts = [];
+        if (cohort && cidadeUf) {
+          metaParts.push(`${cohort} — ${cidadeUf}`);
+        } else if (cohort) {
+          metaParts.push(cohort);
+        } else if (cidadeUf) {
+          metaParts.push(cidadeUf);
+        }
+        document.getElementById('turma-meta').textContent = metaParts.join('') || '';
 
-        const verified = t.verified_members ?? t.members_verified ?? t.members_count ?? 0;
+        const verified = t.total_verified ?? 0;
         document.getElementById('members-count').textContent = verified;
 
         // unlock state
-        const unlocked = t.mural_unlocked ?? t.unlocked ?? false;
+        const unlocked = t.is_unlocked ?? false;
         const pctNeeded = t.unlock_percent ?? 60;
-        const totalEstimated = t.total_estimated ?? t.size ?? 0;
+        const totalEstimated = t.total_members ?? 0;
         if (unlocked) {
           document.getElementById('unlock-chip').style.display = 'inline-flex';
         } else if (totalEstimated > 0) {

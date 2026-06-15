@@ -1831,12 +1831,61 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // CPF check-digit validator (Brazilian algorithm)
+  function isValidCPF(cpf) {
+    cpf = (cpf || '').replace(/\D/g, '');
+    if (cpf.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cpf)) return false; // all same digit
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+    let rev = 11 - (sum % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cpf[9])) return false;
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+    rev = 11 - (sum % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    return rev === parseInt(cpf[10]);
+  }
+
   if (formReg) {
     formReg.onsubmit = async (e) => {
       e.preventDefault();
-      const data = new FormData(formReg);
       const errBox = document.getElementById('tm-register-error');
-      errBox.textContent = '';
+      errBox.textContent = ''; // CLEAR error state at start
+
+      const data = new FormData(formReg);
+      const errors = [];
+
+      if (!data.get('full_name') || data.get('full_name').trim().length < 3) {
+        errors.push('Nome completo é obrigatório');
+      }
+      if (!data.get('email') || !data.get('email').includes('@')) {
+        errors.push('Email válido é obrigatório');
+      }
+      if (!data.get('password') || data.get('password').length < 8) {
+        errors.push('Senha precisa ter pelo menos 8 caracteres');
+      }
+      const cpfRaw = (data.get('cpf') || '').replace(/\D/g, '');
+      if (cpfRaw.length !== 11) {
+        errors.push('CPF precisa ter 11 dígitos');
+      } else if (!isValidCPF(cpfRaw)) {
+        errors.push('CPF inválido (verifique os dígitos)');
+      }
+      const phoneRaw = (data.get('phone') || '').replace(/\D/g, '');
+      if (phoneRaw.length < 10) {
+        errors.push('Celular com DDD obrigatório');
+      }
+      const lgpd = formReg.querySelector('input[type="checkbox"]');
+      if (lgpd && !lgpd.checked) {
+        errors.push('Aceite os termos LGPD pra continuar');
+      }
+
+      if (errors.length > 0) {
+        errBox.textContent = errors[0];
+        return;
+      }
+
       try {
         const resp = await fetch('/api/auth/register', {
           method: 'POST',

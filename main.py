@@ -296,12 +296,14 @@ def _generate_og_image():
 @asynccontextmanager
 async def lifespan(app):
     # ===== SETUP 8 FEATURES =====
-    # Feature 1: Swagger Documentation
-    try:
-        setup_swagger(app)
-        print("[FEATURE] Swagger Documentation setup completed")
-    except Exception as e:
-        print(f"[FEATURE] Swagger setup failed (non-critical): {e}")
+    # Feature 1: Swagger Documentation (V2: disabled — legacy override polluted FastAPI() metadata
+    # with old "API para descobrir notícias..." description + version 1.0.0. The FastAPI(title=...,
+    # version="2.0.0", description=...) declared above is the source of truth.)
+    # try:
+    #     setup_swagger(app)
+    #     print("[FEATURE] Swagger Documentation setup completed")
+    # except Exception as e:
+    #     print(f"[FEATURE] Swagger setup failed (non-critical): {e}")
 
     # Feature 2: Push Notifications
     try:
@@ -506,7 +508,54 @@ def _run_email_sequence():
     finally:
         db.close()
 
-app = FastAPI(title="TimeMates API", version="1.0.0", lifespan=lifespan)
+tags_metadata = [
+    # PRIORITY 1 - Core V2 features
+    {"name": "auth", "description": "Autenticação e sessões"},
+    {"name": "turmas", "description": "Turmas e membros"},
+    {"name": "tunel", "description": "Túnel do Tempo (face matching)"},
+    {"name": "mural", "description": "Mural da Saudade"},
+    {"name": "reuniao", "description": "Reuniões da turma"},
+    {"name": "reconnect", "description": "Pedidos de reconexão (asymmetric reveal)"},
+    # PRIORITY 2 - User & compliance
+    {"name": "me", "description": "Meu perfil e visibilidade"},
+    {"name": "consents", "description": "Consentimentos LGPD"},
+    {"name": "lgpd", "description": "LGPD (export, deletion)"},
+    # PRIORITY 3 - Operations
+    {"name": "admin", "description": "Administração"},
+    {"name": "health", "description": "Health checks"},
+    # DEPRECATED - Legacy from cities/events pivot
+    {"name": "cities", "description": "Cidades (CONTEXTO apenas — uso interno)"},
+    {"name": "news", "description": "[DEPRECATED V2] Notícias — legado do pivot anterior"},
+    {"name": "events", "description": "[DEPRECATED V2] Eventos — legado do pivot anterior"},
+    {"name": "calendar", "description": "[DEPRECATED V2] Calendário — legado do pivot anterior"},
+    {"name": "tourism", "description": "[DEPRECATED V2] Turismo — legado do pivot anterior"},
+    {"name": "ibge", "description": "[DEPRECATED V2] IBGE — legado do pivot anterior"},
+    {"name": "push", "description": "[DEPRECATED V2] Push notifications — legado do pivot anterior"},
+]
+
+app = FastAPI(
+    title="TimeMates API",
+    description="""API do TimeMates — plataforma brasileira de reconexão.
+
+Ajudamos brasileiros a reencontrar pessoas do passado — turma da escola,
+faculdade, bairro, empresa.
+
+**Killer features:**
+- 🎬 Túnel do Tempo (face recognition + matching)
+- 🎨 Mural da Saudade (memórias coletivas)
+- 🍻 Reunião Button (organiza encontros)
+- 🏠 Turma Hub (núcleo de cada cohort)
+
+**Princípios:**
+- Default-ghost: usuários invisíveis por padrão
+- Asymmetric reveal: requester não sabe se target existe
+- LGPD compliant
+- Verified at 8/10 safety score
+""",
+    version="2.0.0",
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
+)
 
 # ===== RATE LIMITING SETUP =====
 limiter = Limiter(key_func=get_remote_address)
@@ -4817,10 +4866,33 @@ def turmas_search(
     if state:
         query = query.filter(Turma.state == state.upper())
 
-    results = query.order_by(Turma.created_at.desc()).limit(50).all()
+    results = query.order_by(Turma.created_at.desc()).limit(100).all()
+    # Dedup by (institution_name normalizado, city, state, cohort_year, cohort_label).
+    # Mantém a turma com mais membros verificados; em empate, a mais antiga (id menor).
+    seen: dict = {}
+    for t in results:
+        key = (
+            (t.institution_name or "").strip().lower(),
+            (t.city or "").strip().lower(),
+            (t.state or "").strip().upper(),
+            t.cohort_year,
+            (t.cohort_label or "").strip().lower(),
+        )
+        existing = seen.get(key)
+        if existing is None:
+            seen[key] = t
+            continue
+        # decide winner: more verified members wins; tie → smaller id (older)
+        new_verified = t.total_verified or 0
+        old_verified = existing.total_verified or 0
+        if new_verified > old_verified or (
+            new_verified == old_verified and (t.id or 0) < (existing.id or 0)
+        ):
+            seen[key] = t
+    deduped = list(seen.values())[:50]
     return {
         "success": True,
-        "count": len(results),
+        "count": len(deduped),
         "turmas": [
             {
                 "id": t.id,
@@ -4836,7 +4908,46 @@ def turmas_search(
                 "is_unlocked": t.is_unlocked,
                 "visible_member_count": len(_turma_visible_members(db, t.id)),
             }
-            for t in results
+            for t in deduped
+        ],
+    }
+
+
+@app.get("/api/me/turmas")
+@limiter.limit("60/minute")
+def my_turmas(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """📋 Lista turmas do usuário logado. Requer auth (401 se sem token)."""
+    memberships = db.query(TurmaMembership).filter(
+        TurmaMembership.user_id == current_user.id
+    ).all()
+    if not memberships:
+        return {"success": True, "turmas": []}
+    turma_ids = [m.turma_id for m in memberships]
+    turmas = db.query(Turma).filter(Turma.id.in_(turma_ids)).all()
+    mem_map = {m.turma_id: m for m in memberships}
+    return {
+        "success": True,
+        "turmas": [
+            {
+                "id": t.id,
+                "slug": t.slug,
+                "institution_name": t.institution_name,
+                "city": t.city,
+                "state": t.state,
+                "kind": t.kind,
+                "cohort_year": t.cohort_year,
+                "cohort_label": t.cohort_label,
+                "total_members": t.total_members,
+                "total_verified": t.total_verified,
+                "is_unlocked": t.is_unlocked,
+                "my_status": mem_map[t.id].status if t.id in mem_map else None,
+                "is_founder": mem_map[t.id].is_founder if t.id in mem_map else False,
+            }
+            for t in turmas
         ],
     }
 

@@ -251,13 +251,14 @@ body::before {
 /* ──── Tabs ──── */
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 12px;
   overflow-x: auto;
-  padding: 16px 24px 4px;
-  scrollbar-width: none;
+  padding: 8px 24px 4px;
+  scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
-.tabs::-webkit-scrollbar { display: none; }
+.tabs::-webkit-scrollbar { height: 4px; }
+.tabs::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 999px; }
 
 .tab {
   flex-shrink: 0;
@@ -872,8 +873,8 @@ body::before {
       <button class="tab" data-type="place">LUGARES 📍</button>
       <button class="tab" data-type="person">PESSOAS 👤</button>
       <button class="tab" data-type="event">EVENTOS 🎉</button>
-      <button class="tab" data-type="taste">TASTES 🍬</button>
-      <button class="tab" data-type="gesture">GESTURES ✋</button>
+      <button class="tab" data-type="taste">SABORES 🍬</button>
+      <button class="tab" data-type="gesture">GESTOS ✋</button>
       <button class="tab" data-type="cade">CADÊ?</button>
       <button class="tab" data-type="memoriam">IN MEMORIAM</button>
     </div>
@@ -1130,9 +1131,12 @@ async function renderMural(slug) {
 
 async function loadTurma() {
   try {
-    const t = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}`);
+    const body = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}`);
+    const t = body.turma || body;
     state.turma = t;
-    document.getElementById('muralTitle').textContent = `Turma ${t.year || ''} — ${t.institution_name || ''}`;
+    const year = t.cohort_year || t.year || '';
+    const inst = t.institution_name || 'Turma sem nome';
+    document.getElementById('muralTitle').textContent = `Turma ${year} — ${inst}`.replace(/^Turma\s+—\s+/, '');
     state.topTags = t.top_tags || [];
   } catch (e) {
     document.getElementById('muralTitle').textContent = 'Turma';

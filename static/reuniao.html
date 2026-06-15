@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<title>Reunião — TimeMates</title>
+<title>Marcar Reunião — TimeMates</title>
 <meta name="description" content="Marca reunião com a turma. Vota datas, confirma RSVP, chama a galera."/>
 <meta name="theme-color" content="#0a0a0a"/>
 
@@ -634,10 +634,21 @@ textarea { resize: vertical; min-height: 80px; }
     <p class="subtitle">Joga as datas que podem rolar — a galera vota e a gente fecha.</p>
 
     <form id="form-create" onsubmit="event.preventDefault(); criarReuniao();">
+      <!-- Turma selector: appears when reunião acessada sem ?turma=slug -->
+      <div class="field" id="field-turma-selector" style="display:none">
+        <label class="field-label" for="turma-select">Pra qual turma é esse encontro?</label>
+        <select id="turma-select" name="turma-select"
+                style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;color:var(--text);font-family:inherit;font-size:15px;outline:none;">
+          <option value="">Escolhe a turma…</option>
+        </select>
+        <div class="field-hint" id="turma-hint" style="display:none"></div>
+      </div>
+
       <div class="field">
         <label class="field-label" for="titulo">Título</label>
         <input type="text" id="titulo" name="titulo" required maxlength="120"
                placeholder="Churrasco dos 20 anos / Almoço da galera"/>
+        <div id="title-error" style="color:#ff6666;font-size:13px;margin-top:4px;display:none;">Título é obrigatório</div>
       </div>
 
       <div class="field">
@@ -868,6 +879,48 @@ function initCreateForm() {
   list.innerHTML = '';
   addDate();
   addDate();
+
+  // If no turma slug in URL, show turma selector
+  if (!STATE.turmaSlug) {
+    loadUserTurmas();
+  }
+}
+
+async function loadUserTurmas() {
+  const wrap = document.getElementById('field-turma-selector');
+  const select = document.getElementById('turma-select');
+  const hint = document.getElementById('turma-hint');
+  const btn = document.getElementById('btn-criar');
+  wrap.style.display = 'block';
+  btn.disabled = true;
+
+  try {
+    const r = await fetch(`${API}/api/me/turmas`, { credentials: 'include' });
+    if (!r.ok) throw new Error('failed');
+    const data = await r.json();
+    const turmas = data.turmas || data.results || data || [];
+    if (!turmas.length) {
+      select.style.display = 'none';
+      hint.style.display = 'block';
+      hint.innerHTML = 'Você precisa estar numa turma pra marcar encontro. <a href="/" style="color:var(--amber);text-decoration:underline">Procurar turma</a>';
+      btn.disabled = true;
+      btn.textContent = 'Sem turma — não dá pra criar';
+      return;
+    }
+    select.innerHTML = '<option value="">Escolhe a turma…</option>' + turmas.map(t => {
+      const slug = t.slug || t.turma_slug || '';
+      const label = t.label || t.name || t.nome || slug;
+      return `<option value="${slug}">${label}</option>`;
+    }).join('');
+    select.addEventListener('change', () => {
+      STATE.turmaSlug = select.value || null;
+      btn.disabled = !STATE.turmaSlug;
+    });
+  } catch (err) {
+    hint.style.display = 'block';
+    hint.textContent = 'Não rolou carregar suas turmas. Tenta recarregar a página.';
+    btn.disabled = true;
+  }
 }
 
 function addDate() {
@@ -943,8 +996,27 @@ async function criarReuniao() {
     .map(i => i.value)
     .filter(Boolean);
 
-  if (!titulo || !dates.length) {
-    toast('Coloca pelo menos um título e uma data');
+  // Title textual error feedback
+  const titleErr = document.getElementById('title-error');
+  if (!titulo) {
+    if (titleErr) titleErr.style.display = 'block';
+    toast('Título é obrigatório');
+    btn.disabled = false;
+    btn.textContent = 'Criar reunião';
+    return;
+  } else {
+    if (titleErr) titleErr.style.display = 'none';
+  }
+
+  if (!dates.length) {
+    toast('Coloca pelo menos uma data');
+    btn.disabled = false;
+    btn.textContent = 'Criar reunião';
+    return;
+  }
+
+  if (!STATE.turmaSlug) {
+    toast('Escolhe uma turma primeiro');
     btn.disabled = false;
     btn.textContent = 'Criar reunião';
     return;
