@@ -285,8 +285,8 @@ body::before {
   font-weight: 500;
 }
 
-/* ──── Memory feed ──── */
-.feed {
+/* ──── Memory memorias ──── */
+.memorias {
   padding: 20px 20px 40px;
 }
 
@@ -879,7 +879,7 @@ body::before {
       <button class="tab" data-type="memoriam">IN MEMORIAM</button>
     </div>
 
-    <div class="feed" id="memFeed">
+    <div class="memorias" id="memFeed">
       <div class="skeleton"></div>
       <div class="skeleton"></div>
       <div class="skeleton"></div>
@@ -919,7 +919,7 @@ body::before {
         <button class="type-chip" data-type="place">Lugar 📍</button>
         <button class="type-chip" data-type="person">Pessoa 👤</button>
         <button class="type-chip" data-type="event">Evento 🎉</button>
-        <button class="type-chip" data-type="taste">Gosto 🍬</button>
+        <button class="type-chip" data-type="taste">Sabor 🍬</button>
         <button class="type-chip" data-type="gesture">Gesto ✋</button>
       </div>
     </div>
@@ -996,7 +996,7 @@ const TYPE_ICONS = {
 };
 const TYPE_LABELS = {
   smell: 'Cheiro', sound: 'Som', place: 'Lugar', person: 'Pessoa',
-  event: 'Evento', taste: 'Gosto', gesture: 'Gesto', cade: 'Cadê?', memoriam: 'In Memoriam'
+  event: 'Evento', taste: 'Sabor', gesture: 'Gesto', cade: 'Cadê?', memoriam: 'In Memoriam'
 };
 
 // ════════════════════════════════════════════════════
@@ -1120,13 +1120,13 @@ async function renderMural(slug) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       state.activeTab = tab.dataset.type;
-      renderFeed();
+      renderMemorias();
     };
   });
 
   await loadTurma();
   await loadMemories();
-  renderFeed();
+  renderMemorias();
 }
 
 async function loadTurma() {
@@ -1155,7 +1155,7 @@ async function loadMemories() {
   }
 }
 
-function renderFeed() {
+function renderMemorias() {
   const feed = document.getElementById('memFeed');
   const tab = state.activeTab;
   const isMemoriam = tab === 'memoriam';
@@ -1328,10 +1328,10 @@ async function submitMemory() {
       state.memories.unshift(created);
       document.getElementById('muralSub').textContent =
         `${state.memories.length} memórias subidas pela galera`;
-      renderFeed();
+      renderMemorias();
     } else {
       await loadMemories();
-      renderFeed();
+      renderMemorias();
     }
   } catch (e) {
     toast('Erro subindo. Tenta de novo.');
@@ -1369,7 +1369,7 @@ async function submitCade() {
     toast('A turma foi avisada. Bora encontrar.');
     closeModal('modalCade');
     await loadMemories();
-    renderFeed();
+    renderMemorias();
   } catch (e) {
     toast('Erro. Tenta de novo.');
   }

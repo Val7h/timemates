@@ -189,6 +189,16 @@ body::before {
   position: relative;
   overflow: hidden;
 }
+@keyframes polaroid-develop {
+  0%   { filter: brightness(2.2) contrast(0.3) sepia(0.9); opacity: 0.15; }
+  35%  { filter: brightness(1.6) contrast(0.6) sepia(0.6); opacity: 0.55; }
+  70%  { filter: brightness(1.15) contrast(0.85) sepia(0.3); opacity: 0.85; }
+  100% { filter: brightness(1) contrast(1) sepia(0); opacity: 1; }
+}
+.polaroid.develop, .step-frame.develop,
+.polaroid.develop .ph, .step-frame.develop .ph {
+  animation: polaroid-develop 2.5s ease-out forwards;
+}
 .polaroid .ph::after {
   content: "";
   position: absolute; inset: 0;
@@ -364,6 +374,30 @@ body::before {
   margin-top: 10px;
 }
 .btn-ghost:hover { color: var(--amber); border-color: var(--amber); }
+
+/* ─── MODAL OVERLAY ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.92);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.modal-overlay.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.modal-content {
+  padding: 32px;
+  text-align: center;
+  max-width: 320px;
+}
 
 /* ─── SCREEN 3 · PROCESSING ─── */
 .processing {
@@ -1127,7 +1161,7 @@ body::before {
       <div id="acceptedBanner" style="display:none;margin-top:24px;padding:18px;border-radius:14px;background:linear-gradient(135deg,#f5e6c5,#e8d4a3);text-align:center;animation:fadeIn 0.5s ease;">
         <p style="margin:0 0 4px;font-size:32px;">🎉</p>
         <p id="acceptedText" style="margin:0 0 14px;font-weight:600;color:#3a2d1a;font-family:'Fraunces',serif;font-size:18px;"></p>
-        <a id="acceptedWaBtn" href="#" target="_blank" rel="noopener" class="btn-primary" style="display:inline-block;text-decoration:none;padding:12px 24px;">Abrir WhatsApp</a>
+        <a id="acceptedWaBtn" href="#" target="_blank" rel="noopener" class="btn-primary" style="display:inline-block;text-decoration:none;padding:12px 24px;" onclick="try{window.trackWhatsAppHandoff(this.dataset.targetUserId);}catch(e){}">Abrir WhatsApp</a>
       </div>
     </div>
   </section>
@@ -1591,7 +1625,7 @@ async function sendInvite() {
 
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Enviando...';
+  btn.innerHTML = '<span class="spinner"></span>Mandando seu oi...';
 
   try {
     const r = await fetch(`/api/reconnect/${state.selectedMatch}`, {
@@ -1608,6 +1642,24 @@ async function sendInvite() {
     btn.textContent = 'Enviar convite';
   }
 }
+
+// ─── RCM instrumentation: track every "Abrir WhatsApp" click ───
+// This is the proxy de reencontro — the north star metric.
+// Fires async with keepalive; never blocks the WhatsApp open.
+function trackWhatsAppHandoff(targetUserId) {
+  try {
+    const token = localStorage.getItem(window.TM_TOKEN_KEY);
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    fetch('/api/metrics/whatsapp-handoff', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ target_user_id: targetUserId || null }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) { /* silent */ }
+}
+window.trackWhatsAppHandoff = trackWhatsAppHandoff;
 
 // ─────────── Utilities ───────────
 function escapeHtml(s) {
@@ -1713,8 +1765,9 @@ function showAcceptNotification(req) {
 
   const notif = document.createElement('div');
   notif.style.cssText = 'position:fixed;top:24px;right:24px;background:#d4a853;color:#000;padding:16px 24px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:99999;max-width:320px;animation:slideIn 0.3s;';
+  const targetId = req.target_user_id || req.requester_user_id || req.target_id || req.requester_id || '';
   notif.innerHTML = '<strong>🎉 ' + name + ' aceitou!</strong><br>' +
-    (waLink ? '<a href="' + waLink + '" target="_blank" style="color:#000;text-decoration:underline;font-weight:600;">Abrir WhatsApp →</a>' : 'Veja no app');
+    (waLink ? '<a href="' + waLink + '" target="_blank" data-target-user-id="' + escapeHtml(String(targetId)) + '" onclick="try{window.trackWhatsAppHandoff(this.dataset.targetUserId);}catch(e){}" style="color:#000;text-decoration:underline;font-weight:600;">Abrir WhatsApp →</a>' : 'Veja no app');
   document.body.appendChild(notif);
   setTimeout(() => notif.remove(), 15000);
 }
@@ -2041,10 +2094,10 @@ function showFacesResult(previewUrl, faces) {
     html += '</div><p style="margin-top:24px;text-align:center;">Nenhum rosto detectado. Tenta outra foto?</p>';
   } else {
     faces.forEach((f, i) => {
-      html += '<div onclick="findMatchesForFace(' + i + ')" style="position:absolute;border:2px solid #d4a853;cursor:pointer;background:rgba(212,168,83,0.1);left:' + f.bbox_x + 'px;top:' + f.bbox_y + 'px;width:' + f.bbox_w + 'px;height:' + f.bbox_h + 'px;" title="Procurar matches"></div>';
+      html += '<div onclick="findMatchesForFace(' + i + ')" style="position:absolute;border:2px solid #d4a853;cursor:pointer;background:rgba(212,168,83,0.1);left:' + f.bbox_x + 'px;top:' + f.bbox_y + 'px;width:' + f.bbox_w + 'px;height:' + f.bbox_h + 'px;" title="Procurar pessoas da sua turma"></div>';
     });
     html += '</div>';
-    html += '<button onclick="findAllMatches()" style="margin-top:24px;background:#d4a853;color:#000;border:none;padding:14px 28px;border-radius:8px;font-size:16px;cursor:pointer;width:100%;">Procurar matches de todas as pessoas</button>';
+    html += '<button onclick="findAllMatches()" style="margin-top:24px;background:#d4a853;color:#000;border:none;padding:14px 28px;border-radius:8px;font-size:16px;cursor:pointer;width:100%;">Procurar pessoas da sua turma</button>';
     html += '<p style="margin-top:12px;color:#888;font-size:14px;text-align:center;">' + faces.length + ' pessoas detectadas na foto</p>';
   }
   results.innerHTML = html;
@@ -2054,20 +2107,61 @@ window.handleUploadSubmit = handleUploadSubmit;
 
 async function findAllMatches() {
   if (!window.TM_UPLOAD_ID) return;
+  if (window.showSaudadeModal) window.showSaudadeModal();
   try {
     const resp = await window.tmFetch('/api/tunel/' + window.TM_UPLOAD_ID + '/matches');
     const data = await resp.json();
     if (window.renderMatches) {
       window.renderMatches(data);
-    } else {
-      alert('Carregando matches...');
     }
   } catch (err) {
     alert('Algo travou: ' + err.message);
+  } finally {
+    if (window.hideSaudadeModal) window.hideSaudadeModal();
   }
 }
 window.findAllMatches = findAllMatches;
 window.findMatchesForFace = findAllMatches; // simplified for MVP
+
+// ─── Saudade modal (replaces "Carregando matches..." alert) ───
+(function injectSaudadeModal(){
+  if (document.getElementById('tm-finding-saudade-modal')) return;
+  const el = document.createElement('div');
+  el.id = 'tm-finding-saudade-modal';
+  el.className = 'modal-overlay';
+  el.innerHTML = '<div class="modal-content"><p style="font-family:\'Crimson Text\',serif;font-size:24px;color:#d4a853;">Achando saudade...</p></div>';
+  document.body.appendChild(el);
+})();
+window.showSaudadeModal = function(){
+  const m = document.getElementById('tm-finding-saudade-modal');
+  if (m) m.classList.add('show');
+};
+window.hideSaudadeModal = function(){
+  const m = document.getElementById('tm-finding-saudade-modal');
+  if (m) m.classList.remove('show');
+};
+
+// ─── Polaroid develop animation on viewport entry ───
+(function setupPolaroidDevelop(){
+  if (!('IntersectionObserver' in window)) {
+    document.querySelectorAll('.polaroid, .step-frame').forEach(n => n.classList.add('develop'));
+    return;
+  }
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('develop');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.2 });
+  const observe = () => document.querySelectorAll('.polaroid, .step-frame').forEach(n => io.observe(n));
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observe);
+  } else {
+    observe();
+  }
+})();
 
 // Wire submit form (assumes form has id 'tm-upload-form')
 document.addEventListener('DOMContentLoaded', () => {

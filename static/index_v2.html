@@ -491,6 +491,9 @@ footer {
 <!-- ═══════════════════════ HERO (30 seconds) ═══════════════════════ -->
 <section class="hero" aria-label="Início">
   <div class="hero-content">
+    <p class="hero-pretext" style="font-family:'Crimson Text',serif;font-size:16px;color:rgba(255,248,231,0.55);margin-bottom:24px;font-style:italic;letter-spacing:0.5px;">
+      Antes de virar quem você é hoje — quem você foi?
+    </p>
     <h1 class="hero-question serif">
       Quem você não vê há mais de dez anos?
     </h1>
@@ -563,10 +566,14 @@ footer {
 <section class="tagline-section" aria-label="Manifesto">
   <div class="section-inner">
     <h2 class="tagline reveal">
-      Quem ainda lembra de você?
+      De quem você sente saudade?
     </h2>
     <p class="tagline-sub serif reveal">
       Saudade tem endereço agora.
+    </p>
+    <p id="rcm-line" class="reveal" style="font-family:'Crimson Text',serif;font-size:18px;color:rgba(255,248,231,0.7);margin-top:14px;font-style:italic;letter-spacing:0.3px;">
+      <span id="rcm-count" style="color:var(--amber,#d4a853);font-weight:600;">·</span>
+      <span id="rcm-label">reencontros começando agora</span>
     </p>
     <div class="cta-wrap">
       <a href="#como-funciona" class="tagline-cta reveal">Volte pra quem te conhecia</a>
@@ -592,6 +599,27 @@ footer {
 </button>
 
 <script>
+// ─── RCM (Reencontros Confirmados / Mês) — north star, not vanity ───
+(function() {
+  fetch('/api/metrics/rcm')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      const countEl = document.getElementById('rcm-count');
+      const labelEl = document.getElementById('rcm-label');
+      if (!countEl || !labelEl) return;
+      const n = Number(data.rcm_this_month || 0);
+      if (n > 0) {
+        countEl.textContent = n.toLocaleString('pt-BR');
+        labelEl.textContent = data.label || 'reencontros confirmados este mês';
+      } else {
+        countEl.textContent = '';
+        labelEl.textContent = 'Reencontros começando agora';
+      }
+    })
+    .catch(() => { /* silent — line keeps its default copy */ });
+})();
+
 // Reveal-on-scroll: elements BLOOM, they don't slide.
 (function() {
   const reveals = document.querySelectorAll('.reveal');

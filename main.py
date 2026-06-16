@@ -1044,6 +1044,93 @@ def public_stats(db: Session = Depends(get_db)):
         "institutions": db.query(Institution).filter(Institution.approved == True).count(),
     }
 
+
+# ─── RCM (Reencontros Confirmados / Mês) instrumentation ─────────────────────
+# Tracks the north-star metric: every click on "Abrir WhatsApp" in tunel.html
+# is a proxy de reencontro. Replaces vanity stats on the homepage with a
+# real signal of value delivered.
+
+@app.post("/api/metrics/whatsapp-handoff")
+async def track_whatsapp_handoff(
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """User clicked 'Abrir WhatsApp' = proxy de reencontro iniciado.
+    Tracks RCM (Reencontros Confirmados / Mês) for the north star metric."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    target_user_id = body.get('target_user_id')
+
+    from sqlalchemy import text
+    try:
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS reconnect_handoffs (
+                id SERIAL PRIMARY KEY,
+                requester_id INTEGER REFERENCES users(id),
+                target_id INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        db.execute(text(
+            "INSERT INTO reconnect_handoffs (requester_id, target_id) VALUES (:r, :t)"
+        ), {"r": current_user.id, "t": target_user_id})
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.warning(f"handoff log failed: {e}")
+
+    if posthog_client:
+        try:
+            posthog_client.capture(
+                distinct_id=str(current_user.id),
+                event='whatsapp_handoff_clicked',
+                properties={'target_user_id': target_user_id}
+            )
+        except Exception:
+            pass
+
+    return {"success": True, "tracked": True}
+
+
+@app.get("/api/metrics/rcm")
+async def get_rcm_public():
+    """Public endpoint: RCM (Reconexões Confirmadas neste Mês).
+    Used by homepage to show real metric instead of vanity."""
+    from sqlalchemy import text
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        # Ensure table exists so first call before any handoff doesn't 500
+        try:
+            db.execute(text("""
+                CREATE TABLE IF NOT EXISTS reconnect_handoffs (
+                    id SERIAL PRIMARY KEY,
+                    requester_id INTEGER REFERENCES users(id),
+                    target_id INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            db.commit()
+        except Exception:
+            db.rollback()
+
+        result = db.execute(text("""
+            SELECT COUNT(*) FROM reconnect_handoffs
+            WHERE created_at >= date_trunc('month', CURRENT_DATE)
+        """))
+        count = result.scalar() or 0
+        return {
+            "rcm_this_month": count,
+            "label": "reencontros confirmados este mês" if count != 1 else "reencontro confirmado este mês",
+        }
+    except Exception:
+        return {"rcm_this_month": 0, "label": "começando agora"}
+    finally:
+        db.close()
+
 @app.get("/api/config")
 def get_config():
     """Configurações públicas do frontend."""
