@@ -2,7 +2,11 @@
 Cada user sobe UMA memoria por turma (nao conquista, nao curriculum).
 Sistema cose memorias por tags afetivas."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Form
+import json
+import os
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Form, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime
@@ -15,6 +19,47 @@ mural_router = APIRouter(prefix="/api", tags=["mural"])
 
 MEMORY_TYPES = ['smell', 'sound', 'place', 'person', 'event', 'taste', 'gesture']
 
+# ─── Audio config ─────────────────────────────────────────────────────────────
+AUDIO_DIR = "uploads/mural_audio"
+AUDIO_MIME_ALLOWED = {
+    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave', 'audio/x-wav',
+    'audio/webm', 'audio/ogg', 'audio/mp4',
+}
+AUDIO_MAX_BYTES = 5 * 1024 * 1024  # ~60s
+os.makedirs(AUDIO_DIR, exist_ok=True)
+
+
+def _ext_for_mime(mime: str) -> str:
+    """Map an audio MIME to a sane file extension."""
+    if not mime:
+        return 'bin'
+    base = mime.split(';')[0].strip().lower()
+    mapping = {
+        'audio/mpeg': 'mp3', 'audio/mp3': 'mp3',
+        'audio/wav': 'wav', 'audio/wave': 'wav', 'audio/x-wav': 'wav',
+        'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a',
+    }
+    return mapping.get(base, base.split('/')[-1] or 'bin')
+
+
+async def _save_audio_for_user(user_id: int, audio: UploadFile) -> str:
+    """Validate + persist an audio upload. Returns the /uploads/... URL."""
+    mime = (audio.content_type or '').split(';')[0].strip().lower()
+    if mime not in AUDIO_MIME_ALLOWED:
+        raise HTTPException(400, "Formato de áudio não suportado. Tenta MP3, WAV ou WebM.")
+    contents = await audio.read()
+    if len(contents) > AUDIO_MAX_BYTES:
+        raise HTTPException(400, "Áudio muito longo. Máximo 60s (~5MB).")
+    if len(contents) == 0:
+        raise HTTPException(400, "Áudio vazio.")
+    user_dir = os.path.join(AUDIO_DIR, str(user_id))
+    os.makedirs(user_dir, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{_ext_for_mime(mime)}"
+    file_path = os.path.join(user_dir, filename).replace("\\", "/")
+    with open(file_path, 'wb') as f:
+        f.write(contents)
+    return f"/{file_path}", len(contents)
+
 # ===== ADD MEMORY =====
 @mural_router.post("/turmas/{turma_slug}/mural")
 async def add_memory(
@@ -23,7 +68,12 @@ async def add_memory(
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
-    """User adds ONE sensory memory to a turma's mural."""
+    """User adds ONE sensory memory to a turma's mural.
+
+    Accepts EITHER application/json OR multipart/form-data. When sent as
+    multipart, an optional `audio` file field is persisted and attached to
+    the new memory in the same request (one round-trip from the form).
+    """
     # ── DB-backed rate limit (BUG H4): 30 memories/day/user. Mural creation
     # is the spammable surface — content shows up in every turma feed — so
     # the limit must be enforced across all workers, not per-process.
@@ -33,11 +83,32 @@ async def add_memory(
         max_per_window=30,
         window_seconds=86400,
     )
-    body = await request.json()
-    memory_type = body.get('memory_type', 'event')
-    content = body.get('content', '').strip()
-    tags = body.get('tags', [])
-    in_memoriam = body.get('in_memoriam', False)
+
+    # Parse body — multipart (with optional audio) OR JSON.
+    content_type_hdr = (request.headers.get('content-type') or '').lower()
+    audio_upload: Optional[UploadFile] = None
+    if 'multipart/form-data' in content_type_hdr:
+        form = await request.form()
+        memory_type = (form.get('memory_type') or form.get('type') or 'event')
+        content = (form.get('content') or form.get('text') or '').strip()
+        raw_tags = form.get('tags') or '[]'
+        try:
+            tags = json.loads(raw_tags) if isinstance(raw_tags, str) and raw_tags.startswith('[') else \
+                [t.strip() for t in str(raw_tags).split(',') if t.strip()]
+        except Exception:
+            tags = []
+        in_memoriam = str(form.get('in_memoriam') or form.get('is_memoriam') or '').lower() in ('1', 'true', 'on', 'yes')
+        maybe_audio = form.get('audio')
+        if isinstance(maybe_audio, UploadFile):
+            audio_upload = maybe_audio
+    else:
+        body = await request.json()
+        # Accept both backend-native ('memory_type', 'content', 'in_memoriam')
+        # and frontend-legacy ('type', 'text', 'is_memoriam') field names.
+        memory_type = body.get('memory_type') or body.get('type') or 'event'
+        content = (body.get('content') or body.get('text') or '').strip()
+        tags = body.get('tags', [])
+        in_memoriam = body.get('in_memoriam', body.get('is_memoriam', False))
 
     if not content:
         raise HTTPException(400, "Conta a memória, vai!")
@@ -71,10 +142,112 @@ async def add_memory(
     db.commit()
     db.refresh(memory)
 
+    # Optional audio: same-request attach (frontend can post the form once).
+    audio_url = None
+    if audio_upload is not None:
+        try:
+            audio_url, _ = await _save_audio_for_user(current_user.id, audio_upload)
+            memory.audio_url = audio_url
+            db.commit()
+        except HTTPException:
+            # Memory is already saved — bubble up so client can retry just
+            # the audio via the /audio endpoint without losing the text.
+            raise
+
     return {
         "success": True,
         "memory_id": memory.id,
+        "id": memory.id,  # frontend optimistic-prepend reads .id
+        "memory_type": memory.memory_type,
+        "content": memory.content,
+        "tags": memory.tags or [],
+        "in_memoriam": memory.in_memoriam,
+        "has_audio": bool(memory.audio_url),
+        "audio_url": memory.audio_url,
+        "created_at": memory.created_at.isoformat() if memory.created_at else None,
         "message": "Memória subiu pro mural. Saudade compartilhada.",
+    }
+
+
+# ===== UPLOAD AUDIO TO EXISTING MEMORY =====
+@mural_router.post("/turmas/{turma_slug}/mural/{memory_id}/audio")
+async def upload_memory_audio(
+    turma_slug: str,
+    memory_id: int,
+    audio: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Upload audio (até 60s) pra uma memória existente.
+
+    Sem voz, o Mural é Twitter clone. Com voz, vira WhatsApp grupo de turma
+    em câmera lenta — que é como saudade soa.
+    """
+    turma = db.query(Turma).filter(Turma.slug == turma_slug).first()
+    if not turma:
+        raise HTTPException(404, "Turma não encontrada.")
+
+    memory = db.query(MuralMemory).filter(MuralMemory.id == memory_id).first()
+    if not memory:
+        raise HTTPException(404, "Memória não encontrada.")
+    if memory.turma_id != turma.id:
+        raise HTTPException(404, "Memória não pertence a essa turma.")
+    if memory.user_id != current_user.id:
+        raise HTTPException(403, "Você só pode adicionar áudio às suas memórias.")
+
+    audio_url, size_bytes = await _save_audio_for_user(current_user.id, audio)
+    memory.audio_url = audio_url
+    db.commit()
+
+    return {
+        "success": True,
+        "audio_url": memory.audio_url,
+        # Rough estimate: ~16KB/s for typical WebM/Opus voice; good enough
+        # for the UI to show "~Xs" without decoding the file server-side.
+        "duration_estimate_seconds": size_bytes // (16 * 1024),
+    }
+
+
+# ===== AUDIO REPLY TO ANOTHER USER'S MEMORY ("Eu também lembro → áudio") =====
+@mural_router.post("/mural/{memory_id}/echo/audio")
+async def echo_with_audio(
+    memory_id: int,
+    audio: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """After 'Eu também lembro', user can attach a voice reply.
+
+    Creates a fresh MuralMemory in the same turma carrying the audio + an
+    echo tag pointing at the original. Keeps the original untouched
+    (only the original author can edit it).
+    """
+    original = db.query(MuralMemory).filter(MuralMemory.id == memory_id).first()
+    if not original:
+        raise HTTPException(404, "Memória não encontrada.")
+
+    # Reuse the user's audio storage + validation rules.
+    audio_url, size_bytes = await _save_audio_for_user(current_user.id, audio)
+
+    reply = MuralMemory(
+        turma_id=original.turma_id,
+        user_id=current_user.id,
+        memory_type=original.memory_type,
+        content=f"(áudio em resposta) {original.content[:200]}",
+        tags=(original.tags or []) + ['echo_audio_of:' + str(memory_id)],
+        in_memoriam=original.in_memoriam,
+        audio_url=audio_url,
+    )
+    db.add(reply)
+    db.commit()
+    db.refresh(reply)
+
+    return {
+        "success": True,
+        "reply_memory_id": reply.id,
+        "audio_url": audio_url,
+        "duration_estimate_seconds": size_bytes // (16 * 1024),
+        "message": "Tua voz tá no mural agora.",
     }
 
 # ===== LIST MURAL =====
@@ -121,6 +294,7 @@ async def list_memories(
                 "in_memoriam": m.in_memoriam,
                 "created_at": m.created_at.isoformat() if m.created_at else None,
                 "has_audio": bool(m.audio_url),
+                "audio_url": m.audio_url,
             }
             for m in memories
         ],
@@ -185,13 +359,36 @@ async def report_missing(
     if not turma:
         raise HTTPException(404, "Turma não encontrada.")
 
+    # Apelido lookup — brasileiros perguntam "Cadê o Cabeção?", não "Cadê o
+    # João Carlos da Silva?". Se o apelido bate em algum membro verified da
+    # turma, linka o report direto ao perfil dele.
+    from sqlalchemy import func
+    matched_membership_id = None
+    matched_user_id = None
+    matched_apelido = None
+    if nome:
+        m = db.query(TurmaMembership).filter(
+            TurmaMembership.turma_id == turma.id,
+            TurmaMembership.status == 'verified',
+            func.lower(TurmaMembership.apelido).contains(nome.lower()),
+        ).first()
+        if m:
+            matched_membership_id = m.id
+            matched_user_id = m.user_id
+            matched_apelido = m.apelido
+
+    tags = ['cade', f'pessoa:{nome.lower()}']
+    if matched_membership_id:
+        tags.append(f'membership:{matched_membership_id}')
+        tags.append(f'apelido:{(matched_apelido or "").lower()}')
+
     # Cria uma "memoria" especial tipo 'cade'
     memory = MuralMemory(
         turma_id=turma.id,
         user_id=current_user.id,
         memory_type='cade',
         content=f"Cadê o(a) {nome}? — Última lembrança: {ultima_lembranca or '(em branco)'}",
-        tags=['cade', f'pessoa:{nome.lower()}'],
+        tags=tags,
         in_memoriam=False,
     )
     db.add(memory)
@@ -201,6 +398,10 @@ async def report_missing(
         "success": True,
         "message": f"A turma toda agora tá procurando {nome}. Vamos achar.",
         "memory_id": memory.id,
+        "matched_by_apelido": matched_membership_id is not None,
+        "matched_membership_id": matched_membership_id,
+        "matched_user_id": matched_user_id,
+        "matched_apelido": matched_apelido,
     }
 
 # ===== IN MEMORIAM SECTION =====

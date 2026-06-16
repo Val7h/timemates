@@ -944,6 +944,21 @@ body::before {
       </div>
     </label>
 
+    <div class="field" id="audioField" style="margin-bottom:18px;">
+      <label class="field-label">Voz (opcional)</label>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button id="record-audio-btn" type="button" class="audio-btn"
+                style="background:#1a1a1a;color:#fff;border:1px solid #333;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:14px;">
+          🎙️ Gravar áudio (até 60s)
+        </button>
+        <span id="record-timer" style="color:#888;font-size:13px;display:none;">00:00</span>
+        <button id="clear-audio-btn" type="button" style="background:transparent;color:#888;border:none;cursor:pointer;font-size:13px;display:none;"
+                onclick="clearRecordedAudio()">remover</button>
+      </div>
+      <audio id="audio-preview" controls style="display:none;width:100%;margin-top:10px;"></audio>
+      <div style="color:#666;font-size:12px;margin-top:6px;">Saudade soa melhor em voz.</div>
+    </div>
+
     <button class="btn-primary" id="btnSubirMem" onclick="submitMemory()">Subir memória</button>
   </div>
 </div>
@@ -1007,6 +1022,19 @@ async function api(path, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(path, { ...opts, headers });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`${res.status} ${txt}`);
+  }
+  return res.json();
+}
+
+// Multipart variant: do NOT set Content-Type — browser sets it with boundary.
+async function apiForm(path, formData, method = 'POST') {
+  const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(path, { method, headers, body: formData });
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new Error(`${res.status} ${txt}`);
@@ -1212,13 +1240,17 @@ function renderMemCard(m) {
         ${showMore ? '<span class="more" onclick="expandMem(this)">ver tudo</span>' : ''}
       </div>
       ${tags.length ? `<div class="mem-tags">${tags.map(t => `<span class="mem-tag">#${escape(t)}</span>`).join('')}</div>` : ''}
+      ${(m.has_audio || m.audio_url) ? `
+        <audio class="mem-audio-player" controls preload="none" src="${escapeAttr(m.audio_url || '')}"
+               style="width:100%;margin:6px 0 4px;"></audio>
+      ` : ''}
       <div class="mem-foot">
         <span class="mem-echoes"><strong>${echoes}</strong> ${echoes === 1 ? 'pessoa também lembra' : 'pessoas também lembram'}</span>
         <div class="mem-actions">
           <button class="btn-echo ${echoed ? 'echoed' : ''}" onclick="echoMem('${escape(m.id)}', this)" ${echoed ? 'disabled' : ''}>
             ${echoed ? '✓ Lembrei' : 'Eu também lembro!'}
           </button>
-          <button class="btn-audio" onclick="recordAudio('${escape(m.id)}')" title="Em breve">🎙️</button>
+          <button class="btn-audio" id="btn-audio-${escape(m.id)}" onclick="recordAudio('${escape(m.id)}')" title="Mandar áudio em resposta">🎙️</button>
         </div>
       </div>
     </article>
@@ -1251,8 +1283,172 @@ async function echoMem(id, btn) {
   }
 }
 
-function recordAudio(id) {
-  toast('Gravação de áudio chega em breve.');
+// ════════════════════════════════════════════════════
+// AUDIO RECORDING — MediaRecorder for new memory + echo-audio reply
+// ════════════════════════════════════════════════════
+let mediaRecorder = null;
+let audioBlob = null;       // last recorded blob, attached on submitMemory()
+let audioStream = null;
+let recordTimerHandle = null;
+let recordTimerStart = 0;
+
+function pickAudioMime() {
+  // Prefer webm/opus (universal in Chromium/Firefox); fall back when needed.
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+  for (const c of candidates) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) return c;
+  }
+  return '';
+}
+
+function startRecordTimer() {
+  recordTimerStart = Date.now();
+  const el = document.getElementById('record-timer');
+  if (!el) return;
+  el.style.display = 'inline-block';
+  recordTimerHandle = setInterval(() => {
+    const s = Math.floor((Date.now() - recordTimerStart) / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    el.textContent = `${mm}:${ss}`;
+  }, 250);
+}
+function stopRecordTimer() {
+  if (recordTimerHandle) { clearInterval(recordTimerHandle); recordTimerHandle = null; }
+}
+
+function clearRecordedAudio() {
+  audioBlob = null;
+  const audioEl = document.getElementById('audio-preview');
+  if (audioEl) { audioEl.src = ''; audioEl.style.display = 'none'; }
+  const clearBtn = document.getElementById('clear-audio-btn');
+  if (clearBtn) clearBtn.style.display = 'none';
+  const btn = document.getElementById('record-audio-btn');
+  if (btn) btn.textContent = '🎙️ Gravar áudio (até 60s)';
+  const timer = document.getElementById('record-timer');
+  if (timer) { timer.textContent = '00:00'; timer.style.display = 'none'; }
+}
+
+async function toggleRecordAudio(btnId, previewId, clearBtnId, onBlob) {
+  const btn = document.getElementById(btnId);
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+  try {
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = pickAudioMime();
+    mediaRecorder = mime ? new MediaRecorder(audioStream, { mimeType: mime })
+                         : new MediaRecorder(audioStream);
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      stopRecordTimer();
+      const blobType = mediaRecorder.mimeType || mime || 'audio/webm';
+      const blob = new Blob(chunks, { type: blobType });
+      const audioEl = previewId ? document.getElementById(previewId) : null;
+      if (audioEl) {
+        audioEl.src = URL.createObjectURL(blob);
+        audioEl.style.display = 'block';
+      }
+      if (clearBtnId) {
+        const c = document.getElementById(clearBtnId);
+        if (c) c.style.display = 'inline-block';
+      }
+      try { audioStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+      audioStream = null;
+      btn.textContent = '🎙️ Gravar de novo';
+      if (typeof onBlob === 'function') onBlob(blob);
+    };
+    mediaRecorder.start();
+    btn.textContent = '⏹️ Parar gravação';
+    startRecordTimer();
+    // Hard cap at 60s — saudade fits in 60 seconds.
+    setTimeout(() => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+    }, 60000);
+  } catch (e) {
+    console.warn('mic error', e);
+    alert('Não foi possível acessar o microfone. Verifica permissões.');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const recBtn = document.getElementById('record-audio-btn');
+  if (recBtn) {
+    recBtn.onclick = () => toggleRecordAudio(
+      'record-audio-btn', 'audio-preview', 'clear-audio-btn',
+      blob => { audioBlob = blob; }
+    );
+  }
+});
+
+// Playback for memory cards: just toggle a one-shot <audio> next to the button.
+function playMemoryAudio(memoryId, url) {
+  if (!url) { toast('Áudio indisponível.'); return; }
+  const card = document.querySelector(`.mem-card[data-id="${CSS.escape(String(memoryId))}"]`);
+  if (!card) return;
+  let player = card.querySelector('.mem-audio-player');
+  if (!player) {
+    player = document.createElement('audio');
+    player.controls = true;
+    player.className = 'mem-audio-player';
+    player.style.width = '100%';
+    player.style.marginTop = '8px';
+    player.src = url;
+    card.querySelector('.mem-foot').insertAdjacentElement('beforebegin', player);
+  }
+  if (player.paused) player.play().catch(() => {});
+  else player.pause();
+}
+
+// "Eu também lembro → mandar áudio" — record + post a voice reply.
+async function recordAudio(memoryId) {
+  // Reuse a tiny inline ad-hoc recorder using the same toggle helper, but
+  // bind a one-shot onBlob that uploads to /mural/{id}/echo/audio.
+  // First click: start; second click on the same chip: stop + upload.
+  const card = document.querySelector(`.mem-card[data-id="${CSS.escape(String(memoryId))}"]`);
+  if (!card) return;
+  let chip = card.querySelector('.btn-audio');
+  if (!chip) return;
+
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    chip.textContent = '⏳';
+    mediaRecorder.stop();
+    return;
+  }
+  // Make sure echo is registered so the count bumps even if the user
+  // never sends audio. Safe to call: it dedupes on the backend.
+  try { await api(`/mural/${encodeURIComponent(memoryId)}/echo`, { method: 'POST' }); } catch (_) {}
+
+  await toggleRecordAudio(
+    chip.id || (chip.id = `btn-audio-${memoryId}`),
+    null, null,
+    async (blob) => {
+      chip.textContent = '⏳';
+      const fd = new FormData();
+      const ext = (blob.type.includes('mp4') ? 'm4a'
+                 : blob.type.includes('ogg') ? 'ogg'
+                 : blob.type.includes('mpeg') ? 'mp3' : 'webm');
+      fd.append('audio', blob, `reply-${memoryId}.${ext}`);
+      try {
+        const out = await apiForm(`/api/mural/${encodeURIComponent(memoryId)}/echo/audio`, fd);
+        toast('Tua voz tá no mural. ✓');
+        chip.textContent = '🔊 voz enviada';
+        // Refresh feed so the new reply shows up.
+        if (typeof loadMemories === 'function') {
+          await loadMemories();
+          renderMemorias();
+        }
+      } catch (e) {
+        console.warn(e);
+        chip.textContent = '🎙️';
+        toast('Erro mandando áudio.');
+      }
+    }
+  );
+  // Reflect "recording" state immediately.
+  if (mediaRecorder && mediaRecorder.state === 'recording') chip.textContent = '⏹️';
 }
 
 // ════════════════════════════════════════════════════
@@ -1266,6 +1462,8 @@ function openNewMemModal() {
   document.getElementById('memMemoriam').checked = false;
   document.getElementById('charCounter').textContent = '0 / 500';
   document.getElementById('charCounter').classList.remove('warn');
+  // Reset any audio recorded from a previous modal session.
+  try { clearRecordedAudio(); } catch (_) {}
   renderTagSuggestions();
   document.getElementById('modalNew').classList.add('show');
 }
@@ -1309,19 +1507,36 @@ async function submitMemory() {
 
   const btn = document.getElementById('btnSubirMem');
   btn.disabled = true;
-  btn.textContent = 'Subindo...';
+  btn.textContent = audioBlob ? 'Subindo voz...' : 'Subindo...';
 
   try {
-    const created = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}/mural`, {
-      method: 'POST',
-      body: JSON.stringify({
-        type: state.selectedType,
-        text: text,
-        tags: tags,
-        is_memoriam: isMemoriam,
-      })
-    });
-    toast('Memória subida. A turma vai ver.');
+    let created;
+    if (audioBlob) {
+      // Multipart: post text + audio in one request. Backend accepts both
+      // memory_type/content (native) and type/text (legacy) field names.
+      const fd = new FormData();
+      fd.append('memory_type', state.selectedType);
+      fd.append('content', text);
+      fd.append('tags', JSON.stringify(tags));
+      fd.append('in_memoriam', isMemoriam ? 'true' : 'false');
+      const ext = (audioBlob.type.includes('mp4') ? 'm4a'
+                 : audioBlob.type.includes('ogg') ? 'ogg'
+                 : audioBlob.type.includes('mpeg') ? 'mp3' : 'webm');
+      fd.append('audio', audioBlob, `memory.${ext}`);
+      created = await apiForm(`/api/turmas/${encodeURIComponent(state.turmaSlug)}/mural`, fd);
+    } else {
+      created = await api(`/api/turmas/${encodeURIComponent(state.turmaSlug)}/mural`, {
+        method: 'POST',
+        body: JSON.stringify({
+          type: state.selectedType,
+          text: text,
+          tags: tags,
+          is_memoriam: isMemoriam,
+        })
+      });
+    }
+    toast(audioBlob ? 'Memória subida com voz. ✓' : 'Memória subida. A turma vai ver.');
+    clearRecordedAudio();
     closeModal('modalNew');
     // Optimistic prepend
     if (created && created.id) {
@@ -1334,6 +1549,7 @@ async function submitMemory() {
       renderMemorias();
     }
   } catch (e) {
+    console.warn(e);
     toast('Erro subindo. Tenta de novo.');
   } finally {
     btn.disabled = false;

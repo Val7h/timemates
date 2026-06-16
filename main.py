@@ -424,6 +424,24 @@ async def lifespan(app):
                 _purge_rate_limit_hits, 'cron', hour=3, minute=30,
                 id='rate_limit_hits_purge', replace_existing=True,
             )
+            # Sunday Reconciliation — habit loop semanal (Product Strategist).
+            # Roda toda domingo às 12:00 UTC = 09:00 BRT.
+            # Gated by SUNDAY_RECONCILIATION_ENABLED so staging não dispara emails.
+            if os.getenv('SUNDAY_RECONCILIATION_ENABLED', 'false').lower() == 'true':
+                from sunday_reconciliation import run_sunday_reconciliation
+                _tunel_purge_scheduler.add_job(
+                    run_sunday_reconciliation,
+                    'cron',
+                    day_of_week='sun',
+                    hour=12,
+                    minute=0,
+                    id='sunday_reconciliation',
+                    replace_existing=True,
+                )
+                print("[CRON] Sunday Reconciliation ENABLED (Sun 12:00 UTC / 09:00 BRT)")
+            else:
+                print("[CRON] Sunday Reconciliation DISABLED (set SUNDAY_RECONCILIATION_ENABLED=true to enable)")
+
             _tunel_purge_scheduler.start()
             app.state.tunel_purge_scheduler = _tunel_purge_scheduler
             print("[CRON] LGPD purge scheduler started (daily 03:00 UTC)")
@@ -616,6 +634,7 @@ async def add_utf8_header(request, call_next):
 
 os.makedirs("uploads/photos", exist_ok=True)
 os.makedirs("uploads/avatars", exist_ok=True)
+os.makedirs("uploads/mural_audio", exist_ok=True)  # Mural voice memories
 os.makedirs("static", exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
@@ -878,6 +897,22 @@ def require_admin(current_user: User = Depends(get_current_user_required)):
     if not current_user.is_system_admin:
         raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
     return current_user
+
+
+@app.post("/api/admin/run-sunday-reconciliation")
+async def trigger_sunday_recon(
+    current_user: User = Depends(get_current_user_required),
+):
+    """Manual trigger for the Sunday Reconciliation job (founder-only).
+
+    Useful for testing the habit-loop end-to-end without waiting for Sunday.
+    """
+    # Only founder (user_id 2) can trigger manually
+    if current_user.id != 2:
+        raise HTTPException(403, "Admin only")
+    from sunday_reconciliation import run_sunday_reconciliation
+    result = run_sunday_reconciliation()
+    return {"success": True, "result": result}
 
 
 def get_membership(room_id: int, user: User, db: Session, require_approved=True) -> RoomMembership:
@@ -5257,6 +5292,176 @@ def turma_vouch(
         "verified_by_vouches": vouched_m.verified_by_vouches,
         "promoted_to_verified": promoted,
         "turma_unlocked": t.is_unlocked,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# APELIDO — per-turma nickname (brasileiros lembram do "Cabeção", não do CPF)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Per Antropólogo: brasileiros lembram um do outro pelo apelido ("Cabeção",
+# "Magrão", "Loirinha"), não pelo nome legal. Sem isso, "Cadê o Cabeção?"
+# não funciona como no WhatsApp do grupo.
+@app.put("/api/turmas/{slug}/me/apelido")
+@limiter.limit("30/minute")
+async def set_my_apelido(
+    slug: str,
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    body = await request.json()
+    apelido = (body.get('apelido') or '').strip()[:50]
+    turma = db.query(Turma).filter(Turma.slug == slug).first()
+    if not turma:
+        raise HTTPException(404, "Turma não encontrada")
+    m = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.user_id == current_user.id,
+    ).first()
+    if not m:
+        raise HTTPException(403, "Você precisa estar na turma")
+    m.apelido = apelido or None
+    db.commit()
+    return {"success": True, "apelido": m.apelido}
+
+
+@app.get("/api/turmas/{slug}/search/apelido")
+@limiter.limit("60/minute")
+async def search_by_apelido(
+    slug: str,
+    request: Request,
+    q: str,
+    db: Session = Depends(get_db),
+):
+    """Procurar membro da turma por apelido.
+    Privacy: returns membership_id + apelido + verified flag only — not full
+    identity. Default-ghost protections still apply downstream."""
+    if not q or len(q) < 2:
+        return {"success": True, "results": []}
+    turma = db.query(Turma).filter(Turma.slug == slug).first()
+    if not turma:
+        raise HTTPException(404, "Turma não encontrada")
+
+    from sqlalchemy import func
+    memberships = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.status == 'verified',
+        func.lower(TurmaMembership.apelido).contains(q.lower())
+    ).limit(20).all()
+
+    results = []
+    for m in memberships:
+        user = db.query(User).filter(User.id == m.user_id).first()
+        if not user:
+            continue
+        results.append({
+            "membership_id": m.id,
+            "apelido": m.apelido,
+            "verified": True,
+        })
+    return {"success": True, "results": results}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EMBAIXADOR DA TURMA — density-seeding mechanic
+# ═══════════════════════════════════════════════════════════════════════════════
+# Most turmas have no founder_id (seeded or auto-created). When density hits the
+# threshold of 3 verified members, the UI prompts a verified member to claim the
+# Embaixador role. This unlocks edit perks, invite quota, and a perpetual badge.
+
+EMBAIXADOR_VERIFIED_THRESHOLD = 3
+
+EMBAIXADOR_PERKS = [
+    "Badge perpétuo",
+    "Pode convidar até 20 colegas/mês",
+    "Pode editar info da turma",
+    "Premium vitalício (quando lançar)",
+]
+
+
+@app.get("/api/turmas/{slug}/embaixador-status")
+@limiter.limit("120/minute")
+def turma_embaixador_status(
+    request: Request,
+    slug: str,
+    db: Session = Depends(get_db),
+):
+    """🎖️ Status do Embaixador — usado pela UI pra mostrar o banner de claim."""
+    turma = db.query(Turma).filter(Turma.slug == slug).first()
+    if not turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+
+    verified_count = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.status == 'verified',
+    ).count()
+
+    founder_name = None
+    if turma.founder_id:
+        f = db.query(User).filter(User.id == turma.founder_id).first()
+        if f:
+            founder_name = f.full_name
+
+    return {
+        "has_embaixador": turma.founder_id is not None,
+        "embaixador_name": founder_name,
+        "verified_count": verified_count,
+        "can_claim": (turma.founder_id is None) and (verified_count >= EMBAIXADOR_VERIFIED_THRESHOLD),
+        "threshold": EMBAIXADOR_VERIFIED_THRESHOLD,
+    }
+
+
+@app.post("/api/turmas/{slug}/claim-embaixador")
+@limiter.limit("10/minute")
+def turma_claim_embaixador(
+    request: Request,
+    slug: str,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🎖️ Reivindicar o papel de Embaixador da Turma.
+    Requisitos:
+    - turma ainda não tem founder
+    - user é membro verificado
+    - turma tem >= 3 verificados (threshold de densidade)
+    """
+    turma = db.query(Turma).filter(Turma.slug == slug).first()
+    if not turma:
+        raise HTTPException(status_code=404, detail="Turma não encontrada")
+
+    if turma.founder_id:
+        raise HTTPException(status_code=400, detail="Essa turma já tem Embaixador.")
+
+    m = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.user_id == current_user.id,
+        TurmaMembership.status == 'verified',
+    ).first()
+    if not m:
+        raise HTTPException(status_code=403, detail="Só membros verificados podem ser Embaixadores")
+
+    verified_count = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.status == 'verified',
+    ).count()
+    if verified_count < EMBAIXADOR_VERIFIED_THRESHOLD:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Turma precisa de {EMBAIXADOR_VERIFIED_THRESHOLD}+ verificados (atual: {verified_count})",
+        )
+
+    turma.founder_id = current_user.id
+    m.is_founder = True
+    db.commit()
+    track_event(current_user.id, "turma_embaixador_claimed", {
+        "slug": turma.slug,
+        "verified_count": verified_count,
+    })
+
+    return {
+        "success": True,
+        "message": f"Você é o Embaixador da {turma.institution_name}",
+        "perks": EMBAIXADOR_PERKS,
     }
 
 

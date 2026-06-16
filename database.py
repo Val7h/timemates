@@ -728,6 +728,9 @@ class TurmaMembership(Base):
     is_founder = Column(Boolean, default=False)
     verified_by_vouches = Column(Integer, default=0)  # how many vouched this user
     joined_at = Column(DateTime, default=datetime.utcnow)
+    # Per-turma apelido (nickname) — brasileiros lembram uns dos outros assim,
+    # não pelo nome legal. "Cadê o Cabeção?" precisa funcionar.
+    apelido = Column(String(50), nullable=True)
 
 
 class TurmaVouch(Base):

@@ -61,6 +61,37 @@
       border: 1px solid rgba(255,193,7,0.3);
       border-radius: 12px; font-size: 13px; color: #ffd966;
     }
+    .embaixador-banner {
+      margin-top: 14px; padding: 14px 16px;
+      background: rgba(212,168,83,0.10);
+      border: 1px solid rgba(212,168,83,0.35);
+      border-radius: 14px; font-size: 14px; color: #f0d89a;
+    }
+    .embaixador-banner.has-founder {
+      background: rgba(212,168,83,0.08);
+      border-color: rgba(212,168,83,0.25);
+    }
+    .embaixador-banner .eb-title {
+      font-weight: 700; margin-bottom: 6px; color: #ffe7a8;
+    }
+    .embaixador-banner .eb-text { line-height: 1.45; }
+    .embaixador-banner .eb-btn {
+      margin-top: 10px;
+      background: #d4a853; color: #0a0a0a;
+      padding: 10px 18px; border-radius: 999px;
+      font-weight: 700; border: 0; cursor: pointer;
+      font-size: 14px;
+    }
+    .embaixador-banner .eb-btn:hover { background: #e8c06a; }
+    .embaixador-banner .eb-btn:disabled { opacity: 0.6; cursor: wait; }
+    .embaixador-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(212,168,83,0.18);
+      color: #ffd97a;
+      padding: 2px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 600;
+      margin-left: 6px;
+    }
 
     /* ACTIONS GRID */
     .actions-grid {
@@ -248,6 +279,8 @@
       <div class="lock-banner" id="lock-banner" style="display:none;">
         🔒 Mural trancado — faltam <strong><span id="lock-remaining">?</span></strong> verificações para 60% da turma desbloquear o Mural da Saudade.
       </div>
+      <!-- EMBAIXADOR DA TURMA — banner populated by loadEmbaixadorStatus() -->
+      <div id="embaixador-banner" class="embaixador-banner" style="display:none;"></div>
     </header>
 
     <!-- 2. ACTION BUTTONS -->
@@ -342,8 +375,92 @@
         loadTurma(),
         loadMural(),
         loadReuniao(),
-        loadMemoriam()
+        loadMemoriam(),
+        loadEmbaixadorStatus()
       ]);
+    }
+
+    // -------- EMBAIXADOR DA TURMA --------
+    function tmAuthHeaders() {
+      const t = localStorage.getItem('tm_token');
+      const h = { 'Content-Type': 'application/json' };
+      if (t) h['Authorization'] = `Bearer ${t}`;
+      return h;
+    }
+
+    async function loadEmbaixadorStatus() {
+      const banner = document.getElementById('embaixador-banner');
+      if (!banner) return;
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/embaixador-status`);
+        if (!res.ok) return;
+        const d = await res.json();
+
+        if (d.has_embaixador) {
+          // Show: "Embaixador: {name}"
+          banner.classList.add('has-founder');
+          banner.innerHTML = `
+            <div class="eb-text">
+              <span class="embaixador-badge">🎖️ Embaixador</span>
+              <strong>${escapeHtml(d.embaixador_name || 'membro fundador')}</strong>
+            </div>`;
+          banner.style.display = 'block';
+        } else if (d.can_claim) {
+          // Show claim CTA
+          banner.classList.remove('has-founder');
+          banner.innerHTML = `
+            <div class="eb-title">🎖️ Essa turma ainda não tem Embaixador.</div>
+            <div class="eb-text">
+              Você é um membro verificado — pode reivindicar o papel agora.
+              Embaixador ganha: badge perpétuo, edita info da turma,
+              convida até 20 colegas/mês, e Premium vitalício quando lançar.
+            </div>
+            <button class="eb-btn" id="eb-claim-btn" onclick="claimEmbaixador()">
+              Ser Embaixador da turma
+            </button>`;
+          banner.style.display = 'block';
+        } else {
+          // Not enough density yet
+          const need = Math.max(0, (d.threshold || 3) - (d.verified_count || 0));
+          if (need > 0) {
+            banner.classList.remove('has-founder');
+            banner.innerHTML = `
+              <div class="eb-text">
+                🎖️ Faltam <strong>${need}</strong> ${need === 1 ? 'verificado' : 'verificados'}
+                pra desbloquear o papel de Embaixador da turma.
+              </div>`;
+            banner.style.display = 'block';
+          }
+        }
+      } catch { /* silently skip */ }
+    }
+
+    async function claimEmbaixador() {
+      const token = localStorage.getItem('tm_token');
+      if (!token) {
+        alert('Faça login pra reivindicar o papel de Embaixador.');
+        window.location.href = '/?login=1';
+        return;
+      }
+      const btn = document.getElementById('eb-claim-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Reivindicando…'; }
+      try {
+        const res = await fetch(`/api/turmas/${SLUG}/claim-embaixador`, {
+          method: 'POST',
+          headers: tmAuthHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          alert(`🎖️ ${data.message}\n\nPerks:\n• ${(data.perks || []).join('\n• ')}`);
+          await loadEmbaixadorStatus();
+        } else {
+          alert(data.detail || 'Não foi possível reivindicar agora.');
+          if (btn) { btn.disabled = false; btn.textContent = 'Ser Embaixador da turma'; }
+        }
+      } catch {
+        alert('Sem conexão. Tente novamente.');
+        if (btn) { btn.disabled = false; btn.textContent = 'Ser Embaixador da turma'; }
+      }
     }
 
     // -------- 1. HEADER --------
