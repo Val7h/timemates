@@ -892,6 +892,38 @@ class TurmaReuniaoRSVP(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# VIRAL — Cadeira Vazia + #AchaQuemSumiu (migrations 014, 015)
+# Cadeira Vazia: cada user pode "deixar 5 cadeiras vazias" na turma — lugares
+#   de quem some, com nome/apelido e última lembrança. Outros podem preencher.
+# #AchaQuemSumiu: landing pública anônima ("quem você perdeu de vista?").
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class CadeiraVazia(Base):
+    __tablename__ = "cadeiras_vazias"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    turma_id = Column(Integer, ForeignKey("turmas.id"))
+    slot_index = Column(Integer)  # 1-5
+    filled_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    nome_apelido = Column(String(100), nullable=True)  # who's missing
+    ultima_lembranca = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    filled_at = Column(DateTime, nullable=True)
+
+
+class AchaQuemSumiu(Base):
+    __tablename__ = "acha_quem_sumiu"
+    id = Column(Integer, primary_key=True)
+    nome_procurado = Column(String(200))
+    ultima_lembranca = Column(Text)
+    contexto = Column(Text)
+    searcher_email = Column(String(255))
+    searcher_name = Column(String(200), nullable=True)
+    status = Column(String(20), default='open')  # open, found, expired
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def get_db():
     db = SessionLocal()
     try:

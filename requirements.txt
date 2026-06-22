@@ -36,3 +36,16 @@ numpy==1.26.4
 
 # SendGrid HTTP API (replaces Gmail SMTP after email bombardment crisis)
 sendgrid==6.11.0
+
+# Túnel do Tempo v2 — InsightFace ArcFace (512-dim) + pgvector
+# Upgrade from Haar Cascades + histogram embeddings.
+# WARNING: insightface auto-downloads ~80MB buffalo_l model on first use;
+# onnxruntime CPU ~200MB resident. May OOM on Render free tier — fallback
+# to legacy OpenCV path is preserved in tunel_detection_legacy.py.
+insightface==0.7.3
+onnxruntime==1.16.3
+pgvector==0.2.4
+
+# Claude LLM for Túnel do Tempo ice-breaker generator (AI/ML wiring)
+# Falls back to templates if ANTHROPIC_API_KEY not set in env — see tunel_icebreaker.py
+anthropic==0.39.0

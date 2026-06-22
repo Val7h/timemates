@@ -1,103 +1,94 @@
-"""Face detection for Túnel do Tempo. Uses OpenCV Haar Cascades (no dlib needed).
+"""InsightFace ArcFace face detection + 512-dim embeddings.
 
-Decisão: opencv-python-headless ao invés de face_recognition.
-Motivo: face_recognition exige dlib, que compila com cmake/boost no Render
-(build ~1.5GB, frequentemente estoura free tier). Haar Cascades vêm pré-treinados
-no pacote cv2, zero compilação, deploy instantâneo.
+Sprint 3 / Tier 3 upgrade: substitui Haar Cascades + histogram embedding
+pelo stack ArcFace (buffalo_l). Embedding 512-dim normalizado, cos-sim real.
 
-Trade-off: Haar não dá embedding facial verdadeiro nem confidence real. Mitigamos
-com histogram-based embedding (128-dim) — suficiente pra clustering inicial e
-match heurístico. Em produção, trocar por FaceNet/ArcFace via ONNX runtime.
+Auto-downloads buffalo_l model on first use (~80MB). Modelo cacheado em
+~/.insightface/models/ entre cold-starts (volume persistente no Render se
+configurado; senão re-download por boot — aceitavel).
+
+FALLBACK: se insightface/onnxruntime falhar ao importar OU init falhar
+(OOM no Render free tier é o risco principal), cai pra tunel_detection_legacy
+(Haar + histogram 128-dim). Produção NUNCA quebra; embeddings novos viram
+'arcface_buffalo_l_v1', antigos continuam 'opencv_hist_v1'.
 """
-import cv2
-import numpy as np
-from typing import List, Dict, Tuple
+
 import os
-import logging
+import numpy as np
+from typing import List, Dict
 
-logger = logging.getLogger(__name__)
-
-# Cascade carregado on-demand (evita custo no import)
-_cascade = None
-
-
-def get_face_cascade():
-    """Lazy load do Haar Cascade pré-treinado que vem no cv2."""
-    global _cascade
-    if _cascade is None:
-        cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        _cascade = cv2.CascadeClassifier(cascade_path)
-        if _cascade.empty():
-            logger.error(f"Falha ao carregar cascade de {cascade_path}")
-    return _cascade
+_face_analyzer = None
+_init_attempted = False
 
 
-def detect_faces(image_path: str) -> List[Dict]:
-    """Detecta faces, retorna lista de {face_index, bbox_x, bbox_y, bbox_w, bbox_h, confidence}."""
-    if not os.path.exists(image_path):
-        logger.warning(f"Arquivo não existe: {image_path}")
-        return []
+def get_face_analyzer():
+    """Lazy init do InsightFace. Cacheia o resultado (inclusive None se falhar)."""
+    global _face_analyzer, _init_attempted
+    if _init_attempted:
+        return _face_analyzer
+    _init_attempted = True
+    try:
+        import insightface  # noqa: F401
+        from insightface.app import FaceAnalysis
+        _face_analyzer = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider'])
+        _face_analyzer.prepare(ctx_id=0, det_size=(640, 640))
+    except Exception as e:
+        print(f"[WARN] InsightFace init failed: {e}, falling back to OpenCV")
+        _face_analyzer = None
+    return _face_analyzer
 
+
+def detect_faces_v2(image_path: str) -> List[Dict]:
+    """Try InsightFace, fall back to OpenCV Haar if unavailable."""
+    analyzer = get_face_analyzer()
+    if analyzer is None:
+        from tunel_detection_legacy import detect_faces, compute_simple_embedding
+        faces = detect_faces(image_path)
+        for f in faces:
+            bbox = (f['bbox_x'], f['bbox_y'], f['bbox_w'], f['bbox_h'])
+            f['embedding'] = compute_simple_embedding(image_path, bbox)
+            f['embedding_model'] = 'opencv_hist_v1'
+        return faces
+
+    import cv2
     img = cv2.imread(image_path)
     if img is None:
-        logger.warning(f"cv2.imread retornou None pra: {image_path}")
         return []
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    cascade = get_face_cascade()
-    faces = cascade.detectMultiScale(
-        gray,
-        scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(40, 40),
-    )
-
+    faces = analyzer.get(img)
     results = []
-    for i, (x, y, w, h) in enumerate(faces):
+    for i, f in enumerate(faces):
+        bbox = f.bbox.astype(int)
         results.append({
             'face_index': i,
-            'bbox_x': int(x),
-            'bbox_y': int(y),
-            'bbox_w': int(w),
-            'bbox_h': int(h),
-            'confidence': 0.85,  # Haar não expõe confidence real; valor heurístico
+            'bbox_x': int(bbox[0]),
+            'bbox_y': int(bbox[1]),
+            'bbox_w': int(bbox[2] - bbox[0]),
+            'bbox_h': int(bbox[3] - bbox[1]),
+            'confidence': float(f.det_score),
+            'embedding': f.normed_embedding.tolist(),  # 512-dim ArcFace, L2-normalized
+            'embedding_model': 'arcface_buffalo_l_v1',
         })
     return results
 
 
-def compute_simple_embedding(image_path: str, bbox: Tuple[int, int, int, int]) -> List[float]:
-    """
-    Embedding leve baseado em histograma de intensidade do recorte facial.
-
-    Para produção real, trocar por modelo deep learning (FaceNet/ArcFace via ONNX).
-    Por enquanto: 128-dim histogram-based embedding, normalizado pra soma=1.
-    Suficiente pra clustering inicial de "fotos parecidas do mesmo evento".
-    """
-    img = cv2.imread(image_path)
-    if img is None:
-        return []
-    x, y, w, h = bbox
-    face = img[y:y + h, x:x + w]
-    if face.size == 0:
-        return []
-    face_resized = cv2.resize(face, (64, 64))
-    face_gray = cv2.cvtColor(face_resized, cv2.COLOR_BGR2GRAY)
-    # Histograma de 128 bins, normalizado
-    hist = cv2.calcHist([face_gray], [0], None, [128], [0, 256])
-    hist = hist.flatten()
-    if hist.sum() > 0:
-        hist = hist / hist.sum()
-    return hist.tolist()
-
-
 def process_upload(image_path: str) -> Dict:
-    """Pipeline completo: detect + embed pra cada face encontrada."""
-    faces = detect_faces(image_path)
-    for f in faces:
-        bbox = (f['bbox_x'], f['bbox_y'], f['bbox_w'], f['bbox_h'])
-        f['embedding'] = compute_simple_embedding(image_path, bbox)
-        f['embedding_model'] = 'opencv_hist_v1'
+    """Pipeline: detect + embed. Compatível com a assinatura legacy."""
+    faces = detect_faces_v2(image_path)
     return {
         'faces_detected': len(faces),
         'faces': faces,
     }
+
+
+# Backwards-compat shims: alguns callers chamam detect_faces / compute_simple_embedding
+# diretamente. Redirecionamos pro caminho v2 (que já faz embedding inline).
+def detect_faces(image_path: str) -> List[Dict]:
+    """Compat shim — agora delega pro detect_faces_v2 (que já inclui embedding)."""
+    return detect_faces_v2(image_path)
+
+
+def compute_simple_embedding(image_path: str, bbox):
+    """Compat shim. ArcFace exige a face inteira processada — recortar manualmente
+    perderia o pipeline de alinhamento. Caímos no legacy histogram se chamado."""
+    from tunel_detection_legacy import compute_simple_embedding as _legacy
+    return _legacy(image_path, bbox)

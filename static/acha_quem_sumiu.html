@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>#AchaQuemSumiu — TimeMates</title>
+<meta name="description" content="Quem você perdeu de vista — e gostaria de reencontrar? Submeta anonimamente. Se alguém achar, avisamos você."/>
+<meta name="theme-color" content="#0b0d12"/>
+<meta property="og:title" content="#AchaQuemSumiu"/>
+<meta property="og:description" content="Quem você perdeu de vista — e gostaria de reencontrar?"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://timemates.onrender.com/acha-quem-sumiu"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<style>
+  :root {
+    --bg:#0b0d12; --panel:#141821; --panel2:#1c2230;
+    --ink:#e8eaf0; --ink-dim:#9aa3b2; --line:#262d3c;
+    --accent:#ffb84d; --accent-hot:#ff8a3d;
+    --good:#3ecf8e;
+  }
+  * { box-sizing: border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--ink);
+              font:16px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .container { max-width: 760px; margin: 0 auto; padding: 28px 18px 80px; }
+  header { text-align:center; padding: 48px 0 28px; }
+  .hashtag { display:inline-block; background:linear-gradient(135deg,var(--accent),var(--accent-hot));
+             -webkit-background-clip:text; background-clip:text; color:transparent;
+             font-size: clamp(40px, 8vw, 64px); font-weight:900; letter-spacing:-1px; margin:0; }
+  .sub { font-size:18px; color:var(--ink-dim); margin: 12px auto 0; max-width:560px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:18px;
+          padding:28px 24px; margin:24px 0; }
+  .card h2 { margin:0 0 6px; font-size:22px; }
+  .card .lede { color:var(--ink-dim); margin:0 0 18px; font-size:15px; }
+  label { display:block; font-size:13px; color:var(--ink-dim); margin: 14px 0 6px; }
+  input, textarea {
+    width:100%; background:var(--panel2); color:var(--ink); border:1px solid var(--line);
+    border-radius:10px; padding:12px 14px; font:inherit; outline:none;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 84px; }
+  button.primary {
+    margin-top: 22px; width:100%; padding: 14px 18px; border:0; cursor:pointer;
+    background: linear-gradient(135deg,var(--accent),var(--accent-hot));
+    color:#1a1208; font-weight:800; font-size:16px; border-radius:12px;
+  }
+  button.primary:disabled { opacity:.6; cursor:wait; }
+  .privacy { font-size:12px; color:var(--ink-dim); margin-top:10px; text-align:center; }
+  .feed-item {
+    background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px; margin: 10px 0;
+  }
+  .feed-item .nome { font-weight:700; color:var(--ink); margin-bottom:4px; }
+  .feed-item .meta { font-size:12px; color:var(--ink-dim); }
+  .feed-item .lembr { margin-top:8px; color:var(--ink-dim); font-size:14px; white-space:pre-wrap; }
+  .ok { background: rgba(62,207,142,.12); border:1px solid var(--good);
+        color:var(--good); padding: 14px; border-radius:12px; margin-top:14px; text-align:center; }
+  .err { background: rgba(255,80,80,.12); border:1px solid #ff5050;
+         color:#ff8e8e; padding: 14px; border-radius:12px; margin-top:14px; text-align:center; }
+  footer { text-align:center; color:var(--ink-dim); font-size:13px; padding-top:24px; }
+  footer a { color:var(--ink-dim); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1 class="hashtag">#AchaQuemSumiu</h1>
+    <p class="sub">Quem você perdeu de vista — e gostaria de reencontrar?</p>
+  </header>
+
+  <div class="card">
+    <h2>Conta a gente</h2>
+    <p class="lede">É anônimo se você quiser. Se alguém achar, mandamos um email pra você.</p>
+
+    <form id="form-acha" autocomplete="off">
+      <label for="nome">Nome (ou apelido) de quem você procura *</label>
+      <input id="nome" name="nome_procurado" required maxlength="200" placeholder="Ex.: João Cabeção, Marina da 3ºB" />
+
+      <label for="ultima">Última lembrança (quando, onde)</label>
+      <textarea id="ultima" name="ultima_lembranca" maxlength="2000" placeholder="Ex.: Última vez foi no churrasco de formatura em 2003, no clube do bairro."></textarea>
+
+      <label for="contexto">Contexto (escola, ano, bairro)</label>
+      <textarea id="contexto" name="contexto" maxlength="2000" placeholder="Ex.: Estudamos juntos no Colégio Estadual, turma 1999-2003, em Santo André"></textarea>
+
+      <label for="meu_nome">Seu nome (opcional)</label>
+      <input id="meu_nome" name="searcher_name" maxlength="200" placeholder="Como você gostaria de ser chamado(a)" />
+
+      <label for="email">Seu email — pra avisar se achar *</label>
+      <input id="email" name="searcher_email" type="email" required maxlength="255" placeholder="voce@exemplo.com" />
+
+      <button type="submit" class="primary" id="btn-submit">Procurar essa pessoa</button>
+      <p class="privacy">Seu email não aparece no feed público. Só usamos pra te avisar.</p>
+    </form>
+
+    <div id="feedback"></div>
+  </div>
+
+  <div class="card">
+    <h2>Quem o Brasil tá procurando agora</h2>
+    <p class="lede">Últimos 20 pedidos. Reconheceu alguém? Manda essa página pra quem pode ajudar.</p>
+    <div id="feed">Carregando...</div>
+  </div>
+
+  <footer>
+    <a href="/">← TimeMates</a> · <a href="/privacy">Privacidade</a> · <a href="/terms">Termos</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const form = document.getElementById('form-acha');
+  const btn  = document.getElementById('btn-submit');
+  const fb   = document.getElementById('feedback');
+  const feed = document.getElementById('feed');
+
+  function loadFeed(){
+    fetch('/api/acha-quem-sumiu/feed').then(r=>r.json()).then(data=>{
+      if(!data || !data.entries || !data.entries.length){
+        feed.innerHTML = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Seja o primeiro a procurar.</div>';
+        return;
+      }
+      feed.innerHTML = data.entries.map(e=>{
+        const who = e.searcher_name ? e.searcher_name + ' procura' : 'Alguém procura';
+        const when = e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '';
+        const lembr = e.ultima_lembranca || e.contexto || '';
+        return '<div class="feed-item">'
+             +   '<div class="nome">'+ escapeHtml(e.nome_procurado) +'</div>'
+             +   '<div class="meta">'+ escapeHtml(who) +' · '+ when +'</div>'
+             +   (lembr ? '<div class="lembr">'+ escapeHtml(lembr) +'</div>' : '')
+             + '</div>';
+      }).join('');
+    }).catch(()=>{
+      feed.innerHTML = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Não consegui carregar agora.</div>';
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s||'').replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    fb.innerHTML = '';
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+
+    const payload = {
+      nome_procurado:   document.getElementById('nome').value.trim(),
+      ultima_lembranca: document.getElementById('ultima').value.trim(),
+      contexto:         document.getElementById('contexto').value.trim(),
+      searcher_name:    document.getElementById('meu_nome').value.trim(),
+      searcher_email:   document.getElementById('email').value.trim(),
+    };
+
+    fetch('/api/acha-quem-sumiu', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    }).then(async r=>{
+      const data = await r.json().catch(()=>({}));
+      if(r.ok && data.success){
+        fb.innerHTML = '<div class="ok">'+ escapeHtml(data.message || 'Recebemos. Se alguém encontrar, avisamos você.') +'</div>';
+        form.reset();
+        loadFeed();
+      } else {
+        const msg = (data && data.detail) ? data.detail : 'Não consegui enviar. Tenta de novo daqui a pouco.';
+        fb.innerHTML = '<div class="err">'+ escapeHtml(msg) +'</div>';
+      }
+    }).catch(()=>{
+      fb.innerHTML = '<div class="err">Erro de rede. Tenta de novo.</div>';
+    }).finally(()=>{
+      btn.disabled = false;
+      btn.textContent = 'Procurar essa pessoa';
+    });
+  });
+
+  loadFeed();
+})();
+</script>
+</body>
+</html>

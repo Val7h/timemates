@@ -5,17 +5,94 @@ Sistema cose memorias por tags afetivas."""
 import json
 import os
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, UploadFile, File
+from fastapi.responses import FileResponse
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime
 
 from database import get_db, MuralMemory, Turma, TurmaMembership, User
-from auth import get_current_user_required
+from auth import get_current_user_required, SECRET_KEY, ALGORITHM
+
 from rate_limit_db import check_rate_limit
 
 mural_router = APIRouter(prefix="/api", tags=["mural"])
+
+
+# ─── Security helpers ────────────────────────────────────────────────────────
+def require_verified_member(db: Session, user_id: int, turma_id: int) -> TurmaMembership:
+    """LGPD/Trust&Safety guard: only verified members of a turma may read or
+    write its sensitive surfaces (mural, in-memoriam, cadê, audio, search).
+
+    Raises 403 with a clear PT-BR message otherwise. Returns the membership
+    row so callers can use the apelido/role downstream without a re-query.
+    """
+    m = db.query(TurmaMembership).filter(
+        TurmaMembership.user_id == user_id,
+        TurmaMembership.turma_id == turma_id,
+        TurmaMembership.status == 'verified',
+    ).first()
+    if not m:
+        raise HTTPException(403, "Você precisa ser membro verificado dessa turma")
+    return m
+
+
+# ─── Signed audio URLs ───────────────────────────────────────────────────────
+# Direct /uploads/mural_audio/<user_id>/<file> paths are biometric voice data
+# (LGPD Art. 5º II) and must NOT be guessable nor servable without an active
+# session + turma membership. We mint short-lived JWT tokens scoped to a
+# specific (user, filename) pair; the streaming endpoint re-validates the
+# requesting user's membership at fetch time.
+
+AUDIO_TOKEN_TTL_SECONDS = 60 * 60  # 1 hour
+AUDIO_TOKEN_AUD = "mural_audio"
+
+
+def _audio_relative_path(audio_url: str) -> Optional[str]:
+    """Strip a stored audio_url ('/uploads/mural_audio/123/abc.webm') down to
+    the user_id/filename pair the signer/server uses. Returns None if the
+    URL is not a mural_audio path (already external, malformed, etc.)."""
+    if not audio_url:
+        return None
+    marker = "uploads/mural_audio/"
+    idx = audio_url.find(marker)
+    if idx < 0:
+        return None
+    return audio_url[idx + len(marker):]  # "<user_id>/<filename>"
+
+
+def signed_audio_url(user_id: int, filename: str, ttl_seconds: int = AUDIO_TOKEN_TTL_SECONDS) -> str:
+    """Return a short-lived signed URL for an audio file. `filename` may be
+    the bare filename or "<owner_id>/<filename>" (as stored in audio_url).
+    The token carries owner+filename so the server can locate the file and
+    re-check the caller's membership at fetch time."""
+    if "/" in filename:
+        owner_id_str, fname = filename.split("/", 1)
+        try:
+            owner_id = int(owner_id_str)
+        except ValueError:
+            owner_id = user_id
+    else:
+        owner_id, fname = user_id, filename
+    payload = {
+        "aud": AUDIO_TOKEN_AUD,
+        "owner_id": owner_id,
+        "filename": fname,
+        "exp": datetime.utcnow() + timedelta(seconds=ttl_seconds),
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return f"/api/mural/audio/{token}"
+
+
+def _signed_audio_url_for_memory(memory: "MuralMemory") -> Optional[str]:
+    """Convenience: take a MuralMemory row and produce a signed URL for its
+    audio (if any). Returns None when the memory has no audio."""
+    rel = _audio_relative_path(memory.audio_url)
+    if not rel:
+        return None
+    return signed_audio_url(memory.user_id, rel)
 
 MEMORY_TYPES = ['smell', 'sound', 'place', 'person', 'event', 'taste', 'gesture']
 
@@ -163,7 +240,7 @@ async def add_memory(
         "tags": memory.tags or [],
         "in_memoriam": memory.in_memoriam,
         "has_audio": bool(memory.audio_url),
-        "audio_url": memory.audio_url,
+        "audio_url": _signed_audio_url_for_memory(memory),
         "created_at": memory.created_at.isoformat() if memory.created_at else None,
         "message": "Memória subiu pro mural. Saudade compartilhada.",
     }
@@ -201,7 +278,7 @@ async def upload_memory_audio(
 
     return {
         "success": True,
-        "audio_url": memory.audio_url,
+        "audio_url": _signed_audio_url_for_memory(memory),
         # Rough estimate: ~16KB/s for typical WebM/Opus voice; good enough
         # for the UI to show "~Xs" without decoding the file server-side.
         "duration_estimate_seconds": size_bytes // (16 * 1024),
@@ -226,6 +303,9 @@ async def echo_with_audio(
     if not original:
         raise HTTPException(404, "Memória não encontrada.")
 
+    # ── BUG: verified membership required to attach voice to a turma ──────
+    require_verified_member(db, current_user.id, original.turma_id)
+
     # Reuse the user's audio storage + validation rules.
     audio_url, size_bytes = await _save_audio_for_user(current_user.id, audio)
 
@@ -245,7 +325,7 @@ async def echo_with_audio(
     return {
         "success": True,
         "reply_memory_id": reply.id,
-        "audio_url": audio_url,
+        "audio_url": _signed_audio_url_for_memory(reply),
         "duration_estimate_seconds": size_bytes // (16 * 1024),
         "message": "Tua voz tá no mural agora.",
     }
@@ -256,12 +336,17 @@ async def list_memories(
     turma_slug: str,
     memory_type: Optional[str] = None,
     in_memoriam: Optional[bool] = None,
+    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
-    """Lista memorias do mural de uma turma."""
+    """Lista memorias do mural de uma turma. Apenas membros verified — o
+    mural contém voz (dado biométrico, LGPD) e memórias afetivas íntimas."""
     turma = db.query(Turma).filter(Turma.slug == turma_slug).first()
     if not turma:
         raise HTTPException(404, "Turma não encontrada.")
+
+    # ── BUG: Trust&Safety / LGPD — auth + membership obrigatórios ─────────
+    require_verified_member(db, current_user.id, turma.id)
 
     q = db.query(MuralMemory).filter(MuralMemory.turma_id == turma.id)
     if memory_type:
@@ -294,7 +379,9 @@ async def list_memories(
                 "in_memoriam": m.in_memoriam,
                 "created_at": m.created_at.isoformat() if m.created_at else None,
                 "has_audio": bool(m.audio_url),
-                "audio_url": m.audio_url,
+                # Never leak raw /uploads/... paths — biometric voice data.
+                # Mint a 1h signed token; client refetches when it expires.
+                "audio_url": _signed_audio_url_for_memory(m),
             }
             for m in memories
         ],
@@ -313,6 +400,9 @@ async def echo_memory(
     original = db.query(MuralMemory).filter(MuralMemory.id == memory_id).first()
     if not original:
         raise HTTPException(404, "Memória não encontrada.")
+
+    # ── BUG: must be verified member of the *original's* turma ────────────
+    require_verified_member(db, current_user.id, original.turma_id)
 
     # Verifica se ja deu echo
     existing = db.query(MuralMemory).filter(
@@ -358,6 +448,9 @@ async def report_missing(
     turma = db.query(Turma).filter(Turma.slug == turma_slug).first()
     if not turma:
         raise HTTPException(404, "Turma não encontrada.")
+
+    # ── BUG: a non-member could enumerate apelidos via "cadê" matches ─────
+    require_verified_member(db, current_user.id, turma.id)
 
     # Apelido lookup — brasileiros perguntam "Cadê o Cabeção?", não "Cadê o
     # João Carlos da Silva?". Se o apelido bate em algum membro verified da
@@ -408,12 +501,17 @@ async def report_missing(
 @mural_router.get("/turmas/{turma_slug}/mural/in-memoriam")
 async def list_in_memoriam(
     turma_slug: str,
+    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
-    """Section sagrada: memorias de quem partiu."""
+    """Section sagrada: memorias de quem partiu. Acesso restrito a membros
+    verified — dado de luto não pode vazar pra estranhos (LGPD + dignidade)."""
     turma = db.query(Turma).filter(Turma.slug == turma_slug).first()
     if not turma:
         raise HTTPException(404, "Turma não encontrada.")
+
+    # ── BUG: grief data leak — auth + membership obrigatórios ─────────────
+    require_verified_member(db, current_user.id, turma.id)
 
     memories = db.query(MuralMemory).filter(
         MuralMemory.turma_id == turma.id,
@@ -433,3 +531,46 @@ async def list_in_memoriam(
             for m in memories
         ],
     }
+
+
+# ===== SIGNED AUDIO STREAM =====
+@mural_router.get("/mural/audio/{token}")
+async def stream_audio(
+    token: str,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Resolve a signed audio token + stream the file. Re-checks that the
+    requester is still a verified member of the memory's turma at fetch
+    time — revoking access the moment someone leaves the turma."""
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            audience=AUDIO_TOKEN_AUD,
+        )
+    except JWTError:
+        raise HTTPException(403, "Link de áudio expirou ou é inválido.")
+
+    owner_id = payload.get("owner_id")
+    filename = payload.get("filename")
+    if not owner_id or not filename or "/" in filename or filename.startswith("."):
+        raise HTTPException(400, "Token de áudio malformado.")
+
+    # Locate the memory that owns this audio so we can verify the listener
+    # belongs to that memory's turma RIGHT NOW (not just at mint time).
+    expected_url_fragment = f"uploads/mural_audio/{owner_id}/{filename}"
+    memory = db.query(MuralMemory).filter(
+        MuralMemory.audio_url.like(f"%{expected_url_fragment}")
+    ).first()
+    if not memory:
+        raise HTTPException(404, "Áudio não encontrado.")
+
+    require_verified_member(db, current_user.id, memory.turma_id)
+
+    file_path = os.path.join(AUDIO_DIR, str(owner_id), filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "Arquivo de áudio sumiu do disco.")
+
+    return FileResponse(file_path)

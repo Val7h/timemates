@@ -108,6 +108,7 @@ from database import (
     City, LocalEvent, EventRSVP, LocalNews,
     Turma, TurmaMembership, TurmaVouch, MuralMemory,
     UserTurmaVisibility,
+    CadeiraVazia, AchaQuemSumiu,
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -5331,16 +5332,24 @@ async def search_by_apelido(
     slug: str,
     request: Request,
     q: str,
+    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
 ):
     """Procurar membro da turma por apelido.
     Privacy: returns membership_id + apelido + verified flag only — not full
-    identity. Default-ghost protections still apply downstream."""
+    identity. Default-ghost protections still apply downstream.
+
+    Trust&Safety: somente membros verified da turma podem buscar — sem isso
+    um stalker enumera todos os apelidos via fuzzy matching."""
     if not q or len(q) < 2:
         return {"success": True, "results": []}
     turma = db.query(Turma).filter(Turma.slug == slug).first()
     if not turma:
         raise HTTPException(404, "Turma não encontrada")
+
+    # ── BUG: stalker enumerava apelidos sem auth — exige membership ──────
+    from mural_routes import require_verified_member
+    require_verified_member(db, current_user.id, turma.id)
 
     from sqlalchemy import func
     memberships = db.query(TurmaMembership).filter(
@@ -5462,6 +5471,248 @@ def turma_claim_embaixador(
         "success": True,
         "message": f"Você é o Embaixador da {turma.institution_name}",
         "perks": EMBAIXADOR_PERKS,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CADEIRA VAZIA — viral mechanic ("o lugar de quem some")
+# ═══════════════════════════════════════════════════════════════════════════════
+# Cada user verificado pode "deixar 5 cadeiras vazias" na turma — lugares de
+# colegas que sumiram, com nome/apelido e a última lembrança. Quando alguém é
+# encontrado (auto-discovery ou outro membro reconhece), a cadeira é preenchida.
+# Visualmente puxa a corda da saudade: "tem 3 cadeiras vazias na sua turma".
+
+CADEIRA_VAZIA_MAX_PER_USER = 5
+
+
+def _cadeira_to_dict(c: CadeiraVazia, db: Session) -> dict:
+    filled_name = None
+    if c.filled_by_user_id:
+        u = db.query(User).filter(User.id == c.filled_by_user_id).first()
+        if u:
+            filled_name = u.name
+    return {
+        "id": c.id,
+        "user_id": c.user_id,
+        "turma_id": c.turma_id,
+        "slot_index": c.slot_index,
+        "nome_apelido": c.nome_apelido,
+        "ultima_lembranca": c.ultima_lembranca,
+        "filled": c.filled_by_user_id is not None,
+        "filled_by_user_id": c.filled_by_user_id,
+        "filled_by_name": filled_name,
+        "filled_at": c.filled_at.isoformat() if c.filled_at else None,
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
+
+
+@app.post("/api/turmas/{slug}/cadeira")
+@limiter.limit("20/minute")
+async def cadeira_vazia_create(
+    slug: str,
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🪑 Deixar uma cadeira vazia na turma — alguém que sumiu.
+    Máx 5 cadeiras por user por turma. Requer membership verified."""
+    body = await request.json()
+    nome_apelido = (body.get("nome_apelido") or "").strip()[:100]
+    ultima_lembranca = (body.get("ultima_lembranca") or "").strip()[:500]
+    if not nome_apelido:
+        raise HTTPException(400, "Informe o nome ou apelido de quem sumiu")
+
+    turma = db.query(Turma).filter(Turma.slug == slug).first()
+    if not turma:
+        raise HTTPException(404, "Turma não encontrada")
+
+    m = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.user_id == current_user.id,
+        TurmaMembership.status == "verified",
+    ).first()
+    if not m:
+        raise HTTPException(403, "Apenas membros verificados podem deixar cadeiras vazias")
+
+    # Quota: max 5 por user por turma
+    existing_count = db.query(CadeiraVazia).filter(
+        CadeiraVazia.turma_id == turma.id,
+        CadeiraVazia.user_id == current_user.id,
+    ).count()
+    if existing_count >= CADEIRA_VAZIA_MAX_PER_USER:
+        raise HTTPException(
+            400,
+            f"Você já tem {CADEIRA_VAZIA_MAX_PER_USER} cadeiras vazias nessa turma — limite atingido",
+        )
+
+    slot_index = existing_count + 1  # 1-5
+
+    c = CadeiraVazia(
+        user_id=current_user.id,
+        turma_id=turma.id,
+        slot_index=slot_index,
+        nome_apelido=nome_apelido,
+        ultima_lembranca=ultima_lembranca or None,
+    )
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    try:
+        track_event(current_user.id, "cadeira_vazia_created", {
+            "turma_slug": turma.slug, "slot": slot_index,
+        })
+    except Exception:
+        pass
+    return {"success": True, "cadeira": _cadeira_to_dict(c, db)}
+
+
+@app.get("/api/turmas/{slug}/cadeiras")
+@limiter.limit("60/minute")
+async def cadeira_vazia_list(
+    slug: str,
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🪑 Listar cadeiras vazias da turma. Verified members only."""
+    turma = db.query(Turma).filter(Turma.slug == slug).first()
+    if not turma:
+        raise HTTPException(404, "Turma não encontrada")
+
+    m = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == turma.id,
+        TurmaMembership.user_id == current_user.id,
+        TurmaMembership.status == "verified",
+    ).first()
+    if not m:
+        raise HTTPException(403, "Apenas membros verificados podem ver as cadeiras")
+
+    rows = db.query(CadeiraVazia).filter(
+        CadeiraVazia.turma_id == turma.id,
+    ).order_by(CadeiraVazia.created_at.desc()).all()
+
+    return {
+        "success": True,
+        "turma_slug": turma.slug,
+        "total": len(rows),
+        "empty_count": sum(1 for c in rows if c.filled_by_user_id is None),
+        "filled_count": sum(1 for c in rows if c.filled_by_user_id is not None),
+        "cadeiras": [_cadeira_to_dict(c, db) for c in rows],
+    }
+
+
+@app.put("/api/cadeira/{cadeira_id}/fill")
+@limiter.limit("30/minute")
+async def cadeira_vazia_fill(
+    cadeira_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """🪑 Marcar cadeira como preenchida (self-discovery ou outro membro).
+    Caller precisa ser verified na turma da cadeira."""
+    c = db.query(CadeiraVazia).filter(CadeiraVazia.id == cadeira_id).first()
+    if not c:
+        raise HTTPException(404, "Cadeira não encontrada")
+    if c.filled_by_user_id is not None:
+        return {"success": True, "already_filled": True, "cadeira": _cadeira_to_dict(c, db)}
+
+    m = db.query(TurmaMembership).filter(
+        TurmaMembership.turma_id == c.turma_id,
+        TurmaMembership.user_id == current_user.id,
+        TurmaMembership.status == "verified",
+    ).first()
+    if not m:
+        raise HTTPException(403, "Apenas membros verificados podem preencher cadeiras")
+
+    c.filled_by_user_id = current_user.id
+    c.filled_at = datetime.utcnow()
+    db.commit()
+    db.refresh(c)
+    try:
+        track_event(current_user.id, "cadeira_vazia_filled", {
+            "cadeira_id": c.id, "turma_id": c.turma_id,
+        })
+    except Exception:
+        pass
+    return {"success": True, "cadeira": _cadeira_to_dict(c, db)}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# #AchaQuemSumiu — landing pública anônima (no auth, rate-limited per IP)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Quem você perdeu de vista e gostaria de reencontrar? Anyone (anonymous OK)
+# pode submeter um "wanted entry" público.
+
+@app.post("/api/acha-quem-sumiu")
+@limiter.limit("5/hour")
+async def acha_quem_sumiu_create(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """🔎 Submeter "wanted entry" público. Anônimo OK, rate-limited 5/hour/IP."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Payload JSON inválido")
+
+    nome = (body.get("nome_procurado") or "").strip()[:200]
+    ultima = (body.get("ultima_lembranca") or "").strip()[:2000]
+    contexto = (body.get("contexto") or "").strip()[:2000]
+    email = (body.get("searcher_email") or "").strip()[:255]
+    nome_busca = (body.get("searcher_name") or "").strip()[:200] or None
+
+    if not nome:
+        raise HTTPException(400, "Informe o nome de quem procura")
+    if not email or "@" not in email:
+        raise HTTPException(400, "Informe um email válido para te avisarmos")
+
+    entry = AchaQuemSumiu(
+        nome_procurado=nome,
+        ultima_lembranca=ultima or None,
+        contexto=contexto or None,
+        searcher_email=email,
+        searcher_name=nome_busca,
+        status="open",
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return {
+        "success": True,
+        "id": entry.id,
+        "message": "Recebemos. Se alguém encontrar, avisamos você.",
+    }
+
+
+@app.get("/api/acha-quem-sumiu/feed")
+@limiter.limit("60/minute")
+async def acha_quem_sumiu_feed(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """🔎 Feed público — últimas 20 entradas (sem email do searcher)."""
+    rows = (
+        db.query(AchaQuemSumiu)
+        .filter(AchaQuemSumiu.status == "open")
+        .order_by(AchaQuemSumiu.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return {
+        "success": True,
+        "count": len(rows),
+        "entries": [
+            {
+                "id": r.id,
+                "nome_procurado": r.nome_procurado,
+                "ultima_lembranca": r.ultima_lembranca,
+                "contexto": r.contexto,
+                "searcher_name": r.searcher_name,  # primeiro nome ou nada
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
     }
 
 
@@ -5792,6 +6043,11 @@ async def reuniao_detail_page(reuniao_id: int):
 async def mural_page(turma_slug: str = None):
     """Mural da Saudade: feed de memórias coletivas (cheiros, sons, lugares, pessoas)."""
     return FileResponse("static/mural.html")
+
+@app.get("/acha-quem-sumiu", response_class=FileResponse)
+async def acha_quem_sumiu_page():
+    """#AchaQuemSumiu — landing pública (sem auth) para submeter pedidos de reencontro."""
+    return FileResponse("static/acha_quem_sumiu.html")
 
 @app.get("/privacy", response_class=FileResponse)
 async def privacy_policy():

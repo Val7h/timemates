@@ -1,25 +1,39 @@
-"""Ice-breaker generation. Template-based fallback when no LLM API key configured.
-Future: integrate Claude/OpenAI API for personalized messages.
+"""Ice-breaker generation. Claude LLM if ANTHROPIC_API_KEY set, else templates.
 
 Voice (COPY_GUIDE_V2): saudoso, brotherly, bittersweet — never salesy,
 never assuming intimacy. The user can always edit before sending.
 
-Why templates first (and not LLM)?
-  - Zero latency, zero cost, zero refusal risk for MVP.
-  - Lets us ship the UX (3-options-then-edit) and harvest which templates
-    actually get sent. Future swap to Claude becomes a single function body
-    change once ANTHROPIC_API_KEY is set.
+LLM strategy (Sprint 3 AI/ML):
+  - When ANTHROPIC_API_KEY is set in env, route to Claude Haiku (cheapest/fastest)
+    with a tight prompt that ONLY cites verified context (no hallucinated memories).
+  - On ANY failure (network, JSON parse, quota), silently fall back to templates
+    so the user-facing UX never breaks.
+  - To enable LLM: add ANTHROPIC_API_KEY to Render env vars
+    See: https://console.anthropic.com/
+
+Why templates as the foundation (and not LLM-only)?
+  - Zero latency, zero cost, zero refusal risk on the hot path.
+  - Lets us ship the UX (3-options-then-edit) and harvest which messages
+    actually get sent. Claude is opt-in via the env var.
 """
 
 from __future__ import annotations
 
 import os
+import json
+import re
+import logging
 import random
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from database import User, Turma, TurmaMembership, TunelUpload
+
+
+# Cached at import time. Render redeploys whenever env vars change, so
+# this is effectively live without paying the os.getenv cost per request.
+_llm_configured = bool(os.getenv('ANTHROPIC_API_KEY'))
 
 
 # ─── Templates PT-BR (COPY_GUIDE_V2: saudoso, brotherly, bittersweet) ─────────
@@ -99,23 +113,17 @@ def gather_shared_context(
     }
 
 
-def generate_icebreaker(
-    db: Session,
-    requester_id: int,
-    target_id: int,
+def generate_icebreaker_templates(
+    shared_context: Dict,
+    target_full_name: str,
 ) -> Dict:
-    """Gera até 3 opções de mensagem baseadas no contexto compartilhado.
+    """Pure-template generator (the original logic, extracted for fallback use).
 
     Estratégia:
       * Se há Turma em comum → 2 templates específicos da turma + 1 de school.
       * Se não há → 3 genéricos com placeholder neutro 'lá atrás'.
-
-    O resultado vem sempre como `editable=True`: a UI deve mostrar as três,
-    deixar o user escolher uma e editar antes de POST /api/reconnect.
     """
-    context = gather_shared_context(db, requester_id, target_id)
-    shared = context['shared_turmas']
-
+    shared = shared_context.get('shared_turmas', [])
     suggestions: List[str] = []
     if shared:
         # Pega a Turma mais "rica" (com cohort_label > sem label) como âncora.
@@ -148,23 +156,98 @@ def generate_icebreaker(
             if shared else "Sem contexto compartilhado verificado"
         ),
         'suggestions': suggestions[:3],
-        'method': 'template_v1',  # quando trocar pra Claude, vira 'llm_claude'
+        'method': 'template_v1',
         'editable': True,  # user pode (e deve) editar antes de enviar
     }
 
 
-# ─── Future: LLM hook ────────────────────────────────────────────────────────
-#
-# Quando `ANTHROPIC_API_KEY` existir no env, substituir o corpo de
-# `generate_icebreaker` por uma chamada ao Claude passando:
-#   - shared Turmas (ano, instituição, cidade)
-#   - mural memories tagueadas em comum (cheiros, lugares, professores)
-#   - foto antiga do túnel se houver match facial > threshold
-# e pedir 3 variações tom "saudoso brotherly bittersweet, PT-BR, máx 280 chars,
-# sem assumir intimidade". Manter `editable=True` no retorno.
-#
-# Helper já estub:
+def generate_icebreaker_v2(shared_context: Dict, target_full_name: str) -> Dict:
+    """Generate 3 ice-breaker variants.
 
-def _llm_configured() -> bool:
-    """Retorna True quando temos credenciais pra trocar templates por LLM."""
+    If ANTHROPIC_API_KEY is set, uses Claude Haiku. Else falls back to templates.
+    Any LLM error (network, parse, quota) silently degrades to templates so the
+    user-facing UX is never blocked.
+    """
+    if not _llm_configured:
+        return generate_icebreaker_templates(shared_context, target_full_name)
+
+    try:
+        from anthropic import Anthropic
+        client = Anthropic()
+
+        first_name = target_full_name.split()[0] if target_full_name else 'amigo'
+        prompt = f"""Você é um copywriter brasileiro que escreve mensagens de reconexão entre ex-colegas.
+
+Pessoa A quer reconectar com Pessoa B (chamada {first_name}).
+Contexto VERIFICADO compartilhado:
+{shared_context}
+
+Gere 3 variantes de mensagem PT-BR de reconexão, cada uma:
+- Máximo 280 caracteres
+- Tom: brotherly + saudoso + nada cringe
+- Cita APENAS fatos do contexto acima (NÃO INVENTE)
+- Sem "amigo querido" ou similar
+- Sem emoji em excesso
+
+Retorne APENAS um JSON array de 3 strings, sem nenhum outro texto."""
+
+        response = client.messages.create(
+            model='claude-haiku-4-5-20251001',  # cheapest/fastest
+            max_tokens=500,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        text = response.content[0].text.strip()
+
+        # Extract JSON array (model may wrap in ```json fences or prose)
+        match = re.search(r'\[.*\]', text, re.DOTALL)
+        if match:
+            suggestions = json.loads(match.group())
+            if isinstance(suggestions, list) and len(suggestions) >= 1:
+                return {
+                    'success': True,
+                    'context_summary': (
+                        f"{len(shared_context.get('shared_turmas', []))} turma(s) em comum"
+                    ),
+                    'suggestions': suggestions[:3],
+                    'method': 'llm_claude_haiku',
+                    'editable': True,
+                }
+    except Exception as e:
+        logging.warning(f"[ICEBREAKER] Claude failed: {e}, falling back to templates")
+
+    return generate_icebreaker_templates(shared_context, target_full_name)
+
+
+def generate_icebreaker(
+    db: Session,
+    requester_id: int,
+    target_id: int,
+) -> Dict:
+    """Gera até 3 opções de mensagem baseadas no contexto compartilhado.
+
+    Roteamento:
+      * ANTHROPIC_API_KEY no env → Claude Haiku (com fallback p/ templates).
+      * Sem env var → templates puros.
+
+    O resultado vem sempre como `editable=True`: a UI deve mostrar as três,
+    deixar o user escolher uma e editar antes de POST /api/reconnect.
+    """
+    context = gather_shared_context(db, requester_id, target_id)
+
+    # Resolve target name for LLM personalization (Claude path only — templates
+    # ignore it). Best-effort: if user disappeared mid-flow we just pass empty.
+    target = db.query(User).filter(User.id == target_id).first()
+    target_full_name = (target.full_name if target and target.full_name else '') or ''
+
+    return generate_icebreaker_v2(context, target_full_name)
+
+
+# ─── Legacy helper kept for backward compat with anything that imported it ────
+
+def _llm_configured_check() -> bool:
+    """Retorna True quando temos credenciais pra trocar templates por LLM.
+
+    Deprecated: prefer the module-level `_llm_configured` constant which is
+    cached at import time (Render restarts the process on env var changes).
+    """
     return bool(os.getenv('ANTHROPIC_API_KEY'))

@@ -828,6 +828,16 @@ body::before {
 
 /* Hide by default */
 .hidden { display: none !important; }
+
+/* ──── Doctrine: Soft-kill reactions ────
+   Echo-audio reply is hidden from UI (API kept alive for /memories per-user).
+   Private "Eu também lembro" signal stays — visible only to author + self.
+   Toggle MURAL_READ_ONLY for full read-only mode. */
+.btn-audio { display: none !important; }
+body.mural-read-only .btn-echo,
+body.mural-read-only .fab,
+body.mural-read-only .fab-cade { display: none !important; }
+.mem-echoes.private-only { color: var(--text-faint); font-style: italic; }
 </style>
 </head>
 <body>
@@ -995,6 +1005,14 @@ body::before {
 // ════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════
+// Doctrine flag — read-only mode disables FAB + echo button entirely.
+// Default OFF; flip to true (or set window.MURAL_READ_ONLY = true before boot)
+// to make the mural a pure read-only echo without amplification.
+window.MURAL_READ_ONLY = window.MURAL_READ_ONLY || false;
+if (window.MURAL_READ_ONLY) {
+  document.addEventListener('DOMContentLoaded', () => document.body.classList.add('mural-read-only'));
+}
+
 const state = {
   turmaSlug: null,
   turma: null,
@@ -1003,6 +1021,7 @@ const state = {
   selectedType: null,
   topTags: [],
   echoed: new Set(JSON.parse(localStorage.getItem('echoed_mems') || '[]')),
+  meId: localStorage.getItem('user_id') || null,
 };
 
 const TYPE_ICONS = {
@@ -1226,8 +1245,20 @@ function renderMemCard(m) {
   const echoes = m.echo_count || m.echoes || 0;
   const echoed = state.echoed.has(m.id);
   const author = m.author_name || m.author || 'alguém da turma';
+  const authorId = m.author_id || m.user_id || null;
   const tags = m.tags || [];
   const when = formatWhen(m.created_at);
+
+  // Doctrine: reactions are PRIVATE. The echo count is only visible to
+  // the original author (so they know who lembrou) or to someone who
+  // already echoed themselves (so they see their own signal landed).
+  // Everyone else sees a quiet, non-amplifying placeholder.
+  const isAuthor = state.meId && authorId && String(state.meId) === String(authorId);
+  const canSeeCount = isAuthor || echoed;
+  const echoesHTML = canSeeCount
+    ? `<strong>${echoes}</strong> ${echoes === 1 ? 'pessoa também lembra' : 'pessoas também lembram'}`
+    : `<em>memória da turma</em>`;
+  const echoesClass = canSeeCount ? 'mem-echoes' : 'mem-echoes private-only';
 
   return `
     <article class="mem-card ${isMemoriam ? 'in-memoriam' : ''}" data-id="${escape(m.id)}">
@@ -1245,12 +1276,13 @@ function renderMemCard(m) {
                style="width:100%;margin:6px 0 4px;"></audio>
       ` : ''}
       <div class="mem-foot">
-        <span class="mem-echoes"><strong>${echoes}</strong> ${echoes === 1 ? 'pessoa também lembra' : 'pessoas também lembram'}</span>
+        <span class="${echoesClass}">${echoesHTML}</span>
         <div class="mem-actions">
-          <button class="btn-echo ${echoed ? 'echoed' : ''}" onclick="echoMem('${escape(m.id)}', this)" ${echoed ? 'disabled' : ''}>
-            ${echoed ? '✓ Lembrei' : 'Eu também lembro!'}
+          <button class="btn-echo ${echoed ? 'echoed' : ''}" onclick="echoMem('${escape(m.id)}', this)" ${echoed ? 'disabled' : ''} title="Sinal privado — só o autor vê quem lembrou">
+            ${echoed ? '✓ Eu também lembro' : 'Eu também lembro'}
           </button>
-          <button class="btn-audio" id="btn-audio-${escape(m.id)}" onclick="recordAudio('${escape(m.id)}')" title="Mandar áudio em resposta">🎙️</button>
+          <!-- Echo-audio button hidden by doctrine (soft-kill). API kept alive for /memories per-user. -->
+          <button class="btn-audio" id="btn-audio-${escape(m.id)}" onclick="recordAudio('${escape(m.id)}')" title="Mandar áudio em resposta" aria-hidden="true">🎙️</button>
         </div>
       </div>
     </article>
@@ -1271,12 +1303,18 @@ async function echoMem(id, btn) {
     state.echoed.add(id);
     localStorage.setItem('echoed_mems', JSON.stringify([...state.echoed]));
     btn.classList.add('echoed');
-    btn.textContent = '✓ Lembrei';
-    // bump counter in DOM
+    btn.textContent = '✓ Eu também lembro';
+    // Now that *I* echoed, I'm allowed to see the count — re-render the meter.
     const card = btn.closest('.mem-card');
-    const strong = card.querySelector('.mem-echoes strong');
-    strong.textContent = (parseInt(strong.textContent) || 0) + 1;
-    toast('Lembrança registrada.');
+    const meter = card.querySelector('.mem-echoes');
+    if (meter) {
+      // We may not know the absolute count from the API response; bump optimistically.
+      const prev = parseInt((meter.querySelector('strong') || {}).textContent) || 0;
+      const next = prev + 1;
+      meter.classList.remove('private-only');
+      meter.innerHTML = `<strong>${next}</strong> ${next === 1 ? 'pessoa também lembra' : 'pessoas também lembram'}`;
+    }
+    toast('Lembrança registrada — só você e quem postou veem.');
   } catch (e) {
     btn.disabled = false;
     toast('Erro. Tenta de novo.');

@@ -161,6 +161,92 @@ def find_matches_for_upload(
     return {'upload_id': upload_id, 'faces': out}
 
 
+def find_matches_v2(
+    db: Session,
+    target_embedding: List[float],
+    requester_user_id: int,
+    threshold: float = 0.5,
+    limit: int = 5,
+) -> List[Dict]:
+    """v2: pgvector cosine search em vez do loop Python.
+
+    Usa operador `<=>` do pgvector (cosine distance: 0 = idêntico, 2 = oposto).
+    similarity = 1 - distance, threshold 0.5 funciona pra ArcFace (vs 0.85 pro
+    histogram antigo — escalas diferentes).
+
+    Preserva TODOS os filtros de privacidade do find_matches_for_face:
+    default-ghost, ghost_mode_global, anti-stalker consent, same-turma override.
+    """
+    from sqlalchemy import text
+
+    # pgvector quer string '[v1,v2,...]' como literal — bind param :emb
+    embedding_str = '[' + ','.join(str(x) for x in target_embedding) + ']'
+
+    # Sobre-buscamos (limit * 3) pra ter folga após filtros de privacidade
+    rows = db.execute(text('''
+        SELECT f.id, f.upload_id, f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h,
+               1 - (f.embedding_vec <=> CAST(:emb AS vector)) AS similarity,
+               u.user_id AS owner_id
+        FROM tunel_faces f
+        JOIN tunel_uploads u ON u.id = f.upload_id
+        WHERE f.embedding_vec IS NOT NULL
+          AND u.user_id != :requester
+          AND u.deleted_at IS NULL
+        ORDER BY f.embedding_vec <=> CAST(:emb AS vector)
+        LIMIT :lim
+    '''), {'emb': embedding_str, 'requester': requester_user_id, 'lim': limit * 3}).fetchall()
+
+    # Filtro discoverability (mesma lógica do v1)
+    requester_turmas = db.query(TurmaMembership.turma_id).filter(
+        TurmaMembership.user_id == requester_user_id,
+        TurmaMembership.status == 'verified',
+    ).subquery()
+    shared_turma_users = set(
+        u[0] for u in db.query(TurmaMembership.user_id).filter(
+            TurmaMembership.turma_id.in_(requester_turmas)
+        ).all()
+    )
+
+    results = []
+    for r in rows:
+        sim = float(r.similarity)
+        if sim < threshold:
+            continue
+        owner = db.query(User).filter(User.id == r.owner_id).first()
+        if not owner:
+            continue
+        if not owner.is_discoverable and owner.id not in shared_turma_users:
+            continue
+        if getattr(owner, 'ghost_mode_global', False):
+            continue
+        # ANTI-STALKER: mesma checagem do v1
+        try:
+            from consent_helpers import has_active_consent
+            target_has_consent = has_active_consent(db, owner.id, 'face_matching')
+            target_uploaded = db.query(TunelUpload).filter(
+                TunelUpload.user_id == owner.id,
+                TunelUpload.deleted_at.is_(None),
+            ).count() > 0
+            if not (target_has_consent and target_uploaded):
+                continue
+        except Exception:
+            continue
+
+        results.append({
+            'face_id': r.id,
+            'upload_id': r.upload_id,
+            'similarity': round(sim, 3),
+            'preview_bbox': {
+                'x': r.bbox_x, 'y': r.bbox_y,
+                'w': r.bbox_w, 'h': r.bbox_h,
+            },
+            'reconnect_hint': 'Use POST /api/tunel/match/{face_id}/reconnect para iniciar reveal assimétrico.',
+        })
+        if len(results) >= limit:
+            break
+    return results
+
+
 def initiate_reconnect_for_face(
     db: Session,
     face_id: int,
