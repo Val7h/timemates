@@ -1,0 +1,58 @@
+<svg viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="60%" stop-color="#140905"/>
+      <stop offset="100%" stop-color="#1a0a05"/>
+    </linearGradient>
+    <radialGradient id="amber" cx="50%" cy="100%" r="80%">
+      <stop offset="0%" stop-color="#d4a853" stop-opacity="0.45"/>
+      <stop offset="40%" stop-color="#ff7e5f" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#d4a853" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff8e7" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#d4a853" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#d4a853" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#amber)"/>
+
+  <!-- distant moon/sun -->
+  <circle cx="980" cy="140" r="60" fill="url(#moon)"/>
+  <circle cx="980" cy="140" r="14" fill="#fff8e7" opacity="0.7"/>
+
+  <!-- polaroid corner frames -->
+  <g opacity="0.45" stroke="#d4a853" stroke-width="2" fill="none">
+    <path d="M 40 40 L 40 80"/>
+    <path d="M 40 40 L 80 40"/>
+    <path d="M 1160 40 L 1160 80"/>
+    <path d="M 1160 40 L 1120 40"/>
+    <path d="M 40 590 L 40 550"/>
+    <path d="M 40 590 L 80 590"/>
+    <path d="M 1160 590 L 1160 550"/>
+    <path d="M 1160 590 L 1120 590"/>
+  </g>
+
+  <!-- horizon line -->
+  <line x1="120" y1="450" x2="1080" y2="450" stroke="#d4a853" stroke-width="0.5" opacity="0.25"/>
+
+  <!-- main lines -->
+  <text x="600" y="290" font-family="'Crimson Text', Georgia, serif" font-style="italic" font-size="84" fill="#fff8e7" text-anchor="middle">Quem ainda lembra</text>
+  <text x="600" y="390" font-family="'Crimson Text', Georgia, serif" font-style="italic" font-size="84" fill="#d4a853" text-anchor="middle" filter="url(#glow)">de você?</text>
+
+  <!-- divider dot -->
+  <circle cx="600" cy="490" r="3" fill="#d4a853" opacity="0.6"/>
+
+  <!-- footer -->
+  <text x="600" y="555" font-family="Georgia, serif" font-style="italic" font-size="30" fill="rgba(255,248,231,0.7)" text-anchor="middle">TimeMates — feito no Brasil com saudade</text>
+</svg>

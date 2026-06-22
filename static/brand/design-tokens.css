@@ -1,0 +1,59 @@
+:root {
+  /* Surfaces */
+  --bg: #0a0a0a;
+  --bg-warm: #1a0a05;
+  --bg-elev: #141414;
+
+  /* Accent */
+  --amber: #d4a853;
+  --amber-bright: #e8c074;
+  --amber-soft: rgba(212, 168, 83, 0.18);
+  --amber-glow: rgba(212, 168, 83, 0.35);
+
+  /* Text */
+  --text: #fff8e7;
+  --text-muted: rgba(255, 248, 231, 0.55);
+  --text-dim: rgba(255, 248, 231, 0.35);
+
+  /* Saudade sunset */
+  --sunset-1: #ff7e5f;
+  --sunset-2: #feb47b;
+  --sunset-gradient: linear-gradient(180deg, #ff7e5f 0%, #feb47b 100%);
+  --sunset-radial: radial-gradient(ellipse at bottom, rgba(212,168,83,0.35) 0%, rgba(255,126,95,0.08) 40%, transparent 80%);
+
+  /* Status */
+  --error: #ff6666;
+  --success: #16a766;
+  --warning: #f0a830;
+
+  /* Typography */
+  --serif: 'Crimson Text', Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+
+  /* Spacing */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 40px rgba(212, 168, 83, 0.15);
+  --shadow-glow-strong: 0 0 60px rgba(212, 168, 83, 0.28);
+
+  /* Motion */
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 500ms;
+}
