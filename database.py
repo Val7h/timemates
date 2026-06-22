@@ -892,6 +892,18 @@ class TurmaReuniaoRSVP(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ReuniaoPhoto(Base):
+    """Foto pós-encontro. Só quem confirmou RSVP pode subir; turma membros veem."""
+    __tablename__ = "reuniao_photos"
+    id = Column(Integer, primary_key=True)
+    reuniao_id = Column(Integer, ForeignKey("turma_reunioes.id"), nullable=False, index=True)
+    uploader_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    caption = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # VIRAL — Cadeira Vazia + #AchaQuemSumiu (migrations 014, 015)
 # Cadeira Vazia: cada user pode "deixar 5 cadeiras vazias" na turma — lugares

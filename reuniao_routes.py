@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
 
-from database import get_db, Turma, TurmaMembership, TurmaReuniao, TurmaReuniaoVote, TurmaReuniaoRSVP, User
+from database import get_db, Turma, TurmaMembership, TurmaReuniao, TurmaReuniaoVote, TurmaReuniaoRSVP, ReuniaoPhoto, User
 from auth import get_current_user_required
 
 reuniao_router = APIRouter(prefix="/api", tags=["reuniao"])
@@ -238,4 +238,125 @@ async def get_reuniao(
             "no": sum(1 for r in rsvps if r.status == 'no'),
             "plus_ones_total": sum(r.plus_ones for r in rsvps if r.status == 'confirmed'),
         },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHOTO LOOP — Flywheel Closer
+# Reuniao acontece → quem confirmou RSVP sobe fotos → turma membros relembram
+# → bate saudade → marca próxima reunião. O loop social que fecha o ciclo.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@reuniao_router.post("/reuniao/{reuniao_id}/photos")
+async def upload_reuniao_photo(
+    reuniao_id: int,
+    photo: UploadFile = File(...),
+    caption: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Upload foto pós-encontro. Auth + RSVP=confirmed required."""
+    reuniao = db.query(TurmaReuniao).filter(TurmaReuniao.id == reuniao_id).first()
+    if not reuniao:
+        raise HTTPException(404, "Reunião não encontrada")
+
+    # Must have RSVP'd confirmed
+    rsvp = db.query(TurmaReuniaoRSVP).filter(
+        TurmaReuniaoRSVP.reuniao_id == reuniao_id,
+        TurmaReuniaoRSVP.user_id == current_user.id,
+        TurmaReuniaoRSVP.status == 'confirmed',
+    ).first()
+    if not rsvp:
+        raise HTTPException(403, "Só quem confirmou presença pode subir fotos")
+
+    # Validate
+    ALLOWED = {'image/jpeg', 'image/jpg', 'image/png', 'image/webp'}
+    if photo.content_type not in ALLOWED:
+        raise HTTPException(400, "Foto deve ser jpg/png/webp")
+    contents = await photo.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(400, "Foto muito grande (max 10MB)")
+
+    # Storage with EXIF scrub
+    import os, uuid
+    user_dir = f"uploads/reuniao_photos/{reuniao_id}"
+    os.makedirs(user_dir, exist_ok=True)
+    ext = photo.content_type.split('/')[-1].replace('jpeg', 'jpg')
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = os.path.join(user_dir, filename)
+    with open(file_path, 'wb') as f:
+        f.write(contents)
+
+    # EXIF scrub (LGPD: strip geolocation metadata)
+    try:
+        from PIL import Image
+        img = Image.open(file_path)
+        data = list(img.getdata())
+        clean = Image.new(img.mode, img.size)
+        clean.putdata(data)
+        clean.save(file_path)
+    except Exception:
+        pass
+
+    rp = ReuniaoPhoto(
+        reuniao_id=reuniao_id,
+        uploader_user_id=current_user.id,
+        file_path=f"/{file_path}",
+        caption=caption,
+    )
+    db.add(rp)
+    db.commit()
+    db.refresh(rp)
+    return {
+        "success": True,
+        "photo_id": rp.id,
+        "file_path": rp.file_path,
+        "message": "Foto subida — a turma vai matar saudade depois",
+    }
+
+
+@reuniao_router.get("/reuniao/{reuniao_id}/photos")
+async def list_reuniao_photos(
+    reuniao_id: int,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Lista fotos da reunião. Só confirmed RSVPs ou membros verified da turma podem ver."""
+    reuniao = db.query(TurmaReuniao).filter(TurmaReuniao.id == reuniao_id).first()
+    if not reuniao:
+        raise HTTPException(404, "Reunião não encontrada")
+
+    # Check membership: was confirmed RSVP OR is turma member verified
+    rsvp = db.query(TurmaReuniaoRSVP).filter(
+        TurmaReuniaoRSVP.reuniao_id == reuniao_id,
+        TurmaReuniaoRSVP.user_id == current_user.id,
+    ).first()
+    if not rsvp:
+        # Check verified turma member fallback
+        member = db.query(TurmaMembership).filter(
+            TurmaMembership.turma_id == reuniao.turma_id,
+            TurmaMembership.user_id == current_user.id,
+            TurmaMembership.status == 'verified',
+        ).first()
+        if not member:
+            raise HTTPException(403, "Só membros da turma veem essas fotos")
+
+    photos = db.query(ReuniaoPhoto).filter(
+        ReuniaoPhoto.reuniao_id == reuniao_id,
+        ReuniaoPhoto.deleted_at.is_(None),
+    ).order_by(ReuniaoPhoto.created_at.desc()).all()
+
+    return {
+        "success": True,
+        "count": len(photos),
+        "photos": [
+            {
+                "id": p.id,
+                "url": p.file_path,
+                "caption": p.caption,
+                "uploader_id": p.uploader_user_id,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in photos
+        ],
     }

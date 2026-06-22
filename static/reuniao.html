@@ -627,6 +627,49 @@ textarea { resize: vertical; min-height: 80px; }
   gap: 10px;
   margin-top: 18px;
 }
+
+/* Photo gallery — flywheel closer */
+.reuniao-photo-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 16px;
+}
+.reuniao-photo-gallery .photo-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.reuniao-photo-gallery .photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s;
+}
+.reuniao-photo-gallery .photo-tile:hover img { transform: scale(1.05); }
+.reuniao-photo-gallery .photo-caption {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reuniao-photo-gallery .empty-gallery {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13px;
+  padding: 16px;
+}
 </style>
 </head>
 <body>
@@ -767,6 +810,20 @@ textarea { resize: vertical; min-height: 80px; }
           </div>
         </div>
 
+        <!-- Photo loop CTA: appears for confirmed RSVPs once the encontro happened or final_date passed -->
+        <div class="section" id="section-photos" style="display:none">
+          <h3>Fotos do encontro</h3>
+          <p class="desc" style="margin-bottom:14px" id="photos-empty-hint">Sobe as fotos pra galera matar saudade depois.</p>
+          <button class="btn btn-primary" id="upload-reuniao-photo-btn" onclick="document.getElementById('reuniao-photo-input').click()">
+            📷 Subir foto do encontro
+          </button>
+          <input type="file" id="reuniao-photo-input" accept="image/*" style="display:none" onchange="uploadReuniaoPhoto(this.files[0])"/>
+          <div id="photo-upload-progress" style="display:none; margin-top:10px; color:var(--text-muted); font-size:13px; text-align:center;">
+            Subindo foto…
+          </div>
+          <div id="reuniao-photo-gallery" class="reuniao-photo-gallery"></div>
+        </div>
+
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="shareWhatsApp()">
             💬 WhatsApp
@@ -781,6 +838,18 @@ textarea { resize: vertical; min-height: 80px; }
       <div class="section" id="section-happened" style="display:none">
         <h3>Essa reunião já rolou</h3>
         <p class="desc">Espero que tenha sido massa. Cria a próxima quando bater a saudade.</p>
+
+        <!-- Photos also visible in happened state -->
+        <div style="margin-top:18px">
+          <button class="btn btn-primary" id="upload-reuniao-photo-btn-happened" onclick="document.getElementById('reuniao-photo-input-happened').click()">
+            📷 Subir foto do encontro
+          </button>
+          <input type="file" id="reuniao-photo-input-happened" accept="image/*" style="display:none" onchange="uploadReuniaoPhoto(this.files[0])"/>
+          <div id="photo-upload-progress-happened" style="display:none; margin-top:10px; color:var(--text-muted); font-size:13px; text-align:center;">
+            Subindo foto…
+          </div>
+          <div id="reuniao-photo-gallery-happened" class="reuniao-photo-gallery"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -1122,6 +1191,8 @@ function renderReuniao() {
     badge.classList.add('status-happened');
     badge.textContent = 'Já aconteceu';
     document.getElementById('section-happened').style.display = 'block';
+    // Photos live in the happened block too — render there.
+    maybeShowPhotoSection(r, /*happenedBlock=*/true);
   }
 }
 
@@ -1225,6 +1296,10 @@ function renderConfirmed() {
   document.getElementById('plus-value').textContent = STATE.plusOnes;
   document.getElementById('plus-minus').disabled = STATE.plusOnes <= 0;
   document.getElementById('plus-plus').disabled = STATE.plusOnes >= 5;
+
+  // Photo loop CTA — show if encontro happened OR final_date passed.
+  // Upload button only enabled if user confirmed presence (going).
+  maybeShowPhotoSection(r);
 
   // attendees
   const att = (r.attendees || []).filter(a => a.rsvp === 'going');
@@ -1331,6 +1406,140 @@ function shareInstagram() {
     toast('Link copiado — cola no Story!');
   }
   closeShareModal({ target: { id: 'share-modal' } });
+}
+
+/* ═══════════════════════════════════════════════
+   PHOTO LOOP (Flywheel closer)
+   Upload + gallery for post-encontro photos.
+   ═══════════════════════════════════════════════ */
+
+function isReuniaoOver(r) {
+  if (!r) return false;
+  if (r.status === 'happened') return true;
+  // also surface CTA if confirmed and final_date already passed
+  if (r.status === 'confirmed' && r.final_date) {
+    try {
+      const finalTs = new Date(r.final_date).getTime();
+      return !isNaN(finalTs) && finalTs <= Date.now();
+    } catch (e) { /* noop */ }
+  }
+  return false;
+}
+
+function maybeShowPhotoSection(r, happenedBlock) {
+  const overOrConfirmed = isReuniaoOver(r) || r.status === 'confirmed';
+  const section = document.getElementById('section-photos');
+  if (!happenedBlock) {
+    // In confirmed view, show photos block when reunião happened or final_date passed
+    if (overOrConfirmed && isReuniaoOver(r)) {
+      section.style.display = 'block';
+      // Only confirmed RSVPs ('going') can upload
+      const canUpload = STATE.myRsvp === 'going';
+      document.getElementById('upload-reuniao-photo-btn').style.display = canUpload ? 'inline-flex' : 'none';
+      if (!canUpload) {
+        document.getElementById('photos-empty-hint').textContent = 'Só quem confirmou presença pode subir fotos. Mas você ainda vê o que a turma postar.';
+      }
+      loadReuniaoPhotos('reuniao-photo-gallery');
+    } else {
+      section.style.display = 'none';
+    }
+  } else {
+    // Happened block — always render gallery + upload (if eligible)
+    const canUpload = STATE.myRsvp === 'going';
+    document.getElementById('upload-reuniao-photo-btn-happened').style.display = canUpload ? 'inline-flex' : 'none';
+    loadReuniaoPhotos('reuniao-photo-gallery-happened');
+  }
+}
+
+async function loadReuniaoPhotos(galleryId) {
+  const gallery = document.getElementById(galleryId);
+  if (!gallery) return;
+  try {
+    const r = await fetch(`${API}/api/reuniao/${STATE.reuniaoId}/photos`, { credentials: 'include' });
+    if (!r.ok) {
+      if (r.status === 403) {
+        gallery.innerHTML = '<div class="empty-gallery">Só membros da turma veem essas fotos.</div>';
+        return;
+      }
+      throw new Error('failed');
+    }
+    const data = await r.json();
+    const photos = data.photos || [];
+    if (!photos.length) {
+      gallery.innerHTML = '<div class="empty-gallery">Nenhuma foto ainda. Bora subir a primeira?</div>';
+      return;
+    }
+    gallery.innerHTML = photos.map(p => {
+      const cap = p.caption ? `<div class="photo-caption">${escapeHtml(p.caption)}</div>` : '';
+      return `
+        <div class="photo-tile" onclick="openPhoto('${p.url}')">
+          <img src="${p.url}" alt="Foto do encontro" loading="lazy"/>
+          ${cap}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    gallery.innerHTML = '<div class="empty-gallery">Não rolou carregar as fotos.</div>';
+  }
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function openPhoto(url) {
+  window.open(url, '_blank');
+}
+
+async function uploadReuniaoPhoto(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    toast('Foto muito grande (max 10MB)');
+    return;
+  }
+  const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!ALLOWED.includes(file.type)) {
+    toast('Use jpg, png ou webp');
+    return;
+  }
+  const caption = window.prompt('Legenda (opcional, até 200 chars):', '') || '';
+
+  const progress = document.getElementById('photo-upload-progress');
+  const progressH = document.getElementById('photo-upload-progress-happened');
+  if (progress) progress.style.display = 'block';
+  if (progressH) progressH.style.display = 'block';
+
+  try {
+    const fd = new FormData();
+    fd.append('photo', file);
+    if (caption) fd.append('caption', caption.slice(0, 200));
+    const r = await fetch(`${API}/api/reuniao/${STATE.reuniaoId}/photos`, {
+      method: 'POST',
+      credentials: 'include',
+      body: fd,
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Upload falhou');
+    }
+    toast('Foto subida!');
+    // Refresh galleries
+    loadReuniaoPhotos('reuniao-photo-gallery');
+    loadReuniaoPhotos('reuniao-photo-gallery-happened');
+  } catch (err) {
+    toast(err.message || 'Não rolou subir');
+  } finally {
+    if (progress) progress.style.display = 'none';
+    if (progressH) progressH.style.display = 'none';
+    // reset inputs so onchange fires again for same file
+    const inp1 = document.getElementById('reuniao-photo-input');
+    const inp2 = document.getElementById('reuniao-photo-input-happened');
+    if (inp1) inp1.value = '';
+    if (inp2) inp2.value = '';
+  }
 }
 
 /* ─── Date formatting ─── */

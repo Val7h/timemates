@@ -320,6 +320,20 @@
       </a>
     </div>
 
+    <!-- 2.5 SECTION: CADEIRAS VAZIAS -->
+    <section id="cadeiras-vazias-section" style="margin: 32px 0;">
+      <h2 style="font-family: 'Crimson Text', serif; color: #d4a853; margin: 0 0 6px 0;">5 cadeiras vazias</h2>
+      <p style="color: rgba(255,248,231,0.55); font-size: 14px; margin: 0 0 12px 0;">
+        Quem da sua turma você ainda quer reencontrar?
+      </p>
+      <div id="cadeiras-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-top: 16px;">
+        <!-- 5 empty chairs rendered via JS -->
+      </div>
+      <button id="add-cadeira-btn" onclick="addCadeira()" style="margin-top: 16px; background: transparent; color: #d4a853; border: 1px solid #d4a853; padding: 10px 20px; border-radius: 8px; font-family: 'Crimson Text', serif; cursor: pointer;">
+        + Adicionar cadeira vazia
+      </button>
+    </section>
+
     <!-- 3. SECTION: LATEST FROM MURAL -->
     <section class="section">
       <div class="section-title">
@@ -389,8 +403,74 @@
         loadMural(),
         loadReuniao(),
         loadMemoriam(),
-        loadEmbaixadorStatus()
+        loadEmbaixadorStatus(),
+        renderCadeiras(SLUG)
       ]);
+    }
+
+    // -------- CADEIRAS VAZIAS --------
+    function escapeAttr(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    async function renderCadeiras(turmaSlug) {
+      try {
+        const resp = await fetch('/api/turmas/' + turmaSlug + '/cadeiras', { headers: tmAuthHeaders() });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const grid = document.getElementById('cadeiras-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        const cadeiras = data.cadeiras || [];
+        // Render up to 5 slots — filled ones show name+apelido, empty ones show '+ cadeira'
+        for (let i = 0; i < 5; i++) {
+          const c = cadeiras[i];
+          if (c) {
+            // Filled
+            const nome = escapeAttr(c.nome_apelido || 'Anônimo');
+            const status = c.filled_at ? '✓ achado' : 'procurando';
+            grid.innerHTML += '<div style="background:rgba(212,168,83,0.08); border:1px solid #d4a853; border-radius:8px; padding:12px; text-align:center;">' +
+              '<div style="font-family:\'Crimson Text\',serif; color:#d4a853;">' + nome + '</div>' +
+              '<div style="font-size:11px; color:rgba(255,248,231,0.4); margin-top:4px;">' + status + '</div>' +
+              '</div>';
+          } else {
+            // Empty
+            grid.innerHTML += '<div style="border:1px dashed rgba(255,248,231,0.2); border-radius:8px; padding:12px; text-align:center; color:rgba(255,248,231,0.3); font-family:\'Crimson Text\',serif;">' +
+              '<div style="font-size:24px;">🪑</div>' +
+              '<div style="font-size:11px; margin-top:4px;">vazia</div>' +
+              '</div>';
+          }
+        }
+      } catch (e) {
+        console.error('cadeiras render fail', e);
+      }
+    }
+
+    async function addCadeira() {
+      const nome = prompt('Quem está faltando? (nome ou apelido)');
+      if (!nome || !nome.trim()) return;
+      const lembranca = prompt('Última lembrança que você tem dessa pessoa (opcional)') || '';
+      try {
+        const resp = await fetch('/api/turmas/' + SLUG + '/cadeira', {
+          method: 'POST',
+          headers: tmAuthHeaders(),
+          body: JSON.stringify({
+            nome_apelido: nome.trim(),
+            ultima_lembranca: lembranca.trim()
+          })
+        });
+        if (!resp.ok) {
+          const errTxt = await resp.text().catch(() => '');
+          alert('Não foi possível adicionar a cadeira. ' + (errTxt || ''));
+          return;
+        }
+        await renderCadeiras(SLUG);
+      } catch (e) {
+        console.error('add cadeira fail', e);
+        alert('Erro ao adicionar cadeira.');
+      }
     }
 
     // -------- EMBAIXADOR DA TURMA --------
