@@ -109,6 +109,7 @@ from database import (
     Turma, TurmaMembership, TurmaVouch, MuralMemory,
     UserTurmaVisibility,
     CadeiraVazia, AchaQuemSumiu,
+    PersonOptOut, ContentReport,
 )
 from auth import (
     get_current_user, get_current_user_required,
@@ -1314,6 +1315,18 @@ def me(current_user: User = Depends(get_current_user_required)):
 # LGPD Art. 11 — Granular Consent endpoints
 # Lists, grants, and revokes per-purpose consent. Biometric consents
 # (tunel_biometric, face_matching) MUST be granted separately from ToS.
+#
+# ANCHOR: LGPD-BIOMETRIA-TERCEIROS — base legal pendente.
+# O upload do Túnel (face detection/embedding em tunel_routes.py, ver
+# _process_upload / embedding=f.get('embedding')) extrai biometria facial de
+# TODOS os rostos presentes na foto antiga — inclusive terceiros que NÃO são o
+# uploader e nunca consentiram. O consent atual (tunel_biometric, face_matching)
+# cobre apenas o titular que faz upload, não os demais retratados.
+# PENDÊNCIA: definir base legal LGPD para processar embeddings de terceiros
+# (Art. 11 — dado biométrico sensível). Opções a avaliar com jurídico:
+# legítimo interesse com salvaguardas + opt-out (ver /api/opt-out e
+# PersonOptOut), anonimização, ou exigir consentimento dos retratados.
+# Este é só o gancho de documentação — NÃO altera o fluxo de processamento.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/me/consents")
@@ -5667,6 +5680,21 @@ async def acha_quem_sumiu_create(
     if not email or "@" not in email:
         raise HTTPException(400, "Informe um email válido para te avisarmos")
 
+    # Direito a desaparecer (LGPD): se a pessoa procurada pediu opt-out, rejeita.
+    from sqlalchemy import func as _optout_func
+    nome_lc = nome.lower()
+    opted_out = (
+        db.query(PersonOptOut)
+        .filter(PersonOptOut.ativo == True)  # noqa: E712
+        .filter(_optout_func.lower(PersonOptOut.nome) == nome_lc)
+        .first()
+    )
+    if opted_out:
+        raise HTTPException(
+            403,
+            "Essa pessoa pediu para não ser procurada na plataforma.",
+        )
+
     entry = AchaQuemSumiu(
         nome_procurado=nome,
         ultima_lembranca=ultima or None,
@@ -5689,12 +5717,20 @@ async def acha_quem_sumiu_create(
 @limiter.limit("60/minute")
 async def acha_quem_sumiu_feed(
     request: Request,
+    searcher_email: str = "",
     db: Session = Depends(get_db),
 ):
-    """🔎 Feed público — últimas 20 entradas (sem email do searcher)."""
+    """🔎 Feed PRIVADO — somente os pedidos criados pelo próprio solicitante.
+    Privacy P0: a lista nacional pública foi DESPUBLICADA (permitia stalking).
+    Exige ?searcher_email=... — sem ele, retorna lista vazia."""
+    from sqlalchemy import func as _aqs_func
+    email = (searcher_email or "").strip().lower()[:255]
+    if not email or "@" not in email:
+        return {"success": True, "count": 0, "entries": []}
     rows = (
         db.query(AchaQuemSumiu)
         .filter(AchaQuemSumiu.status == "open")
+        .filter(_aqs_func.lower(AchaQuemSumiu.searcher_email) == email)
         .order_by(AchaQuemSumiu.created_at.desc())
         .limit(20)
         .all()
@@ -5713,6 +5749,90 @@ async def acha_quem_sumiu_feed(
             }
             for r in rows
         ],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Direito a desaparecer (opt-out) + Denúncia de conteúdo
+# Endpoints públicos (sem auth), rate-limited por IP como os demais públicos.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/opt-out")
+@limiter.limit("5/hour")
+async def person_opt_out_create(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """🚫 Direito a desaparecer: pessoa pede para NÃO ser procurada/encontrada.
+    Bloqueia futuros pedidos #AchaQuemSumiu com esse nome. Anônimo OK."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Payload JSON inválido")
+
+    nome = (body.get("nome") or "").strip()[:200]
+    email = (body.get("email") or "").strip()[:255] or None
+    motivo = (body.get("motivo") or "").strip()[:2000] or None
+
+    if not nome:
+        raise HTTPException(400, "Informe o nome de quem não quer ser procurado")
+
+    rec = PersonOptOut(
+        nome=nome.lower(),  # lowercased para match case-insensitive
+        email=email,
+        motivo=motivo,
+        ativo=True,
+    )
+    db.add(rec)
+    db.commit()
+    db.refresh(rec)
+    return {
+        "success": True,
+        "id": rec.id,
+        "message": "Registramos seu pedido. Você não será procurada(o) na plataforma.",
+    }
+
+
+@app.post("/api/report")
+@limiter.limit("10/hour")
+async def content_report_create(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """🚩 Denúncia de conteúdo impróprio/abusivo. Anônimo OK, rate-limited."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Payload JSON inválido")
+
+    content_type = (body.get("content_type") or "").strip()[:30]
+    descricao = (body.get("descricao") or "").strip()[:2000]
+    reporter_email = (body.get("reporter_email") or "").strip()[:255] or None
+    content_id_raw = body.get("content_id")
+    try:
+        content_id = int(content_id_raw) if content_id_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        content_id = None
+
+    if content_type not in ("acha", "mural", "match", "memoria"):
+        raise HTTPException(400, "content_type inválido")
+    if not descricao:
+        raise HTTPException(400, "Descreva o motivo da denúncia")
+
+    rep = ContentReport(
+        content_type=content_type,
+        content_id=content_id,
+        descricao=descricao,
+        reporter_email=reporter_email,
+        status="aberto",
+    )
+    db.add(rep)
+    db.commit()
+    db.refresh(rep)
+    return {
+        "success": True,
+        "id": rep.id,
+        "message": "Recebemos sua denúncia. Vamos analisar.",
     }
 
 
@@ -6028,6 +6148,11 @@ _NOINDEX_HEADERS = {"X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet"}
 async def tunel_page():
     """Túnel do Tempo: upload de foto antiga + reconexão via face match."""
     return FileResponse("static/tunel.html", headers=_NOINDEX_HEADERS)
+
+@app.get("/desaparecer", response_class=FileResponse)
+async def desaparecer_page():
+    """Direito a desaparecer: página de opt-out (não quero ser procurado)."""
+    return FileResponse("static/desaparecer.html", headers=_NOINDEX_HEADERS)
 
 @app.get("/turma/{turma_slug}", response_class=FileResponse)
 async def turma_page(turma_slug: str):

@@ -437,6 +437,24 @@ body::before {
   border-color: var(--border);
 }
 
+/* Discrete "Denunciar" button on memory cards */
+.btn-report {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  padding: 7px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-report:hover { color: var(--sunset-1); }
+.btn-report:disabled { opacity: 0.5; cursor: default; }
+
 /* ──── FAB ──── */
 .fab {
   position: fixed;
@@ -856,15 +874,15 @@ body.mural-read-only .fab-cade { display: none !important; }
 <body>
 
 <!-- Ghost Mode panic button (Juliana / privacidade): some agora pra TODOS. -->
-<button id="panic-ghost" title="Sumir agora"
+<button id="panic-ghost" title="Sair em segredo — você não perde nada, só fica invisível agora"
         style="position:fixed;top:12px;right:12px;background:rgba(255,102,102,0.15);
                border:1px solid #ff6666;color:#ff6666;padding:8px 14px;
                border-radius:20px;font-size:13px;cursor:pointer;z-index:999;">
-  Sumir agora
+  Sair em segredo
 </button>
 <script>
 document.getElementById('panic-ghost').onclick = async () => {
-  if (!confirm('Você vai ficar invisível pra TODOS imediatamente. Confirmar?')) return;
+  if (!confirm('Você não perde nada — só fica invisível agora. Confirmar?')) return;
   try {
     await window.tmFetch('/api/me/panic-ghost', {method:'POST'});
     alert('Pronto. Você sumiu.');
@@ -1316,6 +1334,7 @@ function renderMemCard(m) {
           </button>
           <!-- Echo-audio button hidden by doctrine (soft-kill). API kept alive for /memories per-user. -->
           <button class="btn-audio" id="btn-audio-${escape(m.id)}" onclick="recordAudio('${escape(m.id)}')" title="Mandar áudio em resposta" aria-hidden="true">🎙️</button>
+          <button class="btn-report" onclick="reportMemory('${escape(m.id)}', this)" title="Denunciar esta memória">⚐ Denunciar</button>
         </div>
       </div>
     </article>
@@ -1351,6 +1370,30 @@ async function echoMem(id, btn) {
   } catch (e) {
     btn.disabled = false;
     toast('Erro. Tenta de novo.');
+  }
+}
+
+// ════════════════════════════════════════════════════
+// REPORT — denunciar uma memória (content_type: 'memoria')
+// ════════════════════════════════════════════════════
+async function reportMemory(id, btn) {
+  const reason = prompt('Por que você quer denunciar esta memória? (ofensa, mentira, exposição de alguém...)');
+  if (reason === null) return;
+  if (btn) btn.disabled = true;
+  try {
+    await api('/api/report', {
+      method: 'POST',
+      body: JSON.stringify({
+        content_type: 'memoria',
+        content_id: id,
+        reason: reason.trim(),
+      })
+    });
+    if (btn) btn.textContent = '✓ denunciado';
+    toast('Denúncia enviada. A gente vai olhar com cuidado.');
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    toast('Erro ao denunciar. Tenta de novo.');
   }
 }
 

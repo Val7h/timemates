@@ -992,19 +992,19 @@ body::before {
 </head>
 <body>
 
-<!-- Ghost Mode panic button (Juliana / privacidade): some agora pra TODOS. -->
-<button id="panic-ghost" title="Sumir agora"
+<!-- Ghost Mode panic button (Juliana / privacidade): fica invisível pra TODOS na hora. -->
+<button id="panic-ghost" title="Sair em segredo — você não perde nada, só fica invisível agora"
         style="position:fixed;top:12px;right:12px;background:rgba(255,102,102,0.15);
                border:1px solid #ff6666;color:#ff6666;padding:8px 14px;
                border-radius:20px;font-size:13px;cursor:pointer;z-index:999;">
-  Sumir agora
+  Sair em segredo
 </button>
 <script>
 document.getElementById('panic-ghost').onclick = async () => {
-  if (!confirm('Você vai ficar invisível pra TODOS imediatamente. Confirmar?')) return;
+  if (!confirm('Você vai ficar invisível pra TODOS agora. Você não perde nada — só fica invisível agora. Confirmar?')) return;
   try {
     await window.tmFetch('/api/me/panic-ghost', {method:'POST'});
-    alert('Pronto. Você sumiu.');
+    alert('Pronto. Você ficou invisível — não perdeu nada, só não aparece mais por enquanto.');
     location.href = '/';
   } catch (e) {
     alert('Erro. Tenta de novo.');
@@ -1029,11 +1029,6 @@ document.getElementById('panic-ghost').onclick = async () => {
       <input type="text" name="full_name" placeholder="Seu nome completo" required class="tm-input">
       <input type="email" name="email" placeholder="Email" required class="tm-input">
       <input type="password" name="password" placeholder="Senha (min 8 chars)" required minlength="8" class="tm-input">
-      <details style="font-size:13px;color:#aaa;">
-        <summary style="cursor:pointer;padding:4px 0;">Avançado: adicionar CPF (opcional)</summary>
-        <input type="text" name="cpf" placeholder="CPF (só números) — opcional" pattern="[0-9]{11}" class="tm-input" style="margin-top:8px;">
-        <p style="font-size:12px;color:#888;margin-top:4px;">Pra futura verificação de turma — não obrigatório agora.</p>
-      </details>
       <input type="tel" name="phone" placeholder="Celular com DDD" required class="tm-input">
       <label style="font-size:13px;color:#aaa;display:flex;gap:8px;align-items:flex-start;">
         <input type="checkbox" required style="margin-top:3px;">
@@ -1075,7 +1070,8 @@ document.getElementById('panic-ghost').onclick = async () => {
       <button class="cta-primary" onclick="go('upload')">
         <span>📸</span> Subir foto antiga
       </button>
-      <p class="hero-hint">Quanto mais cara, mais chance.<br/>Faces precisam estar visíveis.</p>
+      <p class="hero-hint">Sua imagem original fica intacta no seu aparelho.<br/>Você pode apagar a cópia quando quiser.</p>
+      <p class="hero-hint" style="margin-top:10px">Quanto mais cara, mais chance.<br/>Faces precisam estar visíveis.</p>
 
       <p class="lgpd-link">
         Sua privacidade vem antes. <a href="/privacy">Como tratamos sua foto →</a>
@@ -1114,7 +1110,11 @@ document.getElementById('panic-ghost').onclick = async () => {
     </div>
 
     <div class="privacy-note">
-      <strong>Sua foto fica privada.</strong> A gente processa e os rostos viram códigos. A imagem original pode ser apagada por você a qualquer momento. Só você vê os matches. <a href="/privacy" style="color:var(--amber)">Saiba mais</a>
+      <strong>Sua foto fica privada.</strong> Sua foto nunca é mostrada a ninguém. Ela vira um cadeado que só você abre. A imagem original pode ser apagada por você a qualquer momento. Só você vê os matches. <a href="/privacy" style="color:var(--amber)">Saiba mais sobre como protegemos sua foto</a>
+    </div>
+
+    <div class="privacy-note" style="border-left-color:var(--sunset)">
+      <strong>Respeitamos quem aparece na foto.</strong> Os rostos viram códigos protegidos e ninguém é exposto sem aceitar reconectar.
     </div>
 
     <button class="btn-primary" id="submitBtn" onclick="submitUpload()" disabled>Procurar</button>
@@ -1160,7 +1160,7 @@ document.getElementById('panic-ghost').onclick = async () => {
   <section class="screen" id="screen-icebreaker">
     <h2 class="serif section-title">Como você quer começar?</h2>
     <p class="icebreaker-intro">
-      Escolhe uma das sugestões — ou escreve do seu jeito. <strong style="color:var(--amber);font-weight:500">A pessoa não vai saber quem é você</strong> até aceitar.
+      Escrevemos um começo — você ajeita do seu jeito antes de enviar. Escolhe uma sugestão e edite à vontade no campo abaixo. <strong style="color:var(--amber);font-weight:500">A pessoa não vai saber quem é você</strong> até aceitar.
     </p>
 
     <div class="icebreaker-context-wrap"><div class="icebreaker-context" id="icebreakerContext" style="display:none"></div></div>
@@ -1169,8 +1169,8 @@ document.getElementById('panic-ghost').onclick = async () => {
       <!-- cards injected -->
     </div>
 
-    <div class="editor-label">Sua mensagem</div>
-    <textarea id="messageEditor" class="editor-textarea" maxlength="500" placeholder="Escreve uma mensagem que te represente..."></textarea>
+    <div class="editor-label">Sua mensagem — edite à vontade antes de enviar</div>
+    <textarea id="messageEditor" class="editor-textarea" maxlength="500" placeholder="Ajeite o começo do seu jeito ou escreva uma mensagem que te represente..."></textarea>
     <div class="char-count"><span id="msgCount">0</span>/500</div>
 
     <div class="privacy-note" style="margin-top:12px">
@@ -1955,8 +1955,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!data.get('password') || data.get('password').length < 8) {
         errors.push('Senha precisa ter pelo menos 8 caracteres');
       }
+      // CPF removido do fluxo de cadastro (reduz desconfiança do público-alvo).
+      // isValidCPF permanece definido no JS para uso futuro, mas não há campo na UI.
       const cpfRaw = (data.get('cpf') || '').replace(/\D/g, '');
-      // CPF is optional now — only validate if user provided one
       if (cpfRaw.length > 0) {
         if (cpfRaw.length !== 11) {
           errors.push('Se for preencher o CPF, precisa ter 11 dígitos');
@@ -1986,7 +1987,6 @@ document.addEventListener('DOMContentLoaded', () => {
             full_name: data.get('full_name'),
             email: data.get('email'),
             password: data.get('password'),
-            cpf: data.get('cpf'),
             phone: data.get('phone'),
           }),
         });

@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="robots" content="noindex,nofollow"/>
 <title>#AchaQuemSumiu — TimeMates</title>
-<meta name="description" content="Quem você perdeu de vista — e gostaria de reencontrar? Submeta anonimamente. Se alguém achar, avisamos você."/>
+<meta name="description" content="Busca privada e respeitosa. O resultado vai só pra você, por email — e a pessoa precisa consentir antes de qualquer contato."/>
 <meta name="theme-color" content="#0b0d12"/>
 <meta property="og:title" content="#AchaQuemSumiu — TimeMates"/>
-<meta property="og:description" content="Quem você perdeu de vista — e gostaria de reencontrar?"/>
+<meta property="og:description" content="Busca privada: o resultado vai só pra você, com consentimento da pessoa antes de qualquer revelação."/>
 <meta property="og:type" content="website"/>
 <meta property="og:url" content="https://timemates.onrender.com/acha-quem-sumiu"/>
 <meta property="og:image" content="https://timemates.onrender.com/static/brand/og-image.svg"/>
@@ -60,6 +61,10 @@
   .feed-item .nome { font-weight:700; color:var(--ink); margin-bottom:4px; }
   .feed-item .meta { font-size:12px; color:var(--ink-dim); }
   .feed-item .lembr { margin-top:8px; color:var(--ink-dim); font-size:14px; white-space:pre-wrap; }
+  .report-btn { margin-top:10px; background:transparent; border:1px solid var(--line);
+    color:var(--ink-dim); border-radius:8px; padding:6px 12px; font-size:12px; cursor:pointer; }
+  .report-btn:hover:not(:disabled) { border-color:#ff8e8e; color:#ff8e8e; }
+  .report-btn:disabled { opacity:.7; cursor:default; }
   .ok { background: rgba(62,207,142,.12); border:1px solid var(--good);
         color:var(--good); padding: 14px; border-radius:12px; margin-top:14px; text-align:center; }
   .err { background: rgba(255,80,80,.12); border:1px solid #ff5050;
@@ -72,12 +77,12 @@
 <div class="container">
   <header>
     <h1 class="hashtag">TimeMates · #AchaQuemSumiu</h1>
-    <p class="sub">Quem você perdeu de vista — e gostaria de reencontrar?</p>
+    <p class="sub">Busca privada e respeitosa. O que você procura fica só com você — ninguém mais vê.</p>
   </header>
 
   <div class="card">
     <h2>Conta a gente</h2>
-    <p class="lede">É anônimo se você quiser. Se alguém achar, mandamos um email pra você.</p>
+    <p class="lede">Sua busca é privada. Nada disso vira lista pública. Se houver uma pista, a gente avisa <strong>só você</strong> por email — e a pessoa procurada precisa consentir antes de qualquer revelação de contato.</p>
 
     <form id="form-acha" autocomplete="off">
       <label for="nome">Nome (ou apelido) de quem você procura *</label>
@@ -92,24 +97,37 @@
       <label for="meu_nome">Seu nome (opcional)</label>
       <input id="meu_nome" name="searcher_name" maxlength="200" placeholder="Como você gostaria de ser chamado(a)" />
 
-      <label for="email">Seu email — pra avisar se achar *</label>
+      <label for="email">Seu email — é por aqui que a gente te responde *</label>
       <input id="email" name="searcher_email" type="email" required maxlength="255" placeholder="voce@exemplo.com" />
 
       <button type="submit" class="primary" id="btn-submit">Procurar essa pessoa</button>
-      <p class="privacy">Seu email não aparece no feed público. Só usamos pra te avisar.</p>
+      <p class="privacy">Sua busca não vira lista pública. Usamos seu email só pra te responder — e nunca revelamos contato de ninguém sem o consentimento da pessoa.</p>
     </form>
 
     <div id="feedback"></div>
   </div>
 
   <div class="card">
-    <h2>Quem o Brasil tá procurando agora</h2>
-    <p class="lede">Últimos 20 pedidos. Reconheceu alguém? Manda essa página pra quem pode ajudar.</p>
-    <div id="feed">Carregando...</div>
+    <h2>Seus pedidos</h2>
+    <p class="lede">Só você vê esta lista. Digite o email que você usou pra buscar e a gente mostra os seus pedidos aqui — ninguém mais tem acesso.</p>
+    <form id="form-meus" autocomplete="off">
+      <label for="meus_email">Seu email de busca</label>
+      <input id="meus_email" name="meus_email" type="email" maxlength="255" placeholder="voce@exemplo.com" />
+      <button type="submit" class="primary" id="btn-meus" style="margin-top:14px">Ver meus pedidos</button>
+    </form>
+    <div id="feed" style="margin-top:18px">
+      <div class="feed-item" style="text-align:center;color:var(--ink-dim)">Seus pedidos aparecem aqui — ninguém mais vê.</div>
+    </div>
+  </div>
+
+  <div class="card" style="text-align:center">
+    <h2>Não quer ser procurado(a)?</h2>
+    <p class="lede" style="margin-bottom:0">Qualquer pessoa pode pedir pra não ser listada nem procurada. Sem login, sem CPF.</p>
+    <p style="margin:14px 0 0"><a href="/desaparecer"><strong>Não quer ser procurado? Clique aqui →</strong></a></p>
   </div>
 
   <footer>
-    <a href="/">Conheça o TimeMates →</a> · <a href="/privacy">Privacidade</a> · <a href="/terms">Termos</a>
+    <a href="/">Conheça o TimeMates →</a> · <a href="/desaparecer">Direito a desaparecer</a> · <a href="/privacy">Privacidade</a> · <a href="/terms">Termos</a>
   </footer>
 </div>
 
@@ -119,27 +137,65 @@
   const btn  = document.getElementById('btn-submit');
   const fb   = document.getElementById('feedback');
   const feed = document.getElementById('feed');
+  const formMeus = document.getElementById('form-meus');
+  const btnMeus  = document.getElementById('btn-meus');
+  const inputMeus = document.getElementById('meus_email');
 
-  function loadFeed(){
-    fetch('/api/acha-quem-sumiu/feed').then(r=>r.json()).then(data=>{
+  const EMPTY_STATE = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Seus pedidos aparecem aqui — ninguém mais vê.</div>';
+
+  function loadFeed(email){
+    email = (email || '').trim();
+    if(!email){
+      feed.innerHTML = EMPTY_STATE;
+      return;
+    }
+    feed.innerHTML = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Carregando seus pedidos...</div>';
+    // Feed privado: o backend só retorna os pedidos deste email.
+    fetch('/api/acha-quem-sumiu/feed?searcher_email=' + encodeURIComponent(email)).then(r=>r.json()).then(data=>{
       if(!data || !data.entries || !data.entries.length){
-        feed.innerHTML = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Seja o primeiro a procurar.</div>';
+        feed.innerHTML = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Nenhum pedido neste email ainda. Só você vê esta lista.</div>';
         return;
       }
-      feed.innerHTML = data.entries.map(e=>{
-        const who = e.searcher_name ? e.searcher_name + ' procura' : 'Alguém procura';
+      feed.innerHTML = data.entries.map((e,i)=>{
         const when = e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : '';
         const lembr = e.ultima_lembranca || e.contexto || '';
+        const ref = e.id != null ? e.id : ('item-'+i);
         return '<div class="feed-item">'
              +   '<div class="nome">'+ escapeHtml(e.nome_procurado) +'</div>'
-             +   '<div class="meta">'+ escapeHtml(who) +' · '+ when +'</div>'
+             +   '<div class="meta">Seu pedido'+ (when ? ' · '+ when : '') +'</div>'
              +   (lembr ? '<div class="lembr">'+ escapeHtml(lembr) +'</div>' : '')
+             +   '<button type="button" class="report-btn" data-ref="'+ escapeHtml(String(ref)) +'">Denunciar</button>'
              + '</div>';
       }).join('');
     }).catch(()=>{
       feed.innerHTML = '<div class="feed-item" style="text-align:center;color:var(--ink-dim)">Não consegui carregar agora.</div>';
     });
   }
+
+  function reportItem(ref, el){
+    if(el){ el.disabled = true; el.textContent = 'Enviando...'; }
+    fetch('/api/report', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content_type:'acha', content_ref: ref }),
+    }).then(()=>{
+      if(el){ el.textContent = 'Denúncia enviada'; }
+    }).catch(()=>{
+      if(el){ el.disabled = false; el.textContent = 'Tentar de novo'; }
+    });
+  }
+
+  feed.addEventListener('click', function(ev){
+    const t = ev.target;
+    if(t && t.classList && t.classList.contains('report-btn')){
+      reportItem(t.getAttribute('data-ref'), t);
+    }
+  });
+
+  formMeus.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    loadFeed(inputMeus.value);
+  });
 
   function escapeHtml(s){
     return String(s||'').replace(/[&<>"']/g, c => ({
@@ -168,9 +224,10 @@
     }).then(async r=>{
       const data = await r.json().catch(()=>({}));
       if(r.ok && data.success){
-        fb.innerHTML = '<div class="ok">'+ escapeHtml(data.message || 'Recebemos. Se alguém encontrar, avisamos você.') +'</div>';
+        fb.innerHTML = '<div class="ok">'+ escapeHtml(data.message || 'Recebemos. Sua busca é privada — se houver uma pista, avisamos só você por email.') +'</div>';
+        const usedEmail = payload.searcher_email;
         form.reset();
-        loadFeed();
+        if(usedEmail){ inputMeus.value = usedEmail; loadFeed(usedEmail); }
       } else {
         const msg = (data && data.detail) ? data.detail : 'Não consegui enviar. Tenta de novo daqui a pouco.';
         fb.innerHTML = '<div class="err">'+ escapeHtml(msg) +'</div>';
@@ -182,8 +239,6 @@
       btn.textContent = 'Procurar essa pessoa';
     });
   });
-
-  loadFeed();
 })();
 </script>
 </body>

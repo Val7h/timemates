@@ -189,6 +189,194 @@ html, body {
   z-index: 2;
 }
 
+/* ──────────────── ENTRAR (acima da dobra) ──────────────── */
+
+.top-entry {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 90;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--warm-black);
+  background: var(--amber);
+  padding: 9px 20px;
+  border-radius: 999px;
+  text-decoration: none;
+  opacity: 0;
+  animation: fade-in-soft 1.6s ease-out 0.4s forwards;
+  transition: background 0.4s ease, transform 0.3s ease;
+  box-shadow: 0 4px 20px rgba(212, 168, 83, 0.25);
+}
+.top-entry:hover {
+  background: var(--amber-soft);
+  transform: translateY(-1px);
+}
+
+/* ──────────────── COMECE AQUI (caminho canônico) ──────────────── */
+
+.start-section {
+  padding: 12vh 24px;
+  background: linear-gradient(180deg, var(--black) 0%, #0a0604 100%);
+  position: relative;
+}
+
+.start-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.start-eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--amber);
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.start-heading {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(1.6rem, 4vw, 2.3rem);
+  font-weight: 400;
+  text-align: center;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.start-sub {
+  text-align: center;
+  font-size: clamp(0.92rem, 1.8vw, 1.05rem);
+  color: var(--text-muted);
+  font-weight: 300;
+  margin-bottom: 48px;
+}
+
+/* Primary door — the Túnel do Tempo */
+.door-primary {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(135deg, rgba(255,126,95,0.14), rgba(212,168,83,0.10));
+  border: 1px solid rgba(212,168,83,0.45);
+  border-radius: 18px;
+  padding: clamp(28px, 5vw, 44px);
+  text-align: center;
+  position: relative;
+  transition: border-color 0.5s ease, box-shadow 0.5s ease, transform 0.4s ease;
+  box-shadow: 0 0 50px rgba(255,126,95,0.10);
+}
+.door-primary:hover {
+  border-color: var(--amber-soft);
+  box-shadow: 0 0 60px rgba(255,126,95,0.20);
+  transform: translateY(-2px);
+}
+
+.door-badge {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--warm-black);
+  background: var(--amber);
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+  font-weight: 500;
+}
+
+.door-primary-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(1.5rem, 3.5vw, 2.1rem);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.door-primary-text {
+  font-size: clamp(0.95rem, 1.8vw, 1.1rem);
+  color: var(--text-muted);
+  font-weight: 300;
+  max-width: 46ch;
+  margin: 0 auto 26px;
+  line-height: 1.7;
+}
+
+.door-primary-cta {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--warm-black);
+  background: var(--amber);
+  padding: 14px 34px;
+  border-radius: 999px;
+  transition: background 0.4s ease;
+}
+.door-primary:hover .door-primary-cta {
+  background: var(--amber-soft);
+}
+
+/* Secondary doors — Mural + #AchaQuemSumiu */
+.doors-secondary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(14px, 2.5vw, 22px);
+  margin-top: 18px;
+}
+
+.door-alt {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255, 248, 231, 0.025);
+  border: 1px solid rgba(255, 248, 231, 0.10);
+  border-radius: 14px;
+  padding: clamp(18px, 3vw, 26px);
+  text-align: center;
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+.door-alt:hover {
+  border-color: rgba(212, 168, 83, 0.35);
+  background: rgba(255, 248, 231, 0.04);
+}
+
+.door-alt-tag {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.door-alt-title {
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: clamp(1.15rem, 2.4vw, 1.4rem);
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.door-alt-text {
+  font-size: clamp(0.85rem, 1.5vw, 0.95rem);
+  color: var(--text-muted);
+  font-weight: 300;
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .doors-secondary { grid-template-columns: 1fr; }
+  .top-entry { top: 14px; right: 14px; padding: 8px 16px; font-size: 0.8rem; }
+}
+
 /* ──────────────── ANIMATIONS ──────────────── */
 
 @keyframes fade-in-soft {
@@ -495,6 +683,9 @@ footer {
 </head>
 <body>
 
+<!-- Entrada visível acima da dobra -->
+<a href="/entrar" class="top-entry">Entrar</a>
+
 <!-- ═══════════════════════ HERO (30 seconds) ═══════════════════════ -->
 <section class="hero" aria-label="Início">
   <div class="hero-content">
@@ -529,6 +720,40 @@ footer {
   </div>
 
   <div class="scroll-hint">role devagar</div>
+</section>
+
+<!-- ═══════════════════════ COMECE AQUI (caminho canônico) ═══════════════════════ -->
+<section class="start-section" id="comece-aqui" aria-label="Comece aqui">
+  <div class="start-inner">
+    <div class="start-eyebrow reveal">Comece aqui</div>
+    <h2 class="start-heading serif reveal">Tem um jeito mais fácil de começar.</h2>
+    <p class="start-sub reveal">É só dar o primeiro passo. O resto a gente conduz.</p>
+
+    <!-- Porta principal -->
+    <a href="/tunel" class="door-primary reveal" aria-label="Túnel do Tempo — porta principal">
+      <span class="door-badge">Comece por aqui</span>
+      <div class="door-primary-title serif">O Túnel do Tempo</div>
+      <p class="door-primary-text">
+        Sobe uma foto antiga — da escola, da faculdade, do bairro —
+        e a gente acha a sua turma pra você.
+      </p>
+      <span class="door-primary-cta">Subir uma foto antiga</span>
+    </a>
+
+    <!-- Portas secundárias / complementares -->
+    <div class="doors-secondary">
+      <a href="/mural" class="door-alt reveal" aria-label="Mural — caminho complementar">
+        <div class="door-alt-tag">Ou explore</div>
+        <div class="door-alt-title serif">O Mural</div>
+        <p class="door-alt-text">Veja quem já voltou e deixe um recado pra quem você procura.</p>
+      </a>
+      <a href="/achaquemsumiu" class="door-alt reveal" aria-label="#AchaQuemSumiu — caminho complementar">
+        <div class="door-alt-tag">Ou peça ajuda</div>
+        <div class="door-alt-title serif">#AchaQuemSumiu</div>
+        <p class="door-alt-text">Não sabe por onde começar? Peça pra galera ajudar a achar.</p>
+      </a>
+    </div>
+  </div>
 </section>
 
 <!-- ═══════════════════════ COMO FUNCIONA ═══════════════════════ -->

@@ -936,6 +936,33 @@ class AchaQuemSumiu(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class PersonOptOut(Base):
+    """Direito a desaparecer — pessoa que NÃO quer ser procurada/encontrada
+    na plataforma. Bloqueia criação de pedidos #AchaQuemSumiu com seu nome.
+    nome é armazenado lowercased (na criação do endpoint) para match case-insensitive."""
+    __tablename__ = "person_opt_out"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String(200))  # lowercased na criação
+    email = Column(String(255), nullable=True)
+    telefone_hash = Column(String(128), nullable=True)
+    motivo = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    ativo = Column(Boolean, default=True)
+
+
+class ContentReport(Base):
+    """Denúncia de conteúdo — qualquer pessoa pode reportar conteúdo
+    impróprio/abusivo (acha, mural, match, memoria)."""
+    __tablename__ = "content_report"
+    id = Column(Integer, primary_key=True)
+    content_type = Column(String(30))  # 'acha' | 'mural' | 'match' | 'memoria'
+    content_id = Column(Integer, nullable=True)
+    descricao = Column(Text)
+    reporter_email = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    status = Column(String(20), default='aberto')
+
+
 def get_db():
     db = SessionLocal()
     try:

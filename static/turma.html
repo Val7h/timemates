@@ -170,6 +170,13 @@
       -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
     .mural-date { font-size: 11px; color: #888; margin-top: 4px; }
+    .mural-report {
+      background: transparent; border: none; color: #666;
+      font-size: 11px; cursor: pointer; padding: 4px 6px;
+      align-self: flex-start; flex-shrink: 0; transition: color 0.2s;
+    }
+    .mural-report:hover { color: #f87171; }
+    .mural-report:disabled { opacity: 0.5; cursor: default; }
 
     /* REUNIAO */
     .reuniao-card { text-align: center; padding: 8px 0; }
@@ -280,15 +287,15 @@
 </head>
 <body>
   <!-- Ghost Mode panic button (Juliana / privacidade): some agora pra TODOS. -->
-  <button id="panic-ghost" title="Sumir agora"
+  <button id="panic-ghost" title="Sair em segredo — você não perde nada, só fica invisível agora"
           style="position:fixed;top:12px;right:12px;background:rgba(255,102,102,0.15);
                  border:1px solid #ff6666;color:#ff6666;padding:8px 14px;
                  border-radius:20px;font-size:13px;cursor:pointer;z-index:999;">
-    Sumir agora
+    Sair em segredo
   </button>
   <script>
   document.getElementById('panic-ghost').onclick = async () => {
-    if (!confirm('Você vai ficar invisível pra TODOS imediatamente. Confirmar?')) return;
+    if (!confirm('Você não perde nada — só fica invisível agora. Confirmar?')) return;
     try {
       await window.tmFetch('/api/me/panic-ghost', {method:'POST'});
       alert('Pronto. Você sumiu.');
@@ -643,6 +650,7 @@
           const initial = author.charAt(0).toUpperCase();
           const text = m.text || m.content || m.message || '';
           const date = m.created_at ? formatDate(m.created_at) : '';
+          const id = m.id != null ? m.id : '';
           return `
             <div class="mural-item">
               <div class="mural-avatar">${initial}</div>
@@ -651,6 +659,7 @@
                 <div class="mural-text">${escapeHtml(text)}</div>
                 <div class="mural-date">${date}</div>
               </div>
+              <button class="mural-report" title="Denunciar" onclick="reportMural('${escapeAttr(id)}', this)">⚐ Denunciar</button>
             </div>`;
         }).join('');
       } catch {
@@ -765,6 +774,30 @@
         }
       } catch {
         alert('Sem conexão. Tente novamente.');
+      }
+    }
+
+    // -------- REPORT (content_type: 'mural') --------
+    async function reportMural(id, btn) {
+      const reason = prompt('Por que você quer denunciar esta postagem? (ofensa, mentira, exposição de alguém...)');
+      if (reason === null) return;
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/report', {
+          method: 'POST',
+          headers: tmAuthHeaders(),
+          body: JSON.stringify({
+            content_type: 'mural',
+            content_id: id,
+            reason: reason.trim(),
+          })
+        });
+        if (!res.ok) throw new Error();
+        if (btn) btn.textContent = '✓ denunciado';
+        alert('Denúncia enviada. A gente vai olhar com cuidado.');
+      } catch {
+        if (btn) btn.disabled = false;
+        alert('Não foi possível denunciar agora. Tente de novo.');
       }
     }
 
