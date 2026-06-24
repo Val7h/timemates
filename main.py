@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 import json
+import secrets
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
@@ -5777,19 +5778,201 @@ async def person_opt_out_create(
     if not nome:
         raise HTTPException(400, "Informe o nome de quem não quer ser procurado")
 
+    # Se email foi fornecido, geramos um token urlsafe e enviamos confirmação.
+    # IMPORTANTE: ativo=True IMEDIATAMENTE de qualquer jeito — a proteção não
+    # espera o clique no email (fail-safe em favor da vítima). A verificação só
+    # FORTALECE (prova de posse do email) e reduz griefing em massa.
+    verify_token = secrets.token_urlsafe(32)[:64] if email else None
+
     rec = PersonOptOut(
         nome=nome.lower(),  # lowercased para match case-insensitive
         email=email,
         motivo=motivo,
         ativo=True,
+        verified=False,
+        verify_token=verify_token,
     )
     db.add(rec)
     db.commit()
     db.refresh(rec)
+
+    email_sent = False
+    if email and verify_token:
+        confirm_url = f"{BASE_URL}/api/opt-out/confirm?token={verify_token}"
+        try:
+            from email_service_sendgrid import _send_via_sendgrid
+            subject = "Confirme seu pedido de privacidade — TimeMates"
+            html = f"""
+            <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+                <h1 style="color: #d4a853;">Recebemos seu pedido.</h1>
+                <p>Você pediu para <strong>não ser procurada(o)</strong> no TimeMates.
+                Isso já está valendo — ninguém te encontra a partir de agora.</p>
+                <p>Para confirmar que este email é seu (e poder gerenciar o pedido depois),
+                clique abaixo:</p>
+                <a href="{confirm_url}" style="display:inline-block; background:#d4a853; color:#000; padding:12px 24px; text-decoration:none; border-radius:8px; margin-top:16px;">Confirmar meu pedido</a>
+                <p style="margin-top:32px; font-size:13px; color:#888;">Se não foi você, pode ignorar — nada foi exposto sobre você.</p>
+            </div>
+            """
+            result = _send_via_sendgrid(email, nome, subject, html)
+            email_sent = bool(result.get("sent"))
+        except Exception:
+            logger.exception("[OPTOUT] Falha ao enviar email de confirmação")
+
     return {
         "success": True,
         "id": rec.id,
+        "email_confirmation_sent": email_sent,
         "message": "Registramos seu pedido. Você não será procurada(o) na plataforma.",
+    }
+
+
+@app.get("/api/opt-out/confirm", response_class=HTMLResponse)
+@limiter.limit("20/hour")
+async def person_opt_out_confirm(
+    request: Request,
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """✅ Confirma posse do email de um pedido de opt-out. Sem auth.
+
+    Acha o PersonOptOut pelo verify_token, marca verified=True, limpa o token.
+    Não derruba a proteção em caso de token inválido — a proteção por nome já
+    valia desde a criação. Retorna HTML acolhedor."""
+    token = (token or "").strip()[:64]
+    rec = None
+    if token:
+        rec = db.query(PersonOptOut).filter(
+            PersonOptOut.verify_token == token
+        ).first()
+
+    if not rec:
+        html_fail = """
+        <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:48px auto;padding:24px;text-align:center;">
+            <h1 style="color:#d4a853;">Link expirado ou já usado</h1>
+            <p>Tudo bem — se você já tinha pedido para sumir, isso continua valendo.</p>
+        </div>
+        """
+        return HTMLResponse(content=html_fail, status_code=404, headers=_NOINDEX_HEADERS)
+
+    rec.verified = True
+    rec.verified_at = datetime.utcnow()
+    rec.verify_token = None  # token de uso único
+    rec.ativo = True  # reforço: segue ativo
+    db.commit()
+
+    html_ok = """
+    <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:48px auto;padding:24px;text-align:center;">
+        <h1 style="color:#d4a853;">Pronto.</h1>
+        <p style="font-size:18px;">Você não será procurada(o).</p>
+        <p style="color:#888;margin-top:24px;">Seu pedido de privacidade está confirmado.
+        Ninguém te encontra no TimeMates — e seu rosto, se você o cadastrou, não aparece em nenhuma busca.</p>
+    </div>
+    """
+    return HTMLResponse(content=html_ok, headers=_NOINDEX_HEADERS)
+
+
+@app.post("/api/opt-out/face")
+@limiter.limit("5/hour")
+async def person_opt_out_face(
+    request: Request,
+    foto: UploadFile = File(...),
+    nome: str = Form(...),
+    email: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """🔒 Opt-out FACIAL: bloqueie seu PRÓPRIO ROSTO de aparecer em qualquer busca.
+
+    Sem auth. Qualquer pessoa (usuária ou não) pode subir UMA foto do próprio
+    rosto. Detectamos o rosto, extraímos o embedding e cadastramos como opt-out
+    facial ativo. A partir daí o motor de matching suprime qualquer candidato que
+    bata com este rosto, e uploads de TERCEIROS não retêm o embedding dele.
+
+    LGPD: a FOTO enviada é APAGADA imediatamente após extrair o embedding — não
+    retemos a imagem, só o vetor necessário para suprimir o rosto nas buscas.
+    Rate-limit: 5/hora (anti-abuso)."""
+    nome = (nome or "").strip()[:200]
+    email = (email or "").strip()[:255] or None
+    if not nome:
+        raise HTTPException(400, "Informe seu nome.")
+
+    # Salva temporariamente para a detecção (que lê de path).
+    tmp_dir = "uploads/optout_tmp"
+    os.makedirs(tmp_dir, exist_ok=True)
+    ext = "jpg"
+    if foto.content_type and "/" in foto.content_type:
+        ext = foto.content_type.split("/")[-1].replace("jpeg", "jpg")
+    tmp_path = os.path.join(tmp_dir, f"{uuid.uuid4().hex}.{ext}")
+    contents = await foto.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(400, "Foto muito grande. Máximo 10MB.")
+    with open(tmp_path, "wb") as fh:
+        fh.write(contents)
+
+    faces = []
+    try:
+        import tunel_detection
+        try:
+            result = tunel_detection.process_upload(tmp_path)
+            faces = result.get("faces", [])
+        except Exception:
+            logger.exception("[OPTOUT-FACE] Falha na detecção facial")
+            faces = []
+
+        if len(faces) == 0:
+            raise HTTPException(
+                400,
+                "Não encontramos um rosto na foto. Envie uma foto nítida, com seu rosto claro.",
+            )
+        if len(faces) > 1:
+            raise HTTPException(
+                400,
+                "Encontramos mais de um rosto. Envie uma foto com apenas o SEU rosto, bem claro.",
+            )
+
+        face = faces[0]
+        embedding = face.get("embedding")
+        embedding_model = face.get("embedding_model")
+        if not embedding:
+            raise HTTPException(
+                400,
+                "Não conseguimos processar seu rosto. Tente outra foto bem iluminada.",
+            )
+
+        # Cria OU atualiza (por nome+email) o opt-out facial.
+        from sqlalchemy import func as _optout_func
+        nome_lc = nome.lower()
+        q = db.query(PersonOptOut).filter(_optout_func.lower(PersonOptOut.nome) == nome_lc)
+        if email:
+            q = q.filter(PersonOptOut.email == email)
+        else:
+            q = q.filter(PersonOptOut.email.is_(None))
+        rec = q.first()
+
+        if rec is None:
+            rec = PersonOptOut(
+                nome=nome_lc,
+                email=email,
+                ativo=True,
+                verified=False,
+            )
+            db.add(rec)
+        rec.ativo = True
+        rec.face_embedding = embedding
+        rec.embedding_model = embedding_model
+        db.commit()
+        db.refresh(rec)
+        opt_id = rec.id
+    finally:
+        # LGPD: NÃO retemos a imagem. Apaga a foto enviada após extrair o embedding.
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "id": opt_id,
+        "message": "Seu rosto virou um cadeado. A partir de agora ele não aparece em nenhuma busca.",
     }
 
 

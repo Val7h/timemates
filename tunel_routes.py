@@ -126,6 +126,14 @@ try:
 except Exception:
     MATCHING_AVAILABLE = False
 
+# Opt-out facial: usado para NÃO-RETENÇÃO de embeddings de quem optou por sair,
+# mesmo quando o rosto vem num upload de TERCEIRO (LGPD + cumprimento do opt-out).
+try:
+    from tunel_matching import is_face_opted_out, _load_opted_out_faces
+    OPTOUT_SUPPRESSION_AVAILABLE = True
+except Exception:
+    OPTOUT_SUPPRESSION_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -144,7 +152,22 @@ def _run_detection(upload: TunelUpload, db: Session) -> int:
         faces = result.get('faces', [])
         # Limpa faces antigas antes de re-inserir (caso seja re-trigger)
         db.query(TunelFace).filter(TunelFace.upload_id == upload.id).delete()
+        # OPT-OUT FACIAL / NÃO-RETENÇÃO (LGPD): carrega rostos suprimidos UMA vez.
+        # Se um rosto detectado bate com alguém que pediu opt-out facial, NÃO
+        # armazenamos seu embedding — assim o rosto de quem optou por sair não é
+        # retido nem vira candidato de busca, mesmo vindo de upload de terceiro.
+        _optout_cache = _load_opted_out_faces(db) if OPTOUT_SUPPRESSION_AVAILABLE else []
         for f in faces:
+            _emb = f.get('embedding')
+            # Cumprimento do opt-out facial: suprime o embedding deste rosto.
+            if _emb and OPTOUT_SUPPRESSION_AVAILABLE and is_face_opted_out(
+                db, _emb, _cache=_optout_cache
+            ):
+                logger.info(
+                    f"[OPTOUT-FACIAL] Face suprimida (não-retenção) no upload {upload.id}, "
+                    f"index {f['face_index']}"
+                )
+                _emb = None  # não reter embedding (LGPD)
             face_row = TunelFace(
                 upload_id=upload.id,
                 face_index=f['face_index'],
@@ -152,8 +175,8 @@ def _run_detection(upload: TunelUpload, db: Session) -> int:
                 bbox_y=f['bbox_y'],
                 bbox_w=f['bbox_w'],
                 bbox_h=f['bbox_h'],
-                embedding=f.get('embedding'),
-                embedding_model=f.get('embedding_model'),
+                embedding=_emb,
+                embedding_model=f.get('embedding_model') if _emb else None,
                 confidence=f.get('confidence'),
             )
             db.add(face_row)

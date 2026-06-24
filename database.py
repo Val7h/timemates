@@ -939,7 +939,23 @@ class AchaQuemSumiu(Base):
 class PersonOptOut(Base):
     """Direito a desaparecer — pessoa que NÃO quer ser procurada/encontrada
     na plataforma. Bloqueia criação de pedidos #AchaQuemSumiu com seu nome.
-    nome é armazenado lowercased (na criação do endpoint) para match case-insensitive."""
+    nome é armazenado lowercased (na criação do endpoint) para match case-insensitive.
+
+    OPT-OUT FACIAL (migration 020): além do bloqueio por NOME, a pessoa pode
+    bloquear o PRÓPRIO ROSTO de aparecer em qualquer busca facial — inclusive
+    em fotos que TERCEIROS subam. face_embedding guarda o vetor do rosto; o motor
+    de matching (tunel_matching.is_face_opted_out) suprime QUALQUER candidato cujo
+    embedding bata com este acima de SUPPRESS_THRESHOLD, e o upload de terceiros
+    NÃO retém o embedding desse rosto (LGPD: não-retenção de quem optou por sair).
+
+    DESIGN — fail-safe em favor da proteção:
+      O opt-out por NOME fica ATIVO IMEDIATAMENTE (ativo=True na criação): a
+      vítima de stalking/assédio não pode esperar um clique de confirmação por
+      email. O campo `verified` apenas FORTALECE (prova de posse do email,
+      permite gerenciar/revogar depois) — NÃO é pré-requisito pra proteção.
+      Risco de opt-out malicioso em nome de terceiro é baixo, porque opt-out só
+      IMPEDE achar — nunca expõe ninguém. A verificação por email serve só pra
+      reduzir griefing em massa, não pra atrasar a proteção."""
     __tablename__ = "person_opt_out"
     id = Column(Integer, primary_key=True)
     nome = Column(String(200))  # lowercased na criação
@@ -948,6 +964,13 @@ class PersonOptOut(Base):
     motivo = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     ativo = Column(Boolean, default=True)
+    # ─── Opt-out facial (migration 020) ───────────────────────────────────────
+    face_embedding = Column(JSON, nullable=True)  # vetor do rosto a suprimir
+    embedding_model = Column(String(50), nullable=True)  # ex.: 'arcface_buffalo_l_v1'
+    # verified: confirmou posse do email. NÃO gate de proteção (ativo já é True).
+    verified = Column(Boolean, default=False)
+    verify_token = Column(String(64), nullable=True)  # token urlsafe de confirmação
+    verified_at = Column(DateTime, nullable=True)
 
 
 class ContentReport(Base):

@@ -47,6 +47,19 @@
   }
   button.primary:disabled { opacity:.6; cursor:wait; }
   .privacy { font-size:12px; color:var(--ink-dim); margin-top:10px; text-align:center; }
+  .hint { font-size:12px; color:var(--ink-dim); margin:6px 0 0; }
+  .face-note { background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+               padding:14px 16px; margin:0 0 18px; font-size:14px; color:var(--ink-dim); }
+  .face-note strong { color:var(--ink); }
+  .file-row { display:flex; flex-direction:column; gap:8px; }
+  input[type=file] { padding:10px 14px; cursor:pointer; }
+  input[type=file]::file-selector-button {
+    background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    border-radius:8px; padding:8px 12px; margin-right:12px; cursor:pointer; font:inherit;
+  }
+  .loading { background: rgba(255,184,77,.10); border:1px solid var(--accent);
+             color:var(--accent); padding: 16px; border-radius:12px; margin-top:14px;
+             text-align:center; font-size:15px; }
   .ok { background: rgba(62,207,142,.12); border:1px solid var(--good);
         color:var(--good); padding: 18px; border-radius:12px; margin-top:14px; text-align:center; font-size:15px; }
   .err { background: rgba(255,80,80,.12); border:1px solid #ff5050;
@@ -77,6 +90,7 @@
 
       <label for="email">Email (opcional)</label>
       <input id="email" name="email" type="email" maxlength="255" placeholder="Só se quiser que a gente confirme com você" />
+      <p class="hint">Se você informar email, mandamos um link de confirmação — mas seu pedido já vale na hora.</p>
 
       <label for="motivo">Motivo (opcional)</label>
       <textarea id="motivo" name="motivo" maxlength="2000" placeholder="Você não precisa explicar nada. Mas se quiser dizer algo, estamos ouvindo."></textarea>
@@ -86,6 +100,36 @@
     </form>
 
     <div id="feedback"></div>
+  </div>
+
+  <div class="card">
+    <h2>Proteção mais forte: bloquear meu rosto</h2>
+    <p class="lede">Opcional. Esse passo deixa o bloqueio ainda mais difícil de furar.</p>
+
+    <div class="face-note">
+      Se quiser, envie uma foto sua. Seu rosto vira um <strong>cadeado</strong> e nunca mais
+      aparece em nenhuma busca — nem em fotos que outras pessoas subam. A foto é
+      <strong>apagada na hora</strong>, assim que vira código. <strong>Não guardamos a imagem.</strong>
+    </div>
+
+    <form id="form-face" autocomplete="off">
+      <div class="file-row">
+        <label for="foto">Sua foto (selfie ou da galeria) *</label>
+        <input id="foto" name="foto" type="file" accept="image/*" capture="user" required />
+      </div>
+
+      <label for="face-nome">Seu nome *</label>
+      <input id="face-nome" name="nome" required maxlength="200" placeholder="O nome pelo qual alguém poderia te procurar" />
+
+      <label for="face-email">Email (opcional)</label>
+      <input id="face-email" name="email" type="email" maxlength="255" placeholder="Só se quiser que a gente confirme com você" />
+      <p class="hint">Se você informar email, mandamos um link de confirmação — mas seu pedido já vale na hora.</p>
+
+      <button type="submit" class="primary" id="btn-face">Transformar meu rosto em cadeado</button>
+      <p class="privacy">A imagem é apagada assim que vira código. Não guardamos a foto.</p>
+    </form>
+
+    <div id="feedback-face"></div>
   </div>
 
   <footer>
@@ -135,6 +179,58 @@
     }).finally(()=>{
       btn.disabled = false;
       btn.textContent = 'Pedir para não ser encontrado(a)';
+    });
+  });
+
+  // ---- Bloqueio por rosto ----
+  const faceForm = document.getElementById('form-face');
+  const faceBtn  = document.getElementById('btn-face');
+  const faceFb   = document.getElementById('feedback-face');
+
+  faceForm.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    faceFb.innerHTML = '';
+
+    const foto  = document.getElementById('foto').files[0];
+    const nome  = document.getElementById('face-nome').value.trim();
+    const email = document.getElementById('face-email').value.trim();
+
+    if(!foto){
+      faceFb.innerHTML = '<div class="err">Escolha uma foto sua para continuar.</div>';
+      return;
+    }
+
+    faceBtn.disabled = true;
+    faceBtn.textContent = 'Transformando seu rosto em cadeado...';
+    faceFb.innerHTML = '<div class="loading">Transformando seu rosto em cadeado...</div>';
+
+    const fd = new FormData();
+    fd.append('foto', foto);
+    fd.append('nome', nome);
+    if(email) fd.append('email', email);
+
+    fetch('/api/opt-out/face', {
+      method:'POST',
+      body: fd,
+    }).then(async r=>{
+      const data = await r.json().catch(()=>({}));
+      if(r.ok && (data.success === undefined || data.success)){
+        faceForm.style.display = 'none';
+        faceFb.innerHTML = '<div class="ok">'+ escapeHtml(data.message || 'Pronto. Seu rosto agora é um cadeado e não vai aparecer em nenhuma busca — nem em fotos que outras pessoas subam. A imagem já foi apagada. Você está seguro(a) aqui.') +'</div>';
+      } else if(r.status === 400){
+        const msg = (data && data.detail)
+          ? data.detail
+          : 'Não consegui reconhecer o rosto. Envie uma foto com só o seu rosto, bem visível e de frente — sem mais ninguém na imagem.';
+        faceFb.innerHTML = '<div class="err">'+ escapeHtml(msg) +'</div>';
+      } else {
+        const msg = (data && data.detail) ? data.detail : 'Não consegui registrar agora. Tenta de novo daqui a pouco.';
+        faceFb.innerHTML = '<div class="err">'+ escapeHtml(msg) +'</div>';
+      }
+    }).catch(()=>{
+      faceFb.innerHTML = '<div class="err">Erro de rede. Tenta de novo.</div>';
+    }).finally(()=>{
+      faceBtn.disabled = false;
+      faceBtn.textContent = 'Transformar meu rosto em cadeado';
     });
   });
 })();

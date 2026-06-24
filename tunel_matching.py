@@ -17,9 +17,54 @@ import numpy as np
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from database import TunelFace, TunelUpload, User, TurmaMembership
+from database import TunelFace, TunelUpload, User, TurmaMembership, PersonOptOut
 
 logger = logging.getLogger(__name__)
+
+# ─── Opt-out facial (supressão) ───────────────────────────────────────────────
+# LIMIAR CONSERVADOR: deliberadamente mais agressivo (mais baixo) que o de match
+# (0.85). Erramos a favor da PROTEÇÃO: se há dúvida razoável de que o candidato é
+# a pessoa que pediu para sumir, suprimimos. Um falso-positivo aqui só esconde um
+# rosto a mais de uma busca; um falso-negativo expõe quem explicitamente pediu
+# privacidade — assimetria de dano que justifica o limiar baixo.
+SUPPRESS_THRESHOLD = 0.80
+
+
+def _load_opted_out_faces(db: Session) -> List[Dict]:
+    """Carrega UMA vez a lista de rostos com opt-out facial ativo.
+
+    Retorna lista de dicts {embedding, model}. Chamada UMA vez por busca (não por
+    candidato) para evitar re-query em loop — ver uso cacheado abaixo.
+    """
+    rows = db.query(PersonOptOut).filter(
+        PersonOptOut.ativo == True,  # noqa: E712
+        PersonOptOut.face_embedding.isnot(None),
+    ).all()
+    return [{'embedding': r.face_embedding, 'model': r.embedding_model} for r in rows]
+
+
+def is_face_opted_out(db: Session, embedding: List[float], _cache: Optional[List[Dict]] = None) -> bool:
+    """True se `embedding` bate com ALGUM rosto que pediu opt-out facial (>= SUPPRESS_THRESHOLD).
+
+    Compara o embedding candidato contra TODOS os PersonOptOut ativos com
+    face_embedding não-nulo via cosine_similarity. Usado para:
+      - SUPRIMIR candidatos no motor de busca (find_matches_*).
+      - NÃO-RETER o embedding no upload de terceiros (tunel_routes).
+
+    `_cache`: passe a lista de _load_opted_out_faces(db) para evitar re-query por
+    candidato dentro de um loop. Se None, faz a query (caminho de chamada única,
+    ex.: no upload).
+    """
+    if not embedding:
+        return False
+    opted = _cache if _cache is not None else _load_opted_out_faces(db)
+    for o in opted:
+        oe = o.get('embedding')
+        if not oe:
+            continue
+        if cosine_similarity(embedding, oe) >= SUPPRESS_THRESHOLD:
+            return True
+    return False
 
 # Rate limit: 10 matches/dia/user (in-memory; replace with Redis in prod).
 _RATE_LIMIT_PER_DAY = 10
@@ -83,12 +128,19 @@ def find_matches_for_face(
         ).all()
     )
 
+    # Opt-out facial: carrega rostos suprimidos UMA vez por busca (não por candidato).
+    opted_out_cache = _load_opted_out_faces(db)
+
     results = []
     for cand in candidates:
         if not cand.embedding:
             continue
         sim = cosine_similarity(target_embedding, cand.embedding)
         if sim < threshold:
+            continue
+        # OPT-OUT FACIAL: se o rosto do candidato pediu para sumir, suprime ANTES
+        # de qualquer outro filtro. Ninguém com opt-out facial vira resultado.
+        if is_face_opted_out(db, cand.embedding, _cache=opted_out_cache):
             continue
         # Pegar owner da face via upload
         owner = db.query(User).join(
@@ -185,6 +237,7 @@ def find_matches_v2(
     # Sobre-buscamos (limit * 3) pra ter folga após filtros de privacidade
     rows = db.execute(text('''
         SELECT f.id, f.upload_id, f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h,
+               f.embedding AS cand_embedding,
                1 - (f.embedding_vec <=> CAST(:emb AS vector)) AS similarity,
                u.user_id AS owner_id
         FROM tunel_faces f
@@ -207,10 +260,25 @@ def find_matches_v2(
         ).all()
     )
 
+    # Opt-out facial: carrega rostos suprimidos UMA vez por busca (não por candidato).
+    opted_out_cache = _load_opted_out_faces(db)
+
     results = []
     for r in rows:
         sim = float(r.similarity)
         if sim < threshold:
+            continue
+        # OPT-OUT FACIAL: suprime QUALQUER candidato cujo rosto pediu para sumir.
+        # A query traz f.embedding (JSON) p/ checar sem re-query por candidato.
+        # O JSON pode voltar como str (alguns drivers) ou já parseado — normaliza.
+        cand_emb = r.cand_embedding
+        if isinstance(cand_emb, str):
+            try:
+                import json as _json
+                cand_emb = _json.loads(cand_emb)
+            except Exception:
+                cand_emb = None
+        if cand_emb and is_face_opted_out(db, cand_emb, _cache=opted_out_cache):
             continue
         owner = db.query(User).filter(User.id == r.owner_id).first()
         if not owner:
