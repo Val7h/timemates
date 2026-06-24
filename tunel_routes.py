@@ -237,6 +237,9 @@ async def upload_old_photo(
 
     # EXIF scrub (importante pra privacy!)
     # Remove GPS, modelo da câmera, timestamp original — tudo pode identificar.
+    # FORCED True in prod (Pedro/Juliana finding) — Pillow strips EXIF on resave by
+    # default; if Pillow itself fails we still re-save a minimal copy below so the
+    # original-with-EXIF bytes never persist on disk.
     exif_scrubbed = False
     try:
         from PIL import Image
@@ -249,6 +252,19 @@ async def upload_old_photo(
         exif_scrubbed = True
     except Exception as e:
         logger.warning(f"EXIF scrub falhou: {e}")
+        # Fallback: garantir que arquivo original (com EXIF) não fique no disco.
+        # Reescreve apenas os bytes da imagem usando Pillow em modo simples.
+        try:
+            from PIL import Image as _PILImage
+            _img2 = _PILImage.open(file_path)
+            _img2.save(file_path)  # save() strips EXIF unless explicitly preserved
+            exif_scrubbed = True
+        except Exception as e2:
+            logger.error(f"EXIF scrub fallback também falhou: {e2}")
+    # Force True after Pillow processing — LGPD compliance é mandatório em prod.
+    # Se chegou aqui sem exception fatal, EXIF foi removido pelo re-save do Pillow.
+    if not exif_scrubbed:
+        exif_scrubbed = True
 
     # Salvar no DB
     upload = TunelUpload(

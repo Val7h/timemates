@@ -992,6 +992,26 @@ body::before {
 </head>
 <body>
 
+<!-- Ghost Mode panic button (Juliana / privacidade): some agora pra TODOS. -->
+<button id="panic-ghost" title="Sumir agora"
+        style="position:fixed;top:12px;right:12px;background:rgba(255,102,102,0.15);
+               border:1px solid #ff6666;color:#ff6666;padding:8px 14px;
+               border-radius:20px;font-size:13px;cursor:pointer;z-index:999;">
+  Sumir agora
+</button>
+<script>
+document.getElementById('panic-ghost').onclick = async () => {
+  if (!confirm('Você vai ficar invisível pra TODOS imediatamente. Confirmar?')) return;
+  try {
+    await window.tmFetch('/api/me/panic-ghost', {method:'POST'});
+    alert('Pronto. Você sumiu.');
+    location.href = '/';
+  } catch (e) {
+    alert('Erro. Tenta de novo.');
+  }
+};
+</script>
+
 <div id="tm-login-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;padding:24px;">
   <div style="background:#0a0a0a;border:1px solid #d4a853;border-radius:12px;padding:32px;max-width:420px;width:100%;color:#fff8e7;">
     <h2 style="color:#d4a853;font-family:'Crimson Text',serif;margin:0 0 16px;">Pra usar o Túnel, faz login rapidinho</h2>
@@ -1009,7 +1029,11 @@ body::before {
       <input type="text" name="full_name" placeholder="Seu nome completo" required class="tm-input">
       <input type="email" name="email" placeholder="Email" required class="tm-input">
       <input type="password" name="password" placeholder="Senha (min 8 chars)" required minlength="8" class="tm-input">
-      <input type="text" name="cpf" placeholder="CPF (só números)" required pattern="[0-9]{11}" class="tm-input">
+      <details style="font-size:13px;color:#aaa;">
+        <summary style="cursor:pointer;padding:4px 0;">Avançado: adicionar CPF (opcional)</summary>
+        <input type="text" name="cpf" placeholder="CPF (só números) — opcional" pattern="[0-9]{11}" class="tm-input" style="margin-top:8px;">
+        <p style="font-size:12px;color:#888;margin-top:4px;">Pra futura verificação de turma — não obrigatório agora.</p>
+      </details>
       <input type="tel" name="phone" placeholder="Celular com DDD" required class="tm-input">
       <label style="font-size:13px;color:#aaa;display:flex;gap:8px;align-items:flex-start;">
         <input type="checkbox" required style="margin-top:3px;">
@@ -1932,10 +1956,13 @@ document.addEventListener('DOMContentLoaded', () => {
         errors.push('Senha precisa ter pelo menos 8 caracteres');
       }
       const cpfRaw = (data.get('cpf') || '').replace(/\D/g, '');
-      if (cpfRaw.length !== 11) {
-        errors.push('CPF precisa ter 11 dígitos');
-      } else if (!isValidCPF(cpfRaw)) {
-        errors.push('CPF inválido (verifique os dígitos)');
+      // CPF is optional now — only validate if user provided one
+      if (cpfRaw.length > 0) {
+        if (cpfRaw.length !== 11) {
+          errors.push('Se for preencher o CPF, precisa ter 11 dígitos');
+        } else if (!isValidCPF(cpfRaw)) {
+          errors.push('CPF inválido (verifique os dígitos)');
+        }
       }
       const phoneRaw = (data.get('phone') || '').replace(/\D/g, '');
       if (phoneRaw.length < 10) {

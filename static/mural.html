@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="robots" content="noindex,nofollow"/>
 <title>Mural da Saudade — TimeMates</title>
 <meta name="description" content="Cheiros, sons, lugares, pessoas. A turma lembra junto."/>
 <meta name="theme-color" content="#0a0a0a"/>
@@ -853,6 +854,26 @@ body.mural-read-only .fab-cade { display: none !important; }
 </style>
 </head>
 <body>
+
+<!-- Ghost Mode panic button (Juliana / privacidade): some agora pra TODOS. -->
+<button id="panic-ghost" title="Sumir agora"
+        style="position:fixed;top:12px;right:12px;background:rgba(255,102,102,0.15);
+               border:1px solid #ff6666;color:#ff6666;padding:8px 14px;
+               border-radius:20px;font-size:13px;cursor:pointer;z-index:999;">
+  Sumir agora
+</button>
+<script>
+document.getElementById('panic-ghost').onclick = async () => {
+  if (!confirm('Você vai ficar invisível pra TODOS imediatamente. Confirmar?')) return;
+  try {
+    await window.tmFetch('/api/me/panic-ghost', {method:'POST'});
+    alert('Pronto. Você sumiu.');
+    location.href = '/';
+  } catch (e) {
+    alert('Erro. Tenta de novo.');
+  }
+};
+</script>
 
 <div class="app" id="app">
 

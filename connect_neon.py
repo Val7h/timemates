@@ -6,7 +6,26 @@ import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 import os
-os.environ['DATABASE_URL'] = 'postgresql://neondb_owner:npg_xNUu0XRF2HmD@ep-soft-morning-apoyasgn.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require'
+
+# SECURITY: DATABASE_URL must come from environment variable (.env file or shell)
+# DO NOT hardcode credentials here. Previous versions of this file leaked the
+# Neon DATABASE_URL into git history (commits 2905930, 5950dd2) - that credential
+# has since been rotated. See SECRETS_ROTATION_PLAN.md for details.
+if not os.environ.get('DATABASE_URL'):
+    # Auto-load from .env if available
+    _env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(_env_path):
+        with open(_env_path, encoding="utf-8") as _ef:
+            for _line in _ef:
+                _line = _line.strip()
+                if _line.startswith("DATABASE_URL="):
+                    os.environ['DATABASE_URL'] = _line.split("=", 1)[1].strip()
+                    break
+
+if not os.environ.get('DATABASE_URL'):
+    raise RuntimeError(
+        "DATABASE_URL not set. Add it to .env or export it before running this script."
+    )
 
 print("\n" + "="*80)
 print("POPULANDO NEON REMOTAMENTE")

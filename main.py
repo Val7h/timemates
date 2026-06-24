@@ -6018,31 +6018,37 @@ async def homepage_v2_compat():
     """Backwards-compat: /v2 continua servindo a mesma homepage V2."""
     return FileResponse("static/index_v2.html")
 
+# Privacy hardening (Juliana finding): páginas internas de turma/mural/reunião/túnel
+# NUNCA podem ser indexadas pelo Google — risco de exposure de slugs de turma,
+# nomes em memórias do mural, etc. Header X-Robots-Tag complementa o <meta robots>
+# nas próprias páginas e o robots.txt; defense-in-depth.
+_NOINDEX_HEADERS = {"X-Robots-Tag": "noindex, nofollow, noarchive, nosnippet"}
+
 @app.get("/tunel", response_class=FileResponse)
 async def tunel_page():
     """Túnel do Tempo: upload de foto antiga + reconexão via face match."""
-    return FileResponse("static/tunel.html")
+    return FileResponse("static/tunel.html", headers=_NOINDEX_HEADERS)
 
 @app.get("/turma/{turma_slug}", response_class=FileResponse)
 async def turma_page(turma_slug: str):
     """Turma Hub: page central da turma integrando Mural, Reunião, Cadê e Túnel."""
-    return FileResponse("static/turma.html")
+    return FileResponse("static/turma.html", headers=_NOINDEX_HEADERS)
 
 @app.get("/reuniao/nova", response_class=FileResponse)
 async def reuniao_nova_page():
     """Reunião Button: criar nova reunião (vota datas com a turma)."""
-    return FileResponse("static/reuniao.html")
+    return FileResponse("static/reuniao.html", headers=_NOINDEX_HEADERS)
 
 @app.get("/reuniao/{reuniao_id:int}", response_class=FileResponse)
 async def reuniao_detail_page(reuniao_id: int):
     """Reunião Button: detalhe da reunião (votação, RSVP, share)."""
-    return FileResponse("static/reuniao.html")
+    return FileResponse("static/reuniao.html", headers=_NOINDEX_HEADERS)
 
 @app.get("/mural", response_class=FileResponse)
 @app.get("/mural/{turma_slug}", response_class=FileResponse)
 async def mural_page(turma_slug: str = None):
     """Mural da Saudade: feed de memórias coletivas (cheiros, sons, lugares, pessoas)."""
-    return FileResponse("static/mural.html")
+    return FileResponse("static/mural.html", headers=_NOINDEX_HEADERS)
 
 @app.get("/acha-quem-sumiu", response_class=FileResponse)
 async def acha_quem_sumiu_page():
@@ -6076,9 +6082,21 @@ async def _global_exception_handler(request: Request, exc: Exception):
     )
 
 # Proper robots.txt (was hitting SPA catch-all and returning HTML)
+# Privacy hardening (Juliana finding): bloqueia indexação de /turma /mural /reuniao /tunel
+# pelo Google — turma slugs e memórias do mural eram indexáveis (privacy disaster).
 @app.get("/robots.txt", include_in_schema=False)
 def robots_txt():
-    body = "User-agent: *\nAllow: /\nSitemap: https://timemates.onrender.com/sitemap.xml\n"
+    body = (
+        "User-agent: *\n"
+        "Disallow: /turma/\n"
+        "Disallow: /mural/\n"
+        "Disallow: /reuniao/\n"
+        "Disallow: /tunel/\n"
+        "Allow: /\n"
+        "Allow: /acha-quem-sumiu\n"
+        "\n"
+        "Sitemap: https://timemates.onrender.com/sitemap.xml\n"
+    )
     return PlainTextResponse(body, media_type="text/plain")
 
 # Proper favicon: serve real file if it exists, otherwise return 204 (was 200 HTML)

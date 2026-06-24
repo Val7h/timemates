@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /turma/
+Disallow: /mural/
+Disallow: /reuniao/
+Disallow: /tunel/
+Allow: /
+Allow: /acha-quem-sumiu
+
+Sitemap: https://timemates.onrender.com/sitemap.xml
